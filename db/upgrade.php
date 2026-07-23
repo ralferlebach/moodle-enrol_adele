@@ -52,5 +52,25 @@ function xmldb_enrol_adele_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072302, 'enrol', 'adele');
     }
 
+    if ($oldversion < 2026072305) {
+        // Requirement D.5: local_adele/enroll_as_setting is now documented
+        // there as deprecated in favour of enrol_adele/roleid — it only
+        // still acts as the fallback for the enrol_manual-based path when
+        // enrol_adele is absent. Sites that never explicitly set
+        // enrol_adele/roleid inherit the legacy value once here, so the
+        // effective role stays the same across the upgrade instead of
+        // silently reverting to the student-archetype default that
+        // instance_manager::get_role_id() falls back to when neither
+        // setting is present.
+        if (empty(get_config('enrol_adele', 'roleid'))) {
+            $legacy = get_config('local_adele', 'enroll_as_setting');
+            if (!empty($legacy)) {
+                set_config('roleid', $legacy, 'enrol_adele');
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026072305, 'enrol', 'adele');
+    }
+
     return true;
 }

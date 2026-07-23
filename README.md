@@ -12,8 +12,11 @@ Moodle enrolment plugin for the ADELE learning path ecosystem.
 > 0.1.5 lets teachers scale back what Fall-2/3 grants — visible, hidden (kept
 > on record, no access) or none at all
 > ([mod_adele #22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22)).
-> Requires local_adele ≥ 0.4.5; companion release: mod_adele 0.1.7. The admin
-> manage page and backup/restore hooks follow — see
+> Requires local_adele ≥ 0.4.5; companion release: mod_adele 0.1.8, which
+> also closes out Phase F with the multi-embedding priority rule
+> ([mod_adele #23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23)) —
+> no `enrol_adele` code change for that one. The admin manage page and
+> backup/restore hooks follow — see
 > [`docs/arbeitsplan.md`](docs/arbeitsplan.md).
 
 ---

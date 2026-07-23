@@ -5,6 +5,20 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] — 2026-07-23
+
+### Added
+
+- Requirement D.5: `db/install.php` and `db/upgrade.php` (step 2026072305)
+  now adopt local_adele's legacy `enroll_as_setting` value as the starting
+  value for `enrol_adele/roleid`, once, if the latter isn't already set —
+  covers both a fresh install onto a site with local_adele already
+  configured, and an existing enrol_adele install being upgraded. Keeps the
+  effectively assigned role stable across the transition instead of it
+  silently reverting to the student-archetype default. local_adele's
+  `enroll_as_setting` is now documented there as deprecated (fallback-only,
+  used when enrol_adele is absent).
+
 ## [0.1.5] — 2026-07-23
 
 ### Added
@@ -138,7 +152,102 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   our own fork's `development` branch; mod_adele's CI gained a local_adele
   `extra_plugin_runner` it never had, despite `version.php` requiring it.
 
+
 ## [Unreleased documentation changes]
+
+### local_adele 0.4.7 (Session 002, Teil 18) — production upgrade fix, no enrol_adele code change
+
+- Fixed a real `dml_read_exception` hit during upgrade on the requester's
+  own production instance, in `db/upgrade.php`'s ticket-#501 duplicate
+  cleanup step (2026072200): `get_fieldset_sql()` referencing `course_id`
+  failed to read. Root cause not confirmed with certainty (no raw DB error
+  text available from the reported error page) — most likely explanation:
+  an earlier interrupted upgrade left step 2024052300's savepoint recorded
+  without the corresponding `course_id` field DDL having actually applied.
+  Step 2026072200 now guarantees the column exists immediately before
+  relying on it (same defensive pattern step 2024052300 already uses for
+  the same field) — self-healing regardless of the exact history.
+
+
+### mod_adele 0.1.10 (Session 002, Teil 17) — no enrol_adele code change beyond D.5
+
+- Resolves pflichtenheft E-16: the one-time activity-save sweep
+  (`enroll_starting_nodes_participants()`/`enroll_any_nodes_participants()`)
+  previously called `subscribe_user_course()` with only its own embedding's
+  mode, so a narrower sibling embedding saved after a more generous one
+  could transiently downgrade access. Both sweep methods now route each
+  swept user through `sync_host_access_for_node_enrolment()` — the same
+  aggregation the live observer already used since 0.1.8 — instead of
+  duplicating the logic. `subscribe_user_course()` remains available as
+  public API but is no longer called internally by either sweep method.
+- E-11 ("Message was not sent") root-caused, not a plugin bug: Moodle's own
+  `enrol_manual`/`enrol_self` "send course welcome message" feature,
+  triggered by an `enrol_manual` enrolment (the fallback path used when
+  enrol_adele is absent, or a teacher's own manual enrolment), failing to
+  deliver through the core messaging system on a demo instance with no
+  configured message processor. Confirmed by grepping all three plugins for
+  any messaging-related code — none exists. No code fix; resolvable only
+  via Moodle site configuration (disable the welcome message, or configure
+  a working message processor).
+
+### mod_adele 0.1.9 (Session 002, Teil 16) — full codechecker cleanup, split CI matrix, no enrol_adele code change
+
+- Fixed the lang-file ordering bug from 0.1.8: `hostenrolmentmode` strings
+  were inserted in a plausible-looking but not strictly alphabetical spot in
+  both `lang/en/adele.php` and `lang/de/adele.php` — Moodle's
+  `LangFilesOrdering` sniff requires strict order, `mform_options_*` sorts
+  entirely before `mform_select_*` (o < s), which the previous placement
+  violated. Both files re-sorted programmatically, not by hand, to guarantee
+  correctness.
+- Auto-fixed (`phpcbf`) every remaining PSR12 finding across the whole
+  plugin, including files never touched by this project before now
+  (`index.php`, `view.php`, `classes/local_adele.php`,
+  `classes/privacy/provider.php`, `classes/event/course_module_viewed.php`)
+  — previously left alone as out-of-scope pre-existing debt, now cleaned up
+  on explicit request. `moodle-plugin-ci codechecker --max-warnings=0` should
+  be fully green.
+- Removed a genuinely useless method override in
+  `tests/generator/lib.php` (`create_instance()` did nothing but forward to
+  the parent unchanged) — the one finding `phpcbf` could not fix
+  automatically.
+- CI workflow split into two jobs, matching local_adele/enrol_adele's own
+  structure: `moodle500to502` (PHP 8.2, the modern range) and `moodle405`
+  (PHP 8.1, the floor `version.php` still declares support for). The
+  previous single-job setup only covered 500-502 and silently dropped 405
+  from testing entirely, even though it's still a declared-supported
+  version.
+
+
+### mod_adele (Session 002, Teil 15) — no version bump, no enrol_adele code change
+
+- Fixed a real, pre-existing `TypeError` in `adele_add_instance()`/
+  `adele_update_instance()`: `implode()` on `participantslist` assumed an
+  array always, but test fixtures (and possibly other paths) supply a plain
+  string — a hard error since PHP 8.1, only surfaced once CI actually ran.
+- Dropped Moodle 4.01–4.04 from `$plugin->supported` (now `[405, 502]`) and
+  raised `$plugin->requires` to 4.5's version code accordingly; CI now
+  explicitly tests MOODLE_500/501/502_STABLE instead of auto-detecting the
+  full (previously 401–405) supported range, which is what pulled in
+  MOODLE_404_STABLE and failed there (an extra_plugin_runner dependency
+  needs newer core than 4.04 provides). Also fixed the same unquoted `on:`
+  YAML footgun already fixed for `enrol_adele` in an earlier round.
+- `phplint`'s "Not enough arguments (missing: 'plugin')" failure could not
+  be fixed from mod_adele's own CI file — points to an issue in the shared
+  `Wunderbyte-GmbH/catalyst-moodle-workflows` reusable workflow itself.
+  Documented as a comment in the CI file with a ready, commented-out
+  `disable_phplint: true` stopgap.
+
+
+### mod_adele 0.1.8 (Session 002, Teil 14) — no enrol_adele code change
+
+- Resolves pflichtenheft E-13 / [mod_adele #23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23):
+  several embeddings of the same learning path targeting the same host
+  course now aggregate to one deterministic decision ("most generous
+  option wins") before calling `reconcile_host_user()`, instead of one call
+  per embedding overwriting the last. Uses the existing `$mode` API from
+  0.1.5 unchanged — no change to `enrol_adele` itself. Details in
+  pflichtenheft section 1a and in mod_adele's own version history.
+
 
 ### Fixed — dependency (Session 002, Teil 11)
 

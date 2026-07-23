@@ -40,5 +40,19 @@ function xmldb_enrol_adele_install(): bool {
     $enabled = enrol_get_plugins(true);
     $enabled['adele'] = true;
     set_config('enrol_plugins_enabled', implode(',', array_keys($enabled)));
+
+    // Requirement D.5: adopt local_adele's legacy role setting
+    // (enroll_as_setting, now documented there as deprecated/fallback-only)
+    // as the starting value for our own roleid, on a fresh install onto a
+    // site that already has local_adele configured with a value. Mirrors
+    // the equivalent step in db/upgrade.php, which covers sites upgrading
+    // an existing enrol_adele install instead of installing fresh.
+    if (empty(get_config('enrol_adele', 'roleid'))) {
+        $legacy = get_config('local_adele', 'enroll_as_setting');
+        if (!empty($legacy)) {
+            set_config('roleid', $legacy, 'enrol_adele');
+        }
+    }
+
     return true;
 }

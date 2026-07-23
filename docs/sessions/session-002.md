@@ -818,3 +818,295 @@ als wohlgeformt.
 Phase F.3 (mod_adele #23, Priorisierung bei Mehrfacheinbettung) — jetzt
 sinnvoll angehbar, da beide Dimensionen (Berechtigung und Sichtbarkeitsstufe)
 existieren, die die Aggregationslogik zusammenführen soll.
+
+---
+
+## Teil 14 — #23 umgesetzt: Priorisierung bei Mehrfacheinbettung (Phase F komplett)
+
+**Ergebnis:** `mod_adele` 0.1.8 — mehrere Embeddings desselben Lernpfads im
+selben Host-Kurs werden jetzt vor der Anwendung gebündelt statt sich
+gegenseitig zu überschreiben. Löst Pflichtenheft E-13 / mod_adele #23. Damit
+ist Phase F (alle vier Arbeitspakete F.1–F.4) vollständig abgeschlossen.
+**Keine Codeänderung in `enrol_adele`** — die bestehende `$mode`-API aus
+Teil 13 genügt unverändert.
+
+### Umsetzung
+
+`mod_adele_observer::sync_host_access_for_node_enrolment()` umgebaut:
+statt pro Embedding sofort `reconcile_host_user()` aufzurufen, werden alle
+betroffenen Embeddings zuerst nach `(learningpathid, hostcourseid)`
+gruppiert — der Granularität, auf die eine Host-Instanz tatsächlich
+skaliert ist. Pro Gruppe genau ein Aufruf, mit der aggregierten
+Entscheidung:
+
+- **Berechtigung** = Vereinigung aller Embeddings der Gruppe.
+- **Sichtbarkeitsstufe** = die großzügigste unter den *tatsächlich
+  zustimmenden* Embeddings (`visible` > `hidden` > `none`, neue private
+  Methode `host_mode_rank()`) — ein nicht-berechtigtes Embedding darf ein
+  großzügigeres Geschwister-Embedding nicht herunterziehen.
+
+Konsistent mit der bereits bestehenden Zielkurs-Regel (F-1/A-6: geteilter
+Kurs bleibt aktiv, solange irgendein Knoten ihn noch gewährt) — dieselbe
+Philosophie, jetzt auch auf der Host-Kurs-Seite verankert und zentral im
+Pflichtenheft (Abschnitt 1a) dokumentiert.
+
+### Bewusst nicht mit erledigt: einmaliger Aktivitäts-Save-Sweep (neu: E-16)
+
+Die Aggregation gilt für den laufenden Observer-Pfad. Der Sweep beim
+Speichern einer Aktivität (`enroll_starting_nodes_participants()`/
+`enroll_any_nodes_participants()`) ruft weiterhin pro Aktivität separat auf
+— speichert eine Lehrkraft eine schmalere Einbettung *nach* einer
+großzügigeren, kann deren Sweep eine bereits gewährte sichtbare
+Einschreibung vorübergehend zurückstufen, bis das nächste Node-Kurs-Ereignis
+korrekt aggregiert. Nicht sicherheitskritisch (keine Zugriffsausweitung),
+aber nicht identisch abgesichert — als neuer offener Punkt E-16 dokumentiert,
+bewusst außerhalb dieses Umfangs.
+
+### Test
+
+Neuer `tests/host_enrolment_priority_test.php` in `mod_adele` (erster
+eigener PHPUnit-Test dieses Projekts in `mod_adele`, nicht in
+`enrol_adele`): zwei Embeddings desselben Lernpfads im selben Host-Kurs,
+eines schmal (Fall 2, Modus „keine"), eines großzügig (Fall 3, Modus
+„sichtbar"); Einschreibung in den gemeinsamen Node-Kurs löst den laufenden
+Trigger aus; geprüft wird, dass genau eine Instanz entsteht und der
+Endzustand aktiv ist — die großzügige Seite gewinnt, unabhängig von der
+internen Verarbeitungsreihenfolge.
+
+### Verifikation
+
+`php -l` und `moodle-cs` (Standard `moodle`) für Observer und Test: 0/0.
+
+### Ausgeliefert
+
+`mod_adele` 0.1.8. `enrol_adele`/`local_adele` unverändert in diesem Teil.
+
+### Nächster Schritt
+
+Phase F ist komplett. Offen bleiben die länger zurückgestellten
+Phase-C-Punkte (Verwaltungsseite, eigene Events, Restore-Hooks), die
+Phase-D-Reste (D.5, D.8) sowie E-11 (mod_adele #11, weiterhin ungeklärt) und
+das neue, unkritische E-16.
+
+---
+
+## Teil 15 — Drei CI-Fixes für mod_adele, bewusst ohne Versionsbump
+
+**Ergebnis:** Drei voneinander unabhängige, echte Ursachen für die
+mod_adele-CI-Fehlschläge behoben. Auf ausdrücklichen Wunsch **kein**
+Versionsbump — `mod_adele` bleibt bei 0.1.8/2026072302.
+
+### 1. PHPUnit: `implode()`-TypeError in `lib.php`
+
+Echter, vorbestehender Bug — nicht durch bisherige Arbeit an diesem Projekt
+verursacht, nur nie zuvor durch CI aufgedeckt (CI war im Repo bislang nicht
+scharf). `adele_add_instance()`/`adele_update_instance()` erwarteten
+`$moduleinstance->participantslist` immer als Array (wie es echte
+Formulareinreichungen liefern), aber `tests/backup_restore_test.php` übergibt
+bewusst einen String (`'0'`) — seit PHP 8.1 wirft `implode()` mit einem
+String als zweitem Argument einen harten `TypeError` statt stillschweigend zu
+funktionieren. Fix: Beide Funktionen prüfen jetzt `is_array()`, bevor sie
+`implode()` aufrufen, und casten sonst nur nach String.
+
+### 2. Getestete Moodle-Versionen: 401–404 raus, 500–502 rein
+
+`version.php`s `$plugin->supported` deckte noch `[401, 405]` ab, und die
+CI-Datei setzte kein explizites `moodle_branches` — die wiederverwendbare
+Workflow-Datei erkennt die Testmatrix dann automatisch aus dem *gesamten*
+`supported`-Bereich, wodurch `MOODLE_404_STABLE` überhaupt erst getestet
+wurde. Genau dort schlug die Installation fehl: `local_wunderbyte_table`
+(ein `extra_plugin_runner`) verlangt inzwischen einen neueren Moodle-Kern, als
+4.04 liefert.
+
+Fix:
+- `version.php`: `$plugin->supported = [405, 502]` (401–404 raus, 500–502
+  rein, wie gefordert). Zusätzlich `$plugin->requires` von `2022112800`
+  (Moodle 4.1) auf `2024100700` (Moodle 4.5, aus der Fehlermeldung selbst
+  entnommen — lokal_wunderbyte_table nennt exakt diese Versionsnummer als
+  Anforderung) angehoben, damit die Installationsschwelle tatsächlich mit der
+  „nicht mehr unterstützt"-Aussage übereinstimmt, nicht nur die Testmatrix.
+- CI-Datei: explizites `moodle_branches: "MOODLE_500_STABLE MOODLE_501_STABLE
+  MOODLE_502_STABLE"` gesetzt (wie bei local_adele/enrol_adele, dort aber
+  bislang nur bis 501 — 502 ist seit April 2026 real und aktuell, daher hier
+  gleich mit aufgenommen), `min_php: '8.2'`.
+- Nebenbei entdeckt und mitbehoben: dieselbe unquotierte-`on:`-Falle
+  („Norway Problem"), die bei `enrol_adele` bereits in einer früheren Runde
+  behoben wurde, existierte bei `mod_adele`s CI-Datei noch unverändert.
+
+**Bewusst nicht auf `local_adele`/`enrol_adele` übertragen** — deren CI ist
+bereits grün, und die Anfrage war ausdrücklich auf „beim mod" bezogen. Auf
+Wunsch ziehe ich `supported`/`requires` dort gerne nach.
+
+### 3. `phplint`: „Not enough arguments (missing: 'plugin')"
+
+**Nicht behebbar von unserer Seite.** Die Fehlermeldung zeigt, dass
+`moodle-plugin-ci phplint` ganz ohne Plugin-Pfad aufgerufen wurde — im
+selben CI-Lauf hat `phpcs` den Pfad korrekt aufgelöst und echte Dateien
+gescannt, was auf einen Bug oder eine Regression in der gemeinsam genutzten
+`Wunderbyte-GmbH/catalyst-moodle-workflows`-Workflow-Datei selbst hindeutet
+(dort per `@main` eingebunden, extern, kein Zugriff). Als Kommentar in der
+CI-Datei dokumentiert, inklusive der auskommentierten Option
+`disable_phplint: true` als pragmatischer Zwischenschritt, falls es
+CI weiter blockiert — bewusst nicht selbst aktiviert, das ist eine
+Abwägungsfrage für den Auftraggeber.
+
+### Verifikation
+
+`php -l` und `moodle-cs` für `lib.php`/`version.php`: sauber; die einzigen
+verbleibenden phpcs-Fundstellen in `lib.php` (elf, Zeilen 134–182) sind
+gegengeprüft unberührter Bestandscode, nicht von dieser Änderung verursacht.
+`actionlint` und Python-YAML-Parser bestätigen die CI-Datei als syntaktisch
+sauber und ohne Norway-Problem.
+
+### Ausgeliefert
+
+`mod_adele`, Version unverändert (0.1.8/2026072302).
+
+---
+
+## Teil 16 — Vollständige Codechecker-Bereinigung, zweigeteilte CI-Matrix
+
+**Ergebnis:** `mod_adele` 0.1.9 — diesmal **mit** Versionsbump, wie vom
+Auftraggeber ausdrücklich verlangt. Vollständiger `moodle-plugin-ci
+codechecker --max-warnings=0`-Durchlauf lokal auf 0/0 verifiziert; CI-Matrix
+auf die zweigeteilte Struktur von lokal_adele/enrol_adele umgestellt.
+
+### Eigener Fehler: Sprachdatei-Reihenfolge
+
+Die in Teil 13 eingefügten `hostenrolmentmode`-Strings standen an einer
+plausibel wirkenden, aber nicht strikt alphabetischen Stelle — Moodles
+`LangFilesOrdering`-Sniff verlangt strikte Sortierung, und `mform_options_*`
+sortiert komplett vor `mform_select_*` (`o` < `s`), was die ursprüngliche
+Platzierung verletzte. Beide Sprachdateien (`en`/`de`) programmatisch neu
+sortiert statt von Hand — zuverlässiger als manuelles Nachzählen.
+
+### Vollständige Bereinigung von Bestandscode
+
+Auf ausdrücklichen Wunsch diesmal auch die bereits seit Teil 8 bekannten,
+bis jetzt bewusst unangetasteten PSR12-Fundstellen in unberührtem
+Bestandscode behoben: `index.php`, `view.php`, `classes/local_adele.php`,
+`classes/privacy/provider.php`, `classes/event/course_module_viewed.php` —
+alle automatisch per `phpcbf` (42 Fehler in `index.php`/`view.php`, 9 weitere
+in den übrigen drei Dateien). Eine Fundstelle ließ sich nicht automatisch
+beheben: `tests/generator/lib.php`s `create_instance()` überschrieb die
+Elternklassen-Methode, ohne irgendetwas zu verändern (reines
+Durchreichen) — entfernt statt künstlich mit Inhalt gefüllt.
+
+### Zweigeteilte CI-Matrix nachgezogen
+
+Die CI-Datei hatte bislang nur einen einzigen Job (500/501/502). Auf
+lokal_adele/enrol_adele umgestellt: zwei Jobs — `moodle500to502` (PHP 8.2,
+die moderne Reihe) und `moodle405` (PHP 8.1, die in `version.php` weiterhin
+als unterste unterstützte Version deklarierte Grenze). Vorher fiel 405
+faktisch komplett aus der Testabdeckung heraus, obwohl es offiziell noch
+als unterstützt gilt.
+
+### Verifikation
+
+`php -l` über das gesamte Plugin: sauber. `moodle-cs`
+(`--standard=moodle --extensions=php mod_adele_015/`) über das gesamte
+Plugin: **Exit-Code 0, keine einzige Fundstelle mehr** — erstmals seit
+Beginn dieses Projekts vollständig grün, nicht nur für die selbst
+bearbeiteten Dateien. `actionlint` und Python-YAML-Parser bestätigen die
+neue zweigeteilte CI-Datei als syntaktisch sauber.
+
+### Ausgeliefert
+
+`mod_adele` 0.1.9 (Versionsbump wie verlangt).
+
+---
+
+## Teil 17 — D.5, E-11, E-16 abgeräumt
+
+**Ergebnis:** `enrol_adele` 0.1.6, `mod_adele` 0.1.10. Drei Punkte auf
+Wunsch des Auftraggebers abgeschlossen: D.5 (Setting-Ablösung), E-11
+(Ursachenklärung mittels echtem Fehler-Screenshot), E-16
+(Sweep-Aggregation). Phase C explizit für die nächste Session
+zurückgestellt.
+
+### E-11 — Ursache bestätigt, kein Plugin-Bug
+
+Der Screenshot des tatsächlichen Fehlertexts zeigt
+`core\message\manager::send_message_to_processors()`, ausgelöst beim
+Commit einer DB-Transaktion (gepufferter Nachrichtenversand). Gezielt in
+allen drei Plugins nach jeglichem Messaging-Code gesucht
+(`message_send`/`email_to_user`/`core\message`/`sendcoursewelcomemessage`)
+— **keines der drei Plugins enthält eigenen Messaging-Code.** Ursache:
+Moodles eigenes `enrol_manual`/`enrol_self`-Feature „Willkommensnachricht
+senden", ausgelöst durch eine `enrol_manual`-Einschreibung (der bewusst
+beibehaltene Rückfallpfad, wenn `enrol_adele` fehlt, oder eine manuelle
+Einschreibung durch die Lehrkraft selbst) — die reguläre
+`enrol_adele`-Einschreibung kennt dieses Feature nicht. Kein Codefix
+möglich oder nötig; nur über Moodle-Konfiguration lösbar. Ausführlich in
+Pflichtenheft Abschnitt 1b dokumentiert.
+
+### D.5 — lokal_adele/enroll_as_setting abgelöst
+
+Als veraltet gekennzeichnet (Sprachstrings beider Sprachen), bleibt aber
+funktional als Rückfallebene für den `enrol_manual`-Pfad erhalten.
+`enrol_adele`s `db/install.php` und `db/upgrade.php` (neuer Schritt
+2026072305) übernehmen den bestehenden Wert einmalig als Startwert für
+`enrol_adele/roleid`, sofern Letzteres noch nicht gesetzt ist — sowohl für
+Erstinstallationen neben bereits konfiguriertem lokal_adele als auch für
+Bestandsinstallationen von `enrol_adele` selbst.
+
+### E-16 — Sweep-Aggregation nachgezogen
+
+Beide Sweep-Methoden (`enroll_starting_nodes_participants()`,
+`enroll_any_nodes_participants()`) rufen jetzt für jeden gefundenen Nutzer
+`sync_host_access_for_node_enrolment()` über ein synthetisches
+Event-Objekt auf — dieselbe Aggregationslogik wie der laufende Observer
+(Teil 14), statt sie zu duplizieren. `subscribe_user_course()` bleibt als
+öffentliche API erhalten, wird intern aber nicht mehr aufgerufen. Neuer
+Test `test_sweep_aggregates_across_sibling_embeddings()`: simuliert das
+Speichern der großzügigen Einbettung, dann der schmaleren — prüft, dass
+Letzteres die bereits gewährte aktive Einschreibung nicht zurückstuft.
+
+### Verifikation
+
+`php -l` und `moodle-cs` über beide Plugins vollständig: 0/0.
+
+---
+
+## Teil 18 — Echter Produktionsfehler beim local_adele-Upgrade behoben
+
+**Ergebnis:** `local_adele` 0.4.7. Ein `dml_read_exception` beim Upgrade auf
+der Produktionsinstanz des Auftraggebers, in `db/upgrade.php:258`
+(Schritt 2026072200, die ticket-#501-Duplikatbereinigung aus Session 002
+Teil 5), behoben.
+
+### Ursache — mit Vorbehalt, da kein Rohfehlertext verfügbar
+
+Die vom Auftraggeber geteilte Fehlerseite enthält den vollständigen
+Stack-Trace und Umgebungsdump, aber nicht den rohen Datenbankfehlertext
+(normalerweise in Moodles Debug-Info sichtbar). Ohne diesen lässt sich die
+Ursache nicht mit letzter Sicherheit bestimmen. Plausibelste Erklärung:
+`course_id` wird bereits durch den früheren Schritt 2024052300 angelegt —
+in einem regulären, sequenziellen Upgrade ab einer alten Version müsste die
+Spalte also längst existieren, wenn Schritt 2026072200 erreicht wird. Am
+wahrscheinlichsten ist ein früherer, unterbrochener Upgrade-Lauf auf dieser
+konkreten Installation, bei dem der Savepoint für 2024052300 hinterlegt
+wurde, ohne dass die zugehörige Feld-DDL tatsächlich griff.
+
+### Fix — selbstheilend, unabhängig von der genauen Ursache
+
+Schritt 2026072200 stellt jetzt unmittelbar vor der betroffenen Abfrage
+sicher, dass `course_id` existiert (`field_exists()`-Prüfung plus bedingtes
+`add_field()`, exakt dieselbe Felddefinition wie in Schritt 2024052300) —
+dieselbe defensive Vorgehensweise, die Schritt 2024052300 für dasselbe Feld
+bereits verwendet. Die zweite `get_fieldset_sql`-Abfrage in Schritt
+2026072301 wurde geprüft und referenziert `course_id` nicht — dort war
+keine Anpassung nötig.
+
+### Offene Rückfrage an den Auftraggeber
+
+Falls der Fehler nach diesem Fix erneut auftritt, wäre der rohe
+Datenbankfehlertext (meist direkt über dem Stack-Trace als „Debug-Info"
+sichtbar, ggf. `$CFG->debug` höherstellen) hilfreich, um zwischen der
+oben angenommenen Ursache und einer Alternative (z. B. eine
+Read-Replica-Konfiguration in `config.php`, über die der Stack-Trace
+`moodle_read_slave_trait.php` streift) zu unterscheiden.
+
+### Verifikation
+
+`php -l` und `moodle-cs`: sauber.

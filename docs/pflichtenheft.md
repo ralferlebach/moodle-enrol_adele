@@ -145,6 +145,92 @@ nur die eine, die den Verlust ausgelöst hat — verdrahtet in
 erhalten. Löschen eines Lernpfads entfernt Host- wie Zielinstanzen ohnehin
 gleichermaßen, da `purge_learning_path()` nicht nach `customint2` filtert.
 
+**Priorisierung bei Mehrfacheinbettung (Teil 14, mod_adele #23, löst E-13):**
+Da die Host-Instanz-Identität `(learningpathid, hostcourseid)` und nicht die
+einzelne `mod_adele`-Aktivität ist, können mehrere Embeddings desselben
+Lernpfads im selben Host-Kurs dieselbe Instanz treffen — etwa eine mit
+Fall 2 und Sichtbarkeitsmodus „keine", eine zweite mit Fall 3 und „sichtbar".
+`mod_adele_observer::sync_host_access_for_node_enrolment()` gruppiert deshalb
+alle betroffenen Embeddings zuerst nach `(learningpathid, hostcourseid)` und
+ruft `reconcile_host_user()` genau einmal pro Gruppe auf — nicht mehr einmal
+pro Embedding. Aggregationsregel, zentral hier festgehalten: **„großzügigste
+Option gewinnt"** — Berechtigung ist die Vereinigung aller Embeddings der
+Gruppe (`entitled`, sobald irgendeines zustimmt), die Sichtbarkeitsstufe ist
+die großzügigste unter den *tatsächlich zustimmenden* Embeddings (`visible` >
+`hidden` > `none`, `mod_adele_observer::host_mode_rank()`). Konsistent mit der
+bereits bestehenden Zielkurs-Regel, dass ein geteilter Kurs aktiv bleibt,
+solange irgendein Knoten ihn noch gewährt (F-1/A-6).
+
+**Restlücke geschlossen (Teil 17, löst E-16):** Der einmalige Sweep beim
+Aktivitäts-Speichern (`enroll_starting_nodes_participants()`/
+`enroll_any_nodes_participants()`) rief bis dahin pro Aktivität separat
+`subscribe_user_course()` auf — dieselbe Reihenfolge-Abhängigkeit wie beim
+laufenden Observer vor Teil 14, nur beim Speichern statt bei
+Einschreibe-Events. Beide Sweep-Methoden rufen jetzt für jeden gefundenen
+Nutzer direkt `sync_host_access_for_node_enrolment()` auf (über ein
+synthetisches Event-Objekt) — dieselbe Aggregationslogik wie der laufende
+Observer, keine Duplikation. `subscribe_user_course()` bleibt als
+öffentliche API für Einzelfälle erhalten, wird aber intern nicht mehr von
+den Sweep-Methoden aufgerufen.
+
+## 1b. E-11 geklärt: Ursache des „Message was not sent"-Fehlers (Teil 17)
+
+Ein Screenshot des tatsächlichen Fehlertexts (zuvor technisch nicht
+abrufbar) bestätigt: `core\message\manager::send_message_to_processors()`
+wirft eine `moodle_exception`, ausgelöst über
+`core\message\manager::process_buffer()` beim Commit einer
+Datenbanktransaktion (`database_transaction_commited()`). Das ist Moodles
+eigener, gepufferter Nachrichtenversand — Nachrichten werden während einer
+Transaktion gesammelt und erst bei deren Commit tatsächlich zugestellt.
+
+**Gezielt nachgeprüft:** Keines der drei ADELE-Plugins enthält eigenen
+Messaging-Code (`grep` über alle Klassen von `enrol_adele`, `local_adele`,
+`mod_adele` nach `message_send`/`email_to_user`/`core\message`/
+`sendcoursewelcomemessage` — einzig ein toter, nie aufgerufener
+`use core\message\message;`-Import in `local_adele`s
+`task/update_user_path.php`). Der Auslöser ist also kein ADELE-eigener
+Code, sondern eine Moodle-Bordfunktion: `enrol_manual`s (und `enrol_self`s)
+„Willkommensnachricht senden"-Einstellung
+(`sendcoursewelcomemessage`/`customint4`) — löst bei jeder neuen
+`enrol_manual`-Einschreibung in einen Kurs, dessen Instanz diese Einstellung
+aktiviert hat, automatisch eine Willkommensnachricht über das
+Messaging-Subsystem aus. Schlägt die Zustellung fehl (typischerweise: kein
+konfigurierter Nachrichten-Prozessor auf einer Demo-/Testinstanz), erscheint
+genau dieser Fehler.
+
+**Betroffene Pfade in diesem Projekt:** Ausschließlich der
+`enrol_manual`-Rückfallpfad, den `local_adele` (`node_completion.php`,
+`relation_update.php`) und `mod_adele` (`subscribe_user_course()`) bewusst
+beibehalten, wenn `enrol_adele` fehlt oder inaktiv ist (L-Q-08) — sowie
+jede manuelle Einschreibung, die eine Lehrkraft selbst über die
+Teilnehmer/innen-Seite vornimmt. Die reguläre `enrol_adele`-Einschreibung
+selbst kennt kein Willkommensnachricht-Feature und kann diesen Fehler nicht
+auslösen.
+
+**Kein Plugin-Bug, daher kein Codefix.** Behebbar nur auf Seiten der
+Moodle-Konfiguration: entweder „Willkommensnachricht senden" für die
+betroffene `enrol_manual`-Instanz (bzw. site-weit als Standard)
+deaktivieren, oder einen funktionierenden Nachrichten-Prozessor
+konfigurieren, damit der Versand tatsächlich gelingt statt fehlzuschlagen.
+
+## 1c. D.5 umgesetzt: Ablösung von `local_adele/enroll_as_setting` (Teil 17)
+
+`local_adele/enroll_as_setting` ist jetzt in Sprachdatei und Beschreibung
+als veraltet gekennzeichnet, bleibt aber funktional erhalten — es wirkt nur
+noch als Rückfallebene für den `enrol_manual`-Pfad, wenn `enrol_adele` fehlt
+oder inaktiv ist (dieselben zwei Stellen wie in 1b:
+`node_completion.php`/`relation_update.php`). `enrol_adele/roleid` ist die
+alleinige Quelle, sobald `enrol_adele` aktiv ist.
+
+Einmalige Übernahme statt reiner Laufzeit-Rückfallebene: `enrol_adele`s
+`db/install.php` (Erstinstallation neben bereits konfiguriertem
+`local_adele`) und `db/upgrade.php` (Bestandsinstallationen, Schritt
+2026072305) übernehmen den in `local_adele/enroll_as_setting` gesetzten
+Wert einmalig als Startwert für `enrol_adele/roleid`, sofern Letzteres noch
+nicht gesetzt ist — der effektiv zugewiesene Rolle bleibt über das Upgrade
+hinweg gleich, statt beim nächsten `instance_manager::get_role_id()`-Aufruf
+stillschweigend auf den Student-Archetyp-Standard zurückzufallen.
+
 ## 2. Soll-Zustand
 
 ### 2.1 Korrigierte User-Path-Identität (umgesetzt in `local_adele` 0.4.5)
@@ -493,11 +579,13 @@ Die Einzeloperationen sind bereits durch die Kern-Events
 | ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor (Lastenheft Abschnitt 4) |
 | ~~O-6~~ | Austragungs-Propagation bei Option 1 | erledigt (F-2/F-4): Regelwerk Abschnitt 4 |
 | ~~E-10~~ | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft. Löst nicht mit ab, wenn ein Nutzer den Lernpfad über A-4 verlässt — Host-Kurs-Einschreibungen bleiben aktiv bestehen. [mod_adele #21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21), Arbeitsplan Phase F.1. | erledigt (Teil 12, `enrol_adele` 0.1.4) |
-| **E-11** | mod_adele-Issue #11 ("Message was not sent" beim ersten Anlegen eines Lernpfads in einem Kurs): Ursache nicht abschließend verifiziert (Screenshot technisch nicht abrufbar). Arbeitshypothese: Willkommensnachricht der ersten Einschreibung im Kurs (`enrol_manual`-Setting „Willkommensnachricht senden") scheitert am Messaging-Subsystem — erklärt das „nur beim ersten Mal"-Muster, ist aber nicht bestätigt. | offen, ungelöst |
+| ~~E-11~~ | mod_adele-Issue #11 ("Message was not sent" beim ersten Anlegen eines Lernpfads in einem Kurs): **Ursache bestätigt** (Screenshot des echten Fehlertexts, Teil 17) — Moodles eigenes `enrol_manual`-Feature „Willkommensnachricht senden" (`sendcoursewelcomemessage`, seit lang etablierter Moodle-Core-Bestandteil), ausgelöst durch eine `enrol_manual`-Einschreibung, deren Willkommensnachricht über das Messaging-Subsystem (`core\message\manager`) nicht zugestellt werden konnte (typischerweise: kein konfigurierter Nachrichten-Prozessor auf der Demo-Instanz). Kein Bug in `enrol_adele`/`local_adele`/`mod_adele` — keines der drei Plugins enthält eigenen Messaging-Code (gezielt nachgeprüft, Teil 17). Betrifft ausschließlich den `enrol_manual`-Rückfallpfad (wenn `enrol_adele` fehlt/inaktiv) bzw. eine manuelle Einschreibung durch die Lehrkraft selbst — nicht die reguläre `enrol_adele`-Einschreibung, die keine Willkommensnachricht kennt. Siehe Abschnitt 1a für Details. | geklärt, kein Plugin-Bug (Teil 17) |
 | ~~E-12~~ | Kein Weg für Lehrkräfte, den Host-Kurs-Zugang bei Fall 2/3 abzuschwächen (sichtbar/verdeckt/keine Einschreibung) — jede qualifizierende Node-Kurs-Mitgliedschaft erzeugt zwingend eine aktive, sichtbare Host-Kurs-Einschreibung. [mod_adele #22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22), Arbeitsplan Phase F.2. | erledigt (Teil 13, `enrol_adele` 0.1.5 / `mod_adele` 0.1.7) |
-| **E-13** | Mehrere Embeddings desselben Lernpfads im selben Host-Kurs überschreiben sich gegenseitig nicht-deterministisch statt sich zu vereinigen ("großzügigste Option gewinnt"). [mod_adele #23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23), Arbeitsplan Phase F.3. | offen |
+| ~~E-13~~ | Mehrere Embeddings desselben Lernpfads im selben Host-Kurs überschreiben sich gegenseitig nicht-deterministisch statt sich zu vereinigen ("großzügigste Option gewinnt"). [mod_adele #23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23), Arbeitsplan Phase F.3. | erledigt (Teil 14, `mod_adele` 0.1.8) |
 | ~~E-14~~ | Fall 3 (Einschreibung bei Mitgliedschaft in irgendeinem Node-Kurs). [mod_adele #19](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/19). | erledigt (Teil 3) |
 | ~~E-15~~ | Laufender Trigger + Host-Kurs-Einschreibung über enrol_adele für Fall 2/3. [mod_adele #20](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/20). | erledigt (Teil 5) |
+| ~~E-16~~ | Der einmalige Aktivitäts-Save-Sweep (`enroll_starting_nodes_participants()`/`enroll_any_nodes_participants()`) aggregiert nicht wie der laufende Observer (E-13) — eine später gespeicherte, schmalere Einbettung kann eine bereits gewährte sichtbare Host-Kurs-Einschreibung vorübergehend zurückstufen, bis das nächste Node-Kurs-Ereignis korrigiert. | erledigt (Teil 17, `mod_adele` 0.1.10) — beide Sweep-Methoden routen jetzt über `sync_host_access_for_node_enrolment()`, dieselbe Aggregation wie der laufende Observer, statt sie zu duplizieren |
+| ~~E-17~~ | Echter Produktionsfehler beim `local_adele`-Upgrade: `dml_read_exception` in `db/upgrade.php:258` (Schritt 2026072200, ticket-#501-Duplikatbereinigung), `get_fieldset_sql` referenziert `course_id`. Ursache nicht mit letzter Sicherheit geklärt (kein Rohfehlertext aus der DB verfügbar) — plausibelste Erklärung: ein früherer, unterbrochener Upgrade-Lauf hat den Savepoint für Schritt 2024052300 (fügt `course_id` hinzu) hinterlegt, ohne dass die zugehörige DDL tatsächlich griff. | erledigt (Teil 18, `local_adele` 0.4.7) — Schritt 2026072200 stellt jetzt selbstheilend sicher, dass `course_id` existiert, bevor darauf zugegriffen wird, unabhängig von der genauen Historie |
 
 ---
 
