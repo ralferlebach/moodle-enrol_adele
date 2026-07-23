@@ -387,4 +387,79 @@ final class reconciler_test extends \advanced_testcase {
             $DB->record_exists('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id])
         );
     }
+
+    /**
+     * Leaving the learning path via the A-4 rule (requirement mod_adele #21)
+     * must clear ALL of a user's host-course enrolments for that learning
+     * path, not just the host course through which access was lost. Uses
+     * reconcile_host_user() directly to plant the "other host course" state,
+     * sidestepping the real mod_adele event cascade (already exercised by
+     * test_host_course_removal_rules()) so this test stays focused on the
+     * purge fan-out itself.
+     *
+     * @return void
+     */
+    public function test_leaving_learning_path_purges_every_host_course(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+        if (!class_exists('\local_adele\enrol_state')) {
+            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
+        }
+
+        $host1 = $this->getDataGenerator()->create_course();
+        $host2 = $this->getDataGenerator()->create_course();
+        $target = $this->getDataGenerator()->create_course();
+        [$lpid, $userid] = $this->plant_state(
+            ['dndnode_1' => 'accessible'],
+            ['dndnode_1' => [(int) $target->id]]
+        );
+        // Embedding 1: option 1 in host1 (the carrying, host1-triggering one).
+        $DB->insert_record('adele', (object) [
+            'course' => $host1->id,
+            'name' => 'LP-Aktivität (Fall 1)',
+            'intro' => '',
+            'introformat' => 1,
+            'learningpathid' => $lpid,
+            'participantslist' => '1',
+            'userlist' => 1,
+            'view' => 1,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        $this->getDataGenerator()->enrol_user($userid, $host1->id, 'student', 'manual');
+        $this->set_node_status($lpid, $userid, 'dndnode_1', 'accessible');
+        reconciler::reconcile_user($lpid, $userid);
+        // A second host course granted through a separate Fall-2/3 embedding
+        // (planted directly — the live mod_adele trigger is out of scope here).
+        reconciler::reconcile_host_user($lpid, (int) $host2->id, $userid, true);
+        $host2instance = $DB->get_record('enrol', [
+            'enrol' => 'adele',
+            'courseid' => $host2->id,
+            'customint1' => $lpid,
+            'customint2' => instance_manager::KIND_HOST,
+        ]);
+        $this->assertNotFalse(
+            $DB->get_record('user_enrolments', ['enrolid' => $host2instance->id, 'userid' => $userid])
+        );
+
+        // Leave the learning path via the A-4 rule: unenrol from host1, the
+        // sole carrying embedding.
+        $manual = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $host1->id]);
+        enrol_get_plugin('manual')->unenrol_user($manual, $userid);
+
+        $this->assertFalse(
+            $DB->record_exists(
+                'local_adele_path_user',
+                ['learning_path_id' => $lpid, 'user_id' => $userid]
+            )
+        );
+        // Target-course enrolment gone (pre-existing A-4 behaviour)...
+        $this->assertFalse($this->get_ue($lpid, (int) $target->id, $userid));
+        // ...and now the host2 Fall-2/3 enrolment is gone too (mod_adele #21).
+        $this->assertFalse(
+            $DB->record_exists('user_enrolments', ['enrolid' => $host2instance->id, 'userid' => $userid])
+        );
+    }
 }

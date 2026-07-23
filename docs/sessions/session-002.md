@@ -675,3 +675,87 @@ zwischenzeitlich geschrieben hat. Reine Testkorrektur, keine funktionale
 
 `enrol_adele` weiterhin 0.1.3 (unverändert), nur `tests/reconciler_test.php`
 gepatcht.
+
+---
+
+## Teil 11 — Abhängigkeitsanforderung gelockert (ohne Versionsbump)
+
+**Meldung des Auftraggebers:** Auf der Moodle-Plugin-Übersichtsseite
+„Nichtverfügbare fehlende Abhängigkeiten / Nicht im Plugin-Verzeichnis:
+local_adele".
+
+**Ursache:** `enrol_adele` 0.1.3 verlangte `local_adele` ≥ 2026072302
+(0.4.6). Da `local_adele` ein privates, nicht auf moodle.org gelistetes
+Plugin ist, kann Moodle bei einer nicht erfüllten Anforderung keinen
+automatischen Installationslink anbieten und meldet stattdessen genau
+diesen Text.
+
+**Prüfung:** Der einzige Unterschied zwischen local_adele 0.4.5 und 0.4.6
+ist der defensive `?? ''`-Fix in `subscribe_user_starting_node()` aus
+Teil 8 — lokal_adele-interne Robustheit, auf die `enrol_adele` selbst nie
+zugreift. Das tatsächlich nötige Minimum ist 0.4.5 (2026072301) — dort
+wurde die Identitätsmigration abgeschlossen, auf die `enrol_state` und der
+Reconciler wirklich angewiesen sind. `mod_adele` verlangt bereits seit
+Teil 5 exakt diese Version — die Anforderung war also nur bei `enrol_adele`
+unnötig strikt, nicht grundsätzlich falsch dimensioniert.
+
+**Fix:** `version.php`s `$plugin->dependencies['local_adele']` auf
+`2026072301` gelockert. `$plugin->version`/`$plugin->release` unverändert
+(0.1.3/2026072302), wie verlangt.
+
+**Wichtiger Vorbehalt:** Diese Lockerung behebt nur eine unnötig strikte
+Anforderung. Ist lokal_adele auf der betroffenen Installation noch unter
+0.4.5, funktioniert das Zusammenspiel weiterhin nicht korrekt — dafür
+bräuchte es tatsächlich ein Upgrade von local_adele, das sich nicht durch
+eine Versionsdeklaration umgehen lässt.
+
+### Ausgeliefert
+
+`enrol_adele` weiterhin 0.1.3 (Version/Release unverändert), nur
+`version.php`s Abhängigkeitszeile gepatcht.
+
+---
+
+## Teil 12 — CI grün bestätigt, Issues #19–23 verankert, F.1/#21 umgesetzt
+
+**Ergebnis:** Auftraggeber bestätigt: CI für `local_adele` und `enrol_adele`
+beide grün. Die fünf zuvor als Entwürfe gelieferten Issues sind jetzt echte
+Tickets im mod_adele-Repository (#19–23) — alle Referenzen in Pflichtenheft
+und Arbeitsplan darauf umgestellt. Erste Umsetzung aus Phase F: `enrol_adele`
+0.1.4 mit `purge_all_host_user()` (löst F.1 / mod_adele #21 / Pflichtenheft
+E-10).
+
+### Issues #19–23 zugeordnet
+
+| # | Titel | Entspricht | Status |
+|---|---|---|---|
+| [#19](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/19) | Einschreibung in Lernpfad an beliebiger Stelle ("Fall 3") | unser Fall-3-Issue | bereits umgesetzt (Teil 3) |
+| [#20](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/20) | Fortlaufende Einschreibung von neuen Lernpfad-Nutzern in den Host-Kurs | unser Live-Trigger-Issue | bereits umgesetzt (Teil 5) |
+| [#21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21) | Austragung automatischer Einschreibungen beim Verlassen des Lernpfades | unser Purge-on-Leave-Issue (E-10) | **umgesetzt in diesem Teil** |
+| [#22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22) | Ein-/Ausschreibungen im Fall 2 & 3 konfigurierbar machen | unser Visibility-Issue (E-12) | offen (Phase F.2) |
+| [#23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23) | Konkurrierende Fall-2/3-Einbettungen berücksichtigen | unser Priority-Issue (E-13) | offen (Phase F.3) |
+
+### Umsetzung F.1 / #21
+
+`reconciler::purge_all_host_user(int $learningpathid, int $userid)` neu —
+iteriert über alle `KIND_HOST`-Instanzen eines Lernpfads (nicht nur eine
+bekannte, im Unterschied zum bestehenden `purge_host_user()`) und trägt den
+Nutzer überall aus, wo eine Einschreibung besteht. Verdrahtet in
+`enrol_adele\observer::user_enrolment_deleted()`s bestehenden A-4-Zweig,
+direkt nach dem schon vorhandenen `purge_user()`-Aufruf.
+
+Neuer Test `test_leaving_learning_path_purges_every_host_course()`: Lernpfad
+mit Fall-1-Einbettung in Host1 (trägt) und einer zweiten, direkt geplanten
+Host-Kurs-Berechtigung in Host2 (simuliert Fall 2/3, ohne die reale
+mod_adele-Kaskade zu bemühen — die ist bereits in
+`test_host_course_removal_rules()` abgedeckt). Austragung aus Host1 löst A-4
+aus; geprüft wird, dass sowohl die Zielkurs- als auch die Host2-Einschreibung
+verschwinden.
+
+**Versionsbump diesmal berechtigt** (im Unterschied zu den letzten Runden):
+echte funktionale Änderung, nicht nur Test- oder Konfigurationskorrektur.
+`enrol_adele` 0.1.4 (2026072303).
+
+### Ausgeliefert
+
+`enrol_adele` 0.1.4. `local_adele`/`mod_adele` unverändert in diesem Teil.

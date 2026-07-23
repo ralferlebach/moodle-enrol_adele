@@ -87,6 +87,12 @@ class observer {
                 ['learning_path_id' => $lpid, 'user_id' => $userid]
             );
             reconciler::purge_user($lpid, $userid);
+            // Requirement mod_adele #21: leaving the learning path must also
+            // clear every Fall-2/3 host-course enrolment it created, not just
+            // target-course ones — the learning path may be embedded in
+            // several host courses at once, each potentially having granted
+            // host-course access.
+            reconciler::purge_all_host_user($lpid, $userid);
         }
     }
 

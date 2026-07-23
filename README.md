@@ -2,14 +2,17 @@
 
 Moodle enrolment plugin for the ADELE learning path ecosystem.
 
-> **Status: 0.1.3 — critical activation fix.**
+> **Status: 0.1.4 — CI green, host-course cleanup on leave.**
 > The stateless reconciliation engine, the host-course removal rules
 > (subscription options 1/2/3), the nightly safety-net task and the
-> host-course reconciliation (0.1.2) are all implemented — but were
-> effectively inert until 0.1.3, because the plugin was never enabled by
-> default (see CHANGELOG). Requires local_adele 0.4.6; companion releases:
-> local_adele 0.4.6, mod_adele 0.1.6 (unchanged this round). The admin manage
-> page and backup/restore hooks follow in 0.1.4 — see
+> host-course reconciliation (0.1.2) are all implemented and — since 0.1.3's
+> activation fix — actually active by default. 0.1.4 adds
+> `purge_all_host_user()`: leaving a learning path (A-4) now also clears
+> Fall-2/3 host-course enrolments across every host course, not just
+> target-course ones ([mod_adele #21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21)).
+> Requires local_adele ≥ 0.4.5; companion releases: local_adele 0.4.6,
+> mod_adele 0.1.6 (unchanged this round). The admin manage page and
+> backup/restore hooks follow — see
 > [`docs/arbeitsplan.md`](docs/arbeitsplan.md).
 
 ---

@@ -82,20 +82,27 @@ Verbleibend: C.2–C.5 (→ `enrol_adele` 0.1.3), D.5, D.8, E-10, E-11.
 ## Phase F — Host-Kurs-Nacharbeiten (aus vier Rückfragen zu Fall 2/3, Session 002 Teil 7)
 
 Vier Lücken im aktuellen Host-Kurs-Verhalten wurden identifiziert; drei davon
-sind neu, eine (F.1) war bereits als E-10 im Pflichtenheft dokumentiert. Für
-jede existiert jetzt ein Issue-Entwurf (`docs/issues/`).
+sind neu, eine (F.1) war bereits als E-10 im Pflichtenheft dokumentiert. Alle
+fünf Issue-Entwürfe dieses Projekts (F.1–F.4 sowie die bereits umgesetzte
+Fall-3/Live-Trigger-Grundlage) sind seit Session 002 Teil 12 als echte Tickets
+im mod_adele-Repository eingestellt: [#19](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/19)
+(Fall 3, erledigt), [#20](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/20)
+(Live-Trigger + Host-Einschreibung über enrol_adele, erledigt),
+[#21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21) (F.1),
+[#22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22) (F.2),
+[#23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23) (F.3).
 
-| AP | Inhalt | Issue | Abhängigkeit |
-|---|---|---|---|
-| F.1 | `purge_all_host_user()`: Host-Kurs-Einschreibungen (alle Host-Kurse, nicht nur einer) mit austragen, wenn ein Nutzer den Lernpfad über A-4 verlässt. Löst E-10. | `enrol_adele-issue-host-purge-on-leave.md` | B.4 (bestehende `purge_user()`) |
-| F.2 | Neues Aktivitäts-Setting `hostenrolmentmode` (`visible`/`hidden`/`none`) für Fall 2/3: Lehrkraft entscheidet, ob und wie sichtbar Lernpfadnutzer/innen in den Host-Kurs eingeschrieben werden. Erfordert Schema-Änderung in `mod_adele` (`db/upgrade.php`). | `enrol_adele-issue-host-visibility.md` | Teil-4-Host-Kurs-Mechanik (bereits geliefert) |
-| F.3 | Aggregation vor Anwendung: Mehrere Embeddings desselben Lernpfads im selben Host-Kurs werden gebündelt ausgewertet („großzügigste Option gewinnt"), statt sich gegenseitig in der Aufruf-Schleife zu überschreiben. Betrifft sowohl Berechtigung als auch — sobald F.2 existiert — Sichtbarkeitsstufe. | `enrol_adele-issue-host-priority.md` | F.2 (Sichtbarkeitsdimension), sonst unabhängig für die Berechtigungsdimension |
-| F.4 | Ausführliche Neufassung von #486 als Referenzspezifikation — keine Codeänderung, aber Grundlage für Abnahme/Review. | `local_adele-issue486-ausfuehrlich.md` | — |
+| AP | Inhalt | Issue | Abhängigkeit | Status |
+|---|---|---|---|---|
+| F.1 | `purge_all_host_user()`: Host-Kurs-Einschreibungen (alle Host-Kurse, nicht nur einer) mit austragen, wenn ein Nutzer den Lernpfad über A-4 verlässt. Löst E-10. | [#21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21) | B.4 (bestehende `purge_user()`) | **in Arbeit (Session 002, Teil 12)** |
+| F.2 | Neues Aktivitäts-Setting `hostenrolmentmode` (`visible`/`hidden`/`none`) für Fall 2/3: Lehrkraft entscheidet, ob und wie sichtbar Lernpfadnutzer/innen in den Host-Kurs eingeschrieben werden. Erfordert Schema-Änderung in `mod_adele` (`db/upgrade.php`). | [#22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22) | Teil-4-Host-Kurs-Mechanik (bereits geliefert) | offen |
+| F.3 | Aggregation vor Anwendung: Mehrere Embeddings desselben Lernpfads im selben Host-Kurs werden gebündelt ausgewertet („großzügigste Option gewinnt"), statt sich gegenseitig in der Aufruf-Schleife zu überschreiben. Betrifft sowohl Berechtigung als auch — sobald F.2 existiert — Sichtbarkeitsstufe. | [#23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23) | F.2 (Sichtbarkeitsdimension), sonst unabhängig für die Berechtigungsdimension | offen |
+| F.4 | Ausführliche Neufassung von #486 als Referenzspezifikation — keine Codeänderung, aber Grundlage für Abnahme/Review. | `local_adele-issue486-ausfuehrlich.md` (lokal_adele-Repo, noch nicht als Ticket eingestellt) | — | Text geliefert |
 
 **Reihenfolge-Empfehlung:** F.1 zuerst (eigenständig, kleinster Eingriff,
-schließt eine bestehende Sicherheitslücke). F.2 vor F.3, da F.3s
-Sichtbarkeits-Aggregation ohne F.2 nur die Berechtigungsdimension behandeln
-kann. F.4 ist jederzeit unabhängig einreichbar.
+schließt eine bestehende Sicherheitslücke) — **aktuell in Arbeit**. F.2 vor
+F.3, da F.3s Sichtbarkeits-Aggregation ohne F.2 nur die Berechtigungsdimension
+behandeln kann. F.4 ist jederzeit unabhängig einreichbar.
 
 ## Definition of Done (je Phase)
 

@@ -5,6 +5,23 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] — 2026-07-23
+
+### Added
+
+- `reconciler::purge_all_host_user()`: removes ALL of a user's host-course
+  (Fall 2/3) enrolments for a learning path — the same learning path can be
+  embedded in several host courses at once, and losing the learning path
+  entirely (A-4) previously only cleared target-course enrolments, leaving
+  host-course ones (`enrol_adele-issue-host-purge-on-leave`, now
+  [mod_adele #21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21))
+  active indefinitely. Wired into `observer::user_enrolment_deleted()`'s
+  existing A-4 branch, right after the pre-existing `purge_user()` call.
+  Resolves pflichtenheft E-10.
+- PHPUnit coverage: leaving a learning path via the A-4 rule now clears a
+  Fall-2/3 host-course enrolment in a SECOND host course, not just the one
+  through which access was lost.
+
 ## [0.1.3] — 2026-07-23
 
 ### Fixed
@@ -97,6 +114,25 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `extra_plugin_runner` it never had, despite `version.php` requiring it.
 
 ## [Unreleased documentation changes]
+
+### Fixed — dependency (Session 002, Teil 11)
+
+- `version.php` demanded local_adele ≥ 2026072302 (0.4.6) — stricter than
+  actually required. The only change between 0.4.5 and 0.4.6 was an
+  unrelated defensive fix inside local_adele's own
+  `subscribe_user_starting_node()` (a `?? ''` fallback, Teil 8); nothing
+  enrol_adele itself calls or depends on. The genuine functional minimum is
+  0.4.5 (2026072301) — the release that completed the identity migration
+  (`user_id + learning_path_id`, no `course_id`) enrol_adele's reconciler
+  and `local_adele\enrol_state` depend on. Relaxed accordingly, matching
+  what mod_adele already declares. On sites where local_adele is below even
+  0.4.5, this does not by itself make enrol_adele work — it only removes an
+  unnecessary block; local_adele still needs upgrading to at least 0.4.5 for
+  the plugins to function together correctly.
+- No functional change to enrol_adele's own code, no version bump (as
+  requested) — `$plugin->version`/`$plugin->release` unchanged at
+  2026072302/0.1.3.
+
 
 ### Fixed — tests (Session 002, Teil 10)
 

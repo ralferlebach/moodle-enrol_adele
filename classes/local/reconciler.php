@@ -276,11 +276,11 @@ class reconciler {
     /**
      * Hard-remove one user's HOST-course enrolment for one learning path embedding.
      *
-     * Not currently wired to an automatic trigger (there is no host-side
-     * equivalent of "learning path deleted" yet beyond the embedding itself
-     * disappearing, which purge_learning_path() already covers by removing
-     * every instance — target and host alike — of the learning path). Kept as
-     * a building block for a future admin action or embedding-removal hook.
+     * Used directly when the specific host course is already known (e.g. a
+     * future admin action). purge_all_host_user() is the counterpart for the
+     * common case — a user leaving the learning path entirely — where every
+     * host embedding of that learning path is potentially affected, not just
+     * one.
      *
      * @param int $learningpathid The learning path id.
      * @param int $hostcourseid The course embedding the mod_adele activity.
@@ -303,6 +303,40 @@ class reconciler {
             )
         ) {
             $plugin->unenrol_user($instance, $userid);
+        }
+    }
+
+    /**
+     * Hard-remove ALL of one user's HOST-course enrolments for a learning path.
+     *
+     * The same learning path can be embedded (subscription options 2/3) in
+     * several different host courses at once; leaving the learning path
+     * entirely — the A-4 case this is wired into — must clear every one of
+     * them, not just the host course that happened to trigger the removal.
+     * Mirrors purge_user() (mod_adele #21 / enrol_adele project ticket
+     * enrol_adele-issue-host-purge-on-leave, Session 002 Teil 12).
+     *
+     * @param int $learningpathid The learning path id.
+     * @param int $userid The user id.
+     * @return void
+     */
+    public static function purge_all_host_user(int $learningpathid, int $userid): void {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/enrollib.php');
+
+        $plugin = enrol_get_plugin('adele');
+        if (!$plugin) {
+            return;
+        }
+        foreach (instance_manager::get_instances($learningpathid, instance_manager::KIND_HOST) as $instance) {
+            if (
+                $DB->record_exists(
+                    'user_enrolments',
+                    ['enrolid' => $instance->id, 'userid' => $userid]
+                )
+            ) {
+                $plugin->unenrol_user($instance, $userid);
+            }
         }
     }
 
