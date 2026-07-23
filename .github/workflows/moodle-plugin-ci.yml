@@ -1,0 +1,50 @@
+name: Moodle Plugin CI
+
+"on": [push, pull_request]
+
+jobs:
+  # Moodle 5.0 / 5.1 on PHP 8.2+, mirroring the matrix that local_adele tests against.
+  moodle500to501:
+    uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
+    with:
+      disable_release: true
+      moodle_branches: "MOODLE_500_STABLE MOODLE_501_STABLE"
+      min_php: '8.2'
+
+      # enrol_adele declares a hard dependency on local_adele, and local_adele in
+      # turn declares one on mod_adele, so both have to be present before this
+      # plugin can install at all.
+      #
+      # All three plugins are co-developed on a shared "development" working
+      # branch per repo (Session 001, Teil 4). enrol_adele 0.1.1 depends on
+      # local_adele 0.4.3 / mod_adele 0.1.5.
+      extra_plugin_runners: |
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-mod_adele
+
+      # local_adele ships a Vue3 build tree; this plugin does not, so there is
+      # nothing here for grunt to do.
+      disable_grunt: true
+
+      enable_phpmd: true
+
+      # No warnings tolerated. Keep it that way.
+      codechecker_max_warnings: 0
+
+  # Moodle 4.1 LTS / 4.5, the lower bound declared in version.php ($plugin->requires).
+  moodle401to405:
+    uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
+    with:
+      disable_release: true
+      moodle_branches: "MOODLE_401_STABLE MOODLE_405_STABLE"
+      min_php: '8.1'
+
+      extra_plugin_runners: |
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-mod_adele
+
+      disable_grunt: true
+
+      enable_phpmd: true
+
+      codechecker_max_warnings: 0
