@@ -46,6 +46,15 @@ use progress_trace;
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class reconciler {
+    /** @var string Entitled => active host-course enrolment (default, 0.1.2 behaviour). */
+    const MODE_VISIBLE = 'visible';
+
+    /** @var string Entitled => enrolment record exists but stays suspended (never grants access). */
+    const MODE_HIDDEN = 'hidden';
+
+    /** @var string This embedding never grants host-course access, however entitled. */
+    const MODE_NONE = 'none';
+
     /**
      * Whether reconciliation can run: plugin enabled and local_adele new enough.
      *
@@ -223,22 +232,40 @@ class reconciler {
      * mirroring the target-course logic without the set aggregation, since a
      * host-course instance is scoped to a single course.
      *
+     * $mode (requirement mod_adele #22) lets the embedding scale back what
+     * "entitled" actually grants, without the caller having to pre-compute a
+     * Moodle enrolment status itself:
+     * - MODE_VISIBLE (default): entitled => active, matches 0.1.2 behaviour.
+     * - MODE_HIDDEN: entitled => an enrolment record still exists (countable
+     *   in participant lists, reports, certificates) but stays suspended —
+     *   never grants course access.
+     * - MODE_NONE: this embedding never grants host-course access, however
+     *   entitled the caller reports. Never creates a new instance for it; an
+     *   instance left over from a PRIOR, more permissive mode is suspended,
+     *   not deleted, so a later mode change back loses no history (L-Q-07).
+     *
      * @param int $learningpathid The learning path id.
      * @param int $hostcourseid The course embedding the mod_adele activity.
      * @param int $userid The user id.
      * @param bool $entitled Whether the user currently qualifies for host access.
+     * @param string $mode MODE_VISIBLE, MODE_HIDDEN or MODE_NONE.
      * @return void
      */
     public static function reconcile_host_user(
         int $learningpathid,
         int $hostcourseid,
         int $userid,
-        bool $entitled
+        bool $entitled,
+        string $mode = self::MODE_VISIBLE
     ): void {
         global $DB;
 
         if (!self::is_active()) {
             return;
+        }
+
+        if ($mode === self::MODE_NONE) {
+            $entitled = false;
         }
 
         $plugin = enrol_get_plugin('adele');
@@ -256,20 +283,24 @@ class reconciler {
         }
 
         $ue = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $userid]);
+        $targetstatus = ($entitled && $mode !== self::MODE_HIDDEN) ? ENROL_USER_ACTIVE : ENROL_USER_SUSPENDED;
 
-        if ($entitled && !$ue) {
+        if (!$ue) {
+            // Nothing to suspend if there was never a record and the user
+            // isn't entitled (covers MODE_NONE and plain non-entitlement alike).
+            if (!$entitled) {
+                return;
+            }
             $plugin->enrol_user(
                 $instance,
                 $userid,
                 $instance->roleid ?: instance_manager::get_role_id(),
                 0,
                 0,
-                ENROL_USER_ACTIVE
+                $targetstatus
             );
-        } else if ($entitled && (int) $ue->status === ENROL_USER_SUSPENDED) {
-            $plugin->update_user_enrol($instance, $userid, ENROL_USER_ACTIVE);
-        } else if (!$entitled && $ue && (int) $ue->status === ENROL_USER_ACTIVE) {
-            $plugin->update_user_enrol($instance, $userid, ENROL_USER_SUSPENDED);
+        } else if ((int) $ue->status !== $targetstatus) {
+            $plugin->update_user_enrol($instance, $userid, $targetstatus);
         }
     }
 

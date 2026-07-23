@@ -462,4 +462,76 @@ final class reconciler_test extends \advanced_testcase {
             $DB->record_exists('user_enrolments', ['enrolid' => $host2instance->id, 'userid' => $userid])
         );
     }
+
+    /**
+     * Host-course visibility modes (requirement mod_adele #22): MODE_VISIBLE
+     * behaves exactly like the pre-0.1.5 boolean-only signature; MODE_HIDDEN
+     * still creates an enrolment record (countable in participant lists) but
+     * never grants access; MODE_NONE never creates a new instance, but
+     * suspends — never deletes — one left over from an earlier, more
+     * permissive mode, so switching back later loses no history (L-Q-07).
+     *
+     * @return void
+     */
+    public function test_reconcile_host_user_visibility_modes(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+        if (!class_exists('\local_adele\enrol_state')) {
+            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
+        }
+
+        $host = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $lpid = $DB->insert_record('local_adele_learning_paths', (object) [
+            'name' => 'Sichtbarkeits-Testpfad',
+            'description' => '',
+            'timecreated' => time(),
+            'timemodified' => time(),
+            'createdby' => $user->id,
+            'json' => json_encode(['tree' => ['nodes' => [], 'edges' => []]]),
+        ]);
+
+        // MODE_HIDDEN, entitled: a record exists, but stays suspended.
+        reconciler::reconcile_host_user($lpid, (int) $host->id, (int) $user->id, true, reconciler::MODE_HIDDEN);
+        $instance = $DB->get_record('enrol', [
+            'enrol' => 'adele',
+            'courseid' => $host->id,
+            'customint1' => $lpid,
+            'customint2' => instance_manager::KIND_HOST,
+        ]);
+        $this->assertNotFalse($instance);
+        $ue = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id]);
+        $this->assertNotFalse($ue);
+        $this->assertEquals(ENROL_USER_SUSPENDED, $ue->status);
+
+        // Switched to MODE_VISIBLE while still entitled: the SAME record
+        // reactivates.
+        reconciler::reconcile_host_user($lpid, (int) $host->id, (int) $user->id, true, reconciler::MODE_VISIBLE);
+        $reactivated = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id]);
+        $this->assertEquals(ENROL_USER_ACTIVE, $reactivated->status);
+        $this->assertEquals($ue->id, $reactivated->id);
+
+        // Switched to MODE_NONE while still entitled: the existing record is
+        // suspended, not deleted.
+        reconciler::reconcile_host_user($lpid, (int) $host->id, (int) $user->id, true, reconciler::MODE_NONE);
+        $suspended = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id]);
+        $this->assertNotFalse($suspended);
+        $this->assertEquals(ENROL_USER_SUSPENDED, $suspended->status);
+        $this->assertEquals($ue->id, $suspended->id);
+
+        // A second user, never enrolled before, under MODE_NONE from the
+        // start: no instance/enrolment is created for them at all.
+        $seconduser = $this->getDataGenerator()->create_user();
+        reconciler::reconcile_host_user(
+            $lpid,
+            (int) $host->id,
+            (int) $seconduser->id,
+            true,
+            reconciler::MODE_NONE
+        );
+        $this->assertFalse(
+            $DB->record_exists('user_enrolments', ['enrolid' => $instance->id, 'userid' => $seconduser->id])
+        );
+    }
 }

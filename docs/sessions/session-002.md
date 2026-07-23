@@ -759,3 +759,62 @@ echte funktionale Änderung, nicht nur Test- oder Konfigurationskorrektur.
 ### Ausgeliefert
 
 `enrol_adele` 0.1.4. `local_adele`/`mod_adele` unverändert in diesem Teil.
+
+---
+
+## Teil 13 — #22 umgesetzt: Host-Kurs-Sichtbarkeit konfigurierbar
+
+**Ergebnis:** `enrol_adele` 0.1.5 und `mod_adele` 0.1.7 — Lehrkräfte können
+jetzt pro Einbettung steuern, ob Fall-2/3-Lernpfadnutzer/innen sichtbar,
+verdeckt (eingeschrieben, aber ohne Zugriff) oder gar nicht in den Host-Kurs
+eingeschrieben werden. Löst Pflichtenheft E-12 / mod_adele #22.
+
+### enrol_adele: `reconciler::reconcile_host_user()` erweitert
+
+Neuer optionaler Parameter `$mode` (`reconciler::MODE_VISIBLE` Standard,
+`MODE_HIDDEN`, `MODE_NONE`). Bleibt bewusst rein mechanisch — die Entscheidung
+liegt weiter bei `mod_adele`, `reconciler` setzt nur um:
+
+- `MODE_VISIBLE`: unverändertes 0.1.2-Verhalten, Berechtigung → aktive
+  Einschreibung.
+- `MODE_HIDDEN`: Berechtigung → Einschreibung wird angelegt (zählt in
+  Teilnehmerlisten/Berichten), bleibt aber suspendiert — nie Zugriff.
+- `MODE_NONE`: dieses Embedding gewährt nie Host-Kurs-Zugang. Legt nie eine
+  neue Instanz an; eine bereits bestehende (aus einem früheren, großzügigeren
+  Modus) wird suspendiert, nicht gelöscht — ein späteres Zurückwechseln
+  verliert keine Historie (L-Q-07).
+
+### mod_adele: neues Aktivitäts-Setting `hostenrolmentmode`
+
+Schema-Änderung: neues Feld auf `{adele}` (`char(10)`, Default `'visible'`,
+Upgrade-Schritt 2026072301 mit Bestandsdaten-Default). Neues Select-Feld im
+Aktivitätsformular, nur inhaltlich relevant für Fall 2/3 — bewusst nicht per
+JS an `participantslist` gekoppelt (`hideIf` funktioniert bei
+Autocomplete-Multiselects nicht zuverlässig clientseitig), stattdessen über
+den Hilfetext erklärt. `saved_module()`, `sync_host_access_for_node_enrolment()`
+und `subscribe_user_course()` lesen bzw. reichen den Modus durch.
+
+### Tests
+
+Neuer Test `test_reconcile_host_user_visibility_modes()` in `enrol_adele`:
+deckt alle drei Modi sowie den Moduswechsel (bestehender Datensatz wird
+suspendiert statt gelöscht; ein neuer Nutzer unter `MODE_NONE` bekommt von
+Anfang an keine Instanz) ab.
+
+### Verifikation
+
+`php -l` und `moodle-cs` (Standard `moodle`) über alle neuen/geänderten
+Dateien beider Plugins: 0 Fehler, 0 Warnungen (einige phpcs-Fundstellen in
+unberührten mod_adele-Bestandsdateien wurden gegengeprüft und stammen
+nachweislich nicht aus dieser Änderung). `xmllint` bestätigt `install.xml`
+als wohlgeformt.
+
+### Ausgeliefert
+
+`enrol_adele` 0.1.5, `mod_adele` 0.1.7. `local_adele` unverändert.
+
+### Nächster Schritt
+
+Phase F.3 (mod_adele #23, Priorisierung bei Mehrfacheinbettung) — jetzt
+sinnvoll angehbar, da beide Dimensionen (Berechtigung und Sichtbarkeitsstufe)
+existieren, die die Aggregationslogik zusammenführen soll.

@@ -5,6 +5,31 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] — 2026-07-23
+
+### Added
+
+- `reconciler::reconcile_host_user()` gained a `$mode` parameter
+  (`MODE_VISIBLE`/`MODE_HIDDEN`/`MODE_NONE`), letting a teacher scale back
+  what Fall-2/3 host-course entitlement actually grants
+  ([mod_adele #22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22),
+  resolves pflichtenheft E-12): `MODE_VISIBLE` is the unchanged 0.1.2
+  behaviour (active enrolment); `MODE_HIDDEN` still creates an enrolment
+  record (countable in participant lists/reports) but keeps it suspended,
+  never granting course access; `MODE_NONE` never creates a new instance for
+  that embedding, and suspends — never deletes — one left over from an
+  earlier, more permissive mode, so a later mode change back loses no
+  history. `reconciler` stays purely mechanical; `mod_adele` computes and
+  supplies the mode from its own new `hostenrolmentmode` setting.
+- PHPUnit coverage for all three modes, including the "existing record from
+  a prior mode gets suspended, not deleted" and "MODE_NONE never creates a
+  first record" cases.
+
+### Notes
+
+- Companion release: mod_adele 0.1.7, which adds the `hostenrolmentmode`
+  activity setting (`{adele}` schema change) driving this parameter.
+
 ## [0.1.4] — 2026-07-23
 
 ### Added

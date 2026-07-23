@@ -94,15 +94,16 @@ im mod_adele-Repository eingestellt: [#19](https://github.com/Wunderbyte-GmbH/mo
 
 | AP | Inhalt | Issue | Abhängigkeit | Status |
 |---|---|---|---|---|
-| F.1 | `purge_all_host_user()`: Host-Kurs-Einschreibungen (alle Host-Kurse, nicht nur einer) mit austragen, wenn ein Nutzer den Lernpfad über A-4 verlässt. Löst E-10. | [#21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21) | B.4 (bestehende `purge_user()`) | **in Arbeit (Session 002, Teil 12)** |
-| F.2 | Neues Aktivitäts-Setting `hostenrolmentmode` (`visible`/`hidden`/`none`) für Fall 2/3: Lehrkraft entscheidet, ob und wie sichtbar Lernpfadnutzer/innen in den Host-Kurs eingeschrieben werden. Erfordert Schema-Änderung in `mod_adele` (`db/upgrade.php`). | [#22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22) | Teil-4-Host-Kurs-Mechanik (bereits geliefert) | offen |
+| F.1 | `purge_all_host_user()`: Host-Kurs-Einschreibungen (alle Host-Kurse, nicht nur einer) mit austragen, wenn ein Nutzer den Lernpfad über A-4 verlässt. Löst E-10. | [#21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21) | B.4 (bestehende `purge_user()`) | **erledigt (Teil 12, `enrol_adele` 0.1.4)** |
+| F.2 | Neues Aktivitäts-Setting `hostenrolmentmode` (`visible`/`hidden`/`none`) für Fall 2/3: Lehrkraft entscheidet, ob und wie sichtbar Lernpfadnutzer/innen in den Host-Kurs eingeschrieben werden. Erfordert Schema-Änderung in `mod_adele` (`db/upgrade.php`). | [#22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22) | Teil-4-Host-Kurs-Mechanik (bereits geliefert) | **erledigt (Teil 13, `enrol_adele` 0.1.5 / `mod_adele` 0.1.7)** |
 | F.3 | Aggregation vor Anwendung: Mehrere Embeddings desselben Lernpfads im selben Host-Kurs werden gebündelt ausgewertet („großzügigste Option gewinnt"), statt sich gegenseitig in der Aufruf-Schleife zu überschreiben. Betrifft sowohl Berechtigung als auch — sobald F.2 existiert — Sichtbarkeitsstufe. | [#23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23) | F.2 (Sichtbarkeitsdimension), sonst unabhängig für die Berechtigungsdimension | offen |
 | F.4 | Ausführliche Neufassung von #486 als Referenzspezifikation — keine Codeänderung, aber Grundlage für Abnahme/Review. | `local_adele-issue486-ausfuehrlich.md` (lokal_adele-Repo, noch nicht als Ticket eingestellt) | — | Text geliefert |
 
-**Reihenfolge-Empfehlung:** F.1 zuerst (eigenständig, kleinster Eingriff,
-schließt eine bestehende Sicherheitslücke) — **aktuell in Arbeit**. F.2 vor
-F.3, da F.3s Sichtbarkeits-Aggregation ohne F.2 nur die Berechtigungsdimension
-behandeln kann. F.4 ist jederzeit unabhängig einreichbar.
+**Reihenfolge-Empfehlung:** F.1 und F.2 erledigt. **Nächster Schritt: F.3**
+(Priorisierung bei Mehrfacheinbettung) — jetzt sinnvoll angehbar, da beide
+Dimensionen (Berechtigung *und* Sichtbarkeitsstufe aus F.2) existieren, die
+die Aggregationslogik zusammenführen soll. F.4 ist jederzeit unabhängig
+einreichbar.
 
 ## Definition of Done (je Phase)
 

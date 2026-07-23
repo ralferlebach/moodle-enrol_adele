@@ -123,11 +123,27 @@ Datenbankzustand neu (nicht aus dem einzelnen Event abgeleitet), da ein Node-
 Kurs von mehreren Knoten gleichzeitig referenziert werden kann und ein Nutzer
 mehrere qualifizierende Node-Kurs-Einschreibungen gleichzeitig halten kann.
 
-**Kein automatischer Hard-Removal-Trigger auf der Host-Seite** über das
-Suspendieren hinaus — `purge_host_user()` existiert als Baustein, ist aber
-nicht verdrahtet (offener Punkt E-10, Abschnitt 8). Löschen eines Lernpfads
-entfernt Host- wie Zielinstanzen gleichermaßen, da `purge_learning_path()`
-nicht nach `customint2` filtert.
+**Sichtbarkeitsmodi (Teil 13, mod_adele #22):** `reconcile_host_user()` nimmt
+zusätzlich einen Modus entgegen — `reconciler::MODE_VISIBLE` (Standard,
+Berechtigung → aktive Einschreibung, unverändertes 0.1.2-Verhalten),
+`MODE_HIDDEN` (Berechtigung → Einschreibung wird angelegt, bleibt aber
+suspendiert — zählt in Teilnehmerlisten/Berichten, gewährt aber keinen
+Zugriff) und `MODE_NONE` (dieses Embedding gewährt nie Host-Kurs-Zugang, egal
+wie die Berechtigung ausfällt). Der Modus steckt als neues Feld
+`hostenrolmentmode` auf `{adele}` (Standard `'visible'`, Bestandsdaten
+unverändert) und wird von `mod_adele` gelesen und durchgereicht — `reconciler`
+selbst bleibt weiterhin rein mechanisch. Ein Wechsel zu `MODE_NONE` löscht eine
+bereits bestehende Einschreibung nicht, sondern suspendiert sie nur (L-Q-07,
+kein Datenverlust bei späterem Zurückwechseln).
+
+**Hard-Removal bei Lernpfad-Verlassen (Teil 12, mod_adele #21, löst E-10):**
+`purge_all_host_user()` räumt beim Verlassen eines Lernpfads (A-4) alle
+Host-Kurs-Instanzen eines Nutzers über sämtliche Embeddings hinweg ab, nicht
+nur die eine, die den Verlust ausgelöst hat — verdrahtet in
+`enrol_adele\observer::user_enrolment_deleted()`. `purge_host_user()`
+(Einzelinstanz) bleibt als Baustein für eine künftige Verwaltungsseiten-Aktion
+erhalten. Löschen eines Lernpfads entfernt Host- wie Zielinstanzen ohnehin
+gleichermaßen, da `purge_learning_path()` nicht nach `customint2` filtert.
 
 ## 2. Soll-Zustand
 
@@ -476,9 +492,9 @@ Die Einzeloperationen sind bereits durch die Kern-Events
 | ~~O-4~~ | Rolleneinstellung | erledigt (F-8): wandert zu `enrol_adele/roleid`, Abschnitt 5.3 |
 | ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor (Lastenheft Abschnitt 4) |
 | ~~O-6~~ | Austragungs-Propagation bei Option 1 | erledigt (F-2/F-4): Regelwerk Abschnitt 4 |
-| **E-10** | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft. Löst nicht mit ab, wenn ein Nutzer den Lernpfad über A-4 verlässt — Host-Kurs-Einschreibungen bleiben aktiv bestehen. [mod_adele #21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21), Arbeitsplan Phase F.1. | in Arbeit |
+| ~~E-10~~ | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft. Löst nicht mit ab, wenn ein Nutzer den Lernpfad über A-4 verlässt — Host-Kurs-Einschreibungen bleiben aktiv bestehen. [mod_adele #21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21), Arbeitsplan Phase F.1. | erledigt (Teil 12, `enrol_adele` 0.1.4) |
 | **E-11** | mod_adele-Issue #11 ("Message was not sent" beim ersten Anlegen eines Lernpfads in einem Kurs): Ursache nicht abschließend verifiziert (Screenshot technisch nicht abrufbar). Arbeitshypothese: Willkommensnachricht der ersten Einschreibung im Kurs (`enrol_manual`-Setting „Willkommensnachricht senden") scheitert am Messaging-Subsystem — erklärt das „nur beim ersten Mal"-Muster, ist aber nicht bestätigt. | offen, ungelöst |
-| **E-12** | Kein Weg für Lehrkräfte, den Host-Kurs-Zugang bei Fall 2/3 abzuschwächen (sichtbar/verdeckt/keine Einschreibung) — jede qualifizierende Node-Kurs-Mitgliedschaft erzeugt zwingend eine aktive, sichtbare Host-Kurs-Einschreibung. [mod_adele #22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22), Arbeitsplan Phase F.2. | offen |
+| ~~E-12~~ | Kein Weg für Lehrkräfte, den Host-Kurs-Zugang bei Fall 2/3 abzuschwächen (sichtbar/verdeckt/keine Einschreibung) — jede qualifizierende Node-Kurs-Mitgliedschaft erzeugt zwingend eine aktive, sichtbare Host-Kurs-Einschreibung. [mod_adele #22](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/22), Arbeitsplan Phase F.2. | erledigt (Teil 13, `enrol_adele` 0.1.5 / `mod_adele` 0.1.7) |
 | **E-13** | Mehrere Embeddings desselben Lernpfads im selben Host-Kurs überschreiben sich gegenseitig nicht-deterministisch statt sich zu vereinigen ("großzügigste Option gewinnt"). [mod_adele #23](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/23), Arbeitsplan Phase F.3. | offen |
 | ~~E-14~~ | Fall 3 (Einschreibung bei Mitgliedschaft in irgendeinem Node-Kurs). [mod_adele #19](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/19). | erledigt (Teil 3) |
 | ~~E-15~~ | Laufender Trigger + Host-Kurs-Einschreibung über enrol_adele für Fall 2/3. [mod_adele #20](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/20). | erledigt (Teil 5) |
