@@ -51,3 +51,6 @@ behatfaildumps/
 # Local developer overrides
 .env
 .env.local
+
+# enrol_adele-specific: Makefile's `zip` target writes installable ZIPs here.
+/build/

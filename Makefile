@@ -1,99 +1,212 @@
-# This file is part of Moodle - http://moodle.org/
+# Makefile for enrol_adele
+# Mirrors the moodle-plugin-ci check suite used in GitHub Actions.
 #
-# Moodle is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Targets:
+#   make all          — fix + full check suite (default)
+#   make fix          — auto-fix PHP style + PHPDoc + rebuild AMD
+#   make check        — check-only (no auto-fix)
+#   make clear        — clear terminal
 #
-# Moodle is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Individual checks:
+#   make lint-php     — PHPCS Moodle coding standard
+#   make lint-phpdoc  — Moodle PHPDoc checker
+#   make lint-js      — ESLint on AMD source files (skipped when amd/src/ is empty)
+#   make lint-mustache — Mustache template syntax (skipped when templates/ is empty)
+#   make lint-cpd     — PHP Copy/Paste Detector (informational)
+#   make lint-md      — PHP Mess Detector (informational)
 #
-# You should have received a copy of the GNU General Public License
-# along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+# Auto-fixers:
+#   make fix-lint-php — phpcbf PHP code-style auto-fix
+#   make fix-phpdoc   — moodlecheck PHPDoc report (skipped when tools/fix_phpdoc.php is absent)
+#   make amd          — rebuild AMD minified files
 #
-# Developer tasks for enrol_adele. Run `make` or `make help` for an overview.
+# Tests:
+#   make phpunit      — PHPUnit testsuite for this plugin
+#
+# Packaging & dev-checkout linking (enrol_adele-specific, not part of the
+# shared template this file is otherwise adapted from):
+#   make zip          — build an installable ZIP in build/
+#   make clean        — remove build artefacts
+#   make link         — symlink this checkout into MOODLE_ROOT/enrol/adele
+#   make unlink       — remove that symlink
+#
+# Paths are auto-detected from the makefile's own location.
+# The plugin lives at <MOODLE_ROOT>/enrol/adele/ — always two
+# levels below the Moodle root — so both PLUGIN_DIR and MOODLE_ROOT are
+# derived automatically and work on any installation.
+# Override on the command line if necessary:
+#   make lint-php MOODLE_ROOT=/opt/moodle
 
-COMPONENT   := enrol_adele
-PLUGIN_DIR  := adele
-PLUGIN_PATH := enrol/$(PLUGIN_DIR)
-VERSION     := $(shell sed -n "s/^\$$plugin->release *= *'\(.*\)';/\1/p" version.php)
+THIS_DIR      := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+PLUGIN_DIR    ?= $(THIS_DIR)
+MOODLE_ROOT   ?= $(abspath $(PLUGIN_DIR)/../..)
+PLUGIN_NAME   ?= enrol_adele
+PLUGIN_REL    ?= enrol/adele
+PLUGIN_BASENAME := $(notdir $(PLUGIN_REL))
+VERSION       := $(shell sed -n "s/^\$$plugin->release *= *'\(.*\)';/\1/p" $(PLUGIN_DIR)/version.php)
+PHP           ?= $(shell which php 2>/dev/null || echo /usr/bin/php)
+PHPCS         ?= phpcs
+PHPCBF        ?= phpcbf
+NPX           ?= npx
 
-# Path to a Moodle checkout used for linking and for PHPUnit. Override freely:
-#   make test MOODLE_DIR=/var/www/moodle
-MOODLE_DIR  ?= ../moodle
+# enrol_adele-specific: release ZIP build directory and contents. Everything
+# else (CI config, docs, build artefacts, VCS metadata) stays out — mirrors
+# .gitattributes' export-ignore list.
+BUILD_DIR     := $(PLUGIN_DIR)/build
+ZIP_NAME      := $(PLUGIN_NAME)-$(VERSION).zip
+DIST_CONTENT  := classes db lang tests lib.php settings.php version.php \
+                 README.md CHANGELOG.md LICENSE.md
 
-BUILD_DIR   := build
-ZIP_NAME    := $(COMPONENT)-$(VERSION).zip
+.PHONY: all fix check clear \
+        lint-php lint-phpdoc lint-js lint-mustache lint-cpd lint-md \
+        fix-lint-php fix-phpdoc amd phpunit \
+        zip clean link unlink
 
-# Files and directories that go into a release ZIP. Everything else (CI config,
-# docs, build artefacts, VCS metadata) stays out.
-DIST_CONTENT := classes db lang tests lib.php settings.php version.php \
-                README.md CHANGELOG.md LICENSE.md
-
-.DEFAULT_GOAL := help
-.PHONY: help zip clean link unlink lint phpcs phpcbf phpmd phpdoc test ci checks
-
-help: ## Show this help.
-	@echo "$(COMPONENT) $(VERSION)"
+all: clear fix check
 	@echo ""
-	@echo "Targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@echo "=== All checks complete. Review output above for errors. ==="
+
+fix: clear fix-phpdoc fix-lint-php amd
 	@echo ""
-	@echo "Variables:"
-	@echo "  MOODLE_DIR   Moodle checkout to work against (currently: $(MOODLE_DIR))"
+	@echo "=== All fixes complete. ==="
+
+check: clear lint-php lint-phpdoc lint-mustache lint-cpd phpunit
+	@echo ""
+	@echo "=== All checks complete. Review output above for errors. ==="
+
+clear:
+	clear
+
+lint-php:
+	@echo "=== phpcs (Moodle standard, excludes tools/) ==="
+	-cd $(PLUGIN_DIR) && $(PHPCS) \
+		--standard=moodle \
+		--extensions=php \
+		--severity=1 \
+		--no-cache \
+		--ignore=tools/ \
+		.
+
+fix-lint-php:
+	@echo ""
+	@echo "=== phpcbf (auto-fix) ==="
+	-cd $(PLUGIN_DIR) && $(PHPCBF) \
+		--standard=moodle \
+		--extensions=php \
+		.
+
+lint-phpdoc:
+	@echo ""
+	@echo "=== PHPDoc (local_moodlecheck, excludes tools/) ==="
+	-cd $(MOODLE_ROOT) && $(PHP) local/moodlecheck/cli/moodlecheck.php \
+		--path=$(PLUGIN_REL) \
+		--exclude=$(PLUGIN_REL)/tools \
+		--format=text 2>&1 | grep -B1 '    Line' | grep -v '^--$$' || true
+
+fix-phpdoc:
+	@echo ""
+	@echo "=== fix_phpdoc (tools/fix_phpdoc.php) ==="
+	@if [ -f $(PLUGIN_DIR)/tools/fix_phpdoc.php ]; then \
+		$(PHP) $(PLUGIN_DIR)/tools/fix_phpdoc.php $(PLUGIN_DIR); \
+	else \
+		echo "No tools/fix_phpdoc.php in this plugin — skipped."; \
+	fi
+
+lint-mustache:
+	@echo ""
+	@echo "=== Mustache syntax check ==="
+	@if [ -f $(PLUGIN_DIR)/tools/mustache_check.php ] && [ -d $(PLUGIN_DIR)/templates ]; then \
+		$(PHP) $(PLUGIN_DIR)/tools/mustache_check.php \
+			$(PLUGIN_DIR)/templates 2>&1 | grep -v '^OK:' || true; \
+	else \
+		echo "No templates/ (or no tools/mustache_check.php) in this plugin — skipped."; \
+	fi
+
+lint-cpd:
+	@echo ""
+	@echo "=== PHP Copy/Paste Detector ==="
+	-cd $(PLUGIN_DIR) && phpcpd --min-lines 5 --min-tokens 70 . || true
+
+lint-md:
+	@echo ""
+	@echo "=== PHP Mess Detector ==="
+	-cd $(PLUGIN_DIR) && phpmd . text \
+		cleancode,codesize,controversial,design,naming,unusedcode \
+		--exclude tests,tools || true
+
+lint-js:
+	@echo ""
+	@echo "=== ESLint (skipped when amd/src/ is empty) ==="
+	@if ls $(PLUGIN_DIR)/amd/src/*.js 2>/dev/null | grep -q .; then \
+		cd $(MOODLE_ROOT) && $(NPX) grunt eslint --root=. \
+			--files=$(PLUGIN_REL)/amd/src/ --show-lint-warnings; \
+	else \
+		echo "No AMD source files — ESLint skipped."; \
+	fi
+
+amd:
+	@echo ""
+	@echo "=== AMD rebuild (skipped when amd/src/ is empty) ==="
+	@if ls $(PLUGIN_DIR)/amd/src/*.js 2>/dev/null | grep -q .; then \
+		files=$$(find $(PLUGIN_REL)/amd/src -name '*.js' \
+			| tr '\n' ',' | sed 's/,$$//'); \
+		cd $(MOODLE_ROOT) && $(NPX) grunt amd --root=. --force --files="$$files"; \
+	else \
+		echo "No AMD source files — skipped."; \
+	fi
+
+phpunit:
+	@echo ""
+	@echo "=== PHPUnit ==="
+	@if ! $(PHP) -r \
+		"define('CLI_SCRIPT',1); require '$(MOODLE_ROOT)/config.php'; \
+		exit(empty(\$$CFG->phpunit_dataroot) ? 1 : 0);" 2>/dev/null; then \
+		echo "SKIP: phpunit_dataroot not configured."; \
+		echo "      Add to config.php: \$$CFG->phpunit_dataroot = '...';"; \
+	else \
+		reinit_check=$$(cd $(MOODLE_ROOT) && $(PHP) vendor/bin/phpunit \
+			--testsuite $(PLUGIN_NAME)_testsuite \
+			--testdox 2>&1 | head -5); \
+		if printf '%s\n' "$$reinit_check" | grep -q "initialised for different version"; then \
+			echo "PHPUnit environment outdated — reinitialising..."; \
+			cd $(MOODLE_ROOT) && $(PHP) admin/tool/phpunit/cli/init.php; \
+		fi; \
+		tmpout=$$(mktemp); \
+		cd $(MOODLE_ROOT) && $(PHP) vendor/bin/phpunit \
+			--testsuite $(PLUGIN_NAME)_testsuite \
+			--testdox > "$$tmpout" 2>&1; \
+		phpunit_exit=$$?; \
+		grep -v "^ ✔\|^ ✓\|^ ↩" "$$tmpout" || true; \
+		rm -f "$$tmpout"; \
+		exit $$phpunit_exit; \
+	fi
+
+# --- enrol_adele-specific: packaging & dev-checkout linking ---
+# Not part of the shared mod_elang-derived template above; kept from the
+# plugin's original Makefile because nothing above replaces this capability.
 
 zip: clean ## Build an installable ZIP in build/.
-	@mkdir -p $(BUILD_DIR)/$(PLUGIN_DIR)
-	@cp -r $(DIST_CONTENT) $(BUILD_DIR)/$(PLUGIN_DIR)/
-	@cd $(BUILD_DIR) && zip -rq $(ZIP_NAME) $(PLUGIN_DIR) \
+	@mkdir -p $(BUILD_DIR)/$(PLUGIN_BASENAME)
+	@cp -r $(addprefix $(PLUGIN_DIR)/,$(DIST_CONTENT)) $(BUILD_DIR)/$(PLUGIN_BASENAME)/
+	@cd $(BUILD_DIR) && zip -rq $(ZIP_NAME) $(PLUGIN_BASENAME) \
 		-x '*.DS_Store' -x '*/.git/*'
-	@rm -rf $(BUILD_DIR)/$(PLUGIN_DIR)
+	@rm -rf $(BUILD_DIR)/$(PLUGIN_BASENAME)
 	@echo "Built $(BUILD_DIR)/$(ZIP_NAME)"
 	@echo "Install via Site administration > Plugins > Install plugins, type 'Enrolment method'."
 
 clean: ## Remove build artefacts.
 	@rm -rf $(BUILD_DIR)
 
-link: ## Symlink this checkout into MOODLE_DIR/enrol/adele.
-	@test -d "$(MOODLE_DIR)" || { echo "MOODLE_DIR '$(MOODLE_DIR)' not found."; exit 1; }
-	@test -e "$(MOODLE_DIR)/$(PLUGIN_PATH)" \
-		&& { echo "$(MOODLE_DIR)/$(PLUGIN_PATH) already exists."; exit 1; } || true
-	@ln -s "$(CURDIR)" "$(MOODLE_DIR)/$(PLUGIN_PATH)"
-	@echo "Linked $(CURDIR) -> $(MOODLE_DIR)/$(PLUGIN_PATH)"
+link: ## Symlink this checkout into MOODLE_ROOT/enrol/adele.
+	@test -d "$(MOODLE_ROOT)" || { echo "MOODLE_ROOT '$(MOODLE_ROOT)' not found."; exit 1; }
+	@test -e "$(MOODLE_ROOT)/$(PLUGIN_REL)" \
+		&& { echo "$(MOODLE_ROOT)/$(PLUGIN_REL) already exists."; exit 1; } || true
+	@ln -s "$(PLUGIN_DIR)" "$(MOODLE_ROOT)/$(PLUGIN_REL)"
+	@echo "Linked $(PLUGIN_DIR) -> $(MOODLE_ROOT)/$(PLUGIN_REL)"
 	@echo "Now visit the notifications page to run the install."
 
 unlink: ## Remove the symlink created by 'make link'.
-	@test -L "$(MOODLE_DIR)/$(PLUGIN_PATH)" \
-		|| { echo "Not a symlink: $(MOODLE_DIR)/$(PLUGIN_PATH) - refusing."; exit 1; }
-	@rm "$(MOODLE_DIR)/$(PLUGIN_PATH)"
-	@echo "Unlinked $(MOODLE_DIR)/$(PLUGIN_PATH)"
-
-lint: ## Check PHP syntax.
-	@moodle-plugin-ci phplint . || { \
-		echo "moodle-plugin-ci not found, falling back to php -l"; \
-		find . -path ./$(BUILD_DIR) -prune -o -name '*.php' -print \
-			| xargs -n1 php -l > /dev/null; }
-
-phpcs: ## Run the Moodle code checker.
-	@moodle-plugin-ci phpcs --max-warnings 0 .
-
-phpcbf: ## Auto-fix what the code checker can fix.
-	@moodle-plugin-ci phpcbf .
-
-phpmd: ## Run PHP Mess Detector.
-	@moodle-plugin-ci phpmd .
-
-phpdoc: ## Check PHPDoc blocks.
-	@moodle-plugin-ci phpdoc --max-warnings 0 .
-
-test: ## Run the PHPUnit tests of this plugin.
-	@test -f "$(MOODLE_DIR)/vendor/bin/phpunit" \
-		|| { echo "No PHPUnit in $(MOODLE_DIR). Run the Moodle PHPUnit init first."; exit 1; }
-	@cd "$(MOODLE_DIR)" && vendor/bin/phpunit --testsuite $(COMPONENT)_testsuite
-
-checks: lint phpcs phpdoc phpmd ## Run every static check.
-
-ci: checks test ## Run the full local CI chain.
+	@test -L "$(MOODLE_ROOT)/$(PLUGIN_REL)" \
+		|| { echo "Not a symlink: $(MOODLE_ROOT)/$(PLUGIN_REL) - refusing."; exit 1; }
+	@rm "$(MOODLE_ROOT)/$(PLUGIN_REL)"
+	@echo "Unlinked $(MOODLE_ROOT)/$(PLUGIN_REL)"

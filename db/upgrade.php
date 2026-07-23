@@ -29,8 +29,28 @@
  * @return bool
  */
 function xmldb_enrol_adele_upgrade($oldversion) {
-    // No upgrade steps yet. 0.1.0 is the initial install and ships no tables of
-    // its own; the grant table arrives in 0.2.0 together with its privacy
-    // provider (see docs/pflichtenheft.md, section 5).
+    // This plugin ships no tables of its own (decision F-6, stateless
+    // reconciliation — see docs/pflichtenheft.md, section 1a/2.3). Nothing
+    // here ever adds a table; upgrade steps only ever touch configuration.
+
+    if ($oldversion < 2026072302) {
+        // The install.php script now auto-enables the plugin on fresh installs (a real
+        // CI run surfaced that enrol_is_enabled('adele') was false out of the
+        // box — every reconciler call silently no-op'd via is_active()'s
+        // guard, since Moodle enrol plugins are site-disabled until explicitly
+        // added to $CFG->enrol_plugins_enabled, and this plugin has no
+        // teacher-facing "add instance" workflow that would otherwise surface
+        // the problem). Sites that installed an earlier version never ran that
+        // install step; apply the same fix here so upgrading also unblocks
+        // them, not just fresh installs.
+        $enabled = enrol_get_plugins(true);
+        if (!array_key_exists('adele', $enabled)) {
+            $enabled['adele'] = true;
+            set_config('enrol_plugins_enabled', implode(',', array_keys($enabled)));
+        }
+
+        upgrade_plugin_savepoint(true, 2026072302, 'enrol', 'adele');
+    }
+
     return true;
 }

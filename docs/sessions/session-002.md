@@ -455,3 +455,223 @@ Ab sofort: ausschließlich Patch-ZIPs je Plugin, keine gesonderten
 Dokument-Downloads mehr. Lastenheft, Pflichtenheft, Arbeitsplan und
 Sitzungsprotokoll leben ausschließlich unter `enrol_adele/docs/` und werden
 nur noch als Teil des `enrol_adele`-ZIPs sichtbar.
+
+---
+
+## Teil 6 — Repo-Hygiene vereinheitlicht, Issue-Entwurf-Auslieferung korrigiert
+
+**Ergebnis:** `.gitignore`/`.gitattributes` aus einer vom Auftraggeber
+bereitgestellten Vorlage auf alle drei Plugins ausgerollt; der in Teil 4
+erstellte mod_adele-Issue-Entwurf war unter die neue „keine gesonderten
+Downloads"-Regel gefallen und wurde erneut bereitgestellt.
+
+### 1. Repo-Hygiene
+
+Der Auftraggeber stellte eine projektweite `.gitignore`/`.gitattributes`-
+Vorlage bereit (OS-/IDE-/Node-/Vue-/PHP-Artefakte, Binärdatei-Behandlung,
+`export-ignore`-Liste für Entwickler-Artefakte). Ausgerollt auf alle drei
+Repos:
+
+- **`enrol_adele`**: Vorlage übernommen, ergänzt um `/build/` (Zielverzeichnis
+  des eigenen Makefile-`zip`-Targets, in der Vorlage nicht enthalten).
+- **`mod_adele`**: Vorlage komplett neu übernommen (vorher nur eine
+  10-Byte-`.gitignore` mit `.DS_Store`, keine `.gitattributes`).
+- **`local_adele`**: Auffällig — der zuletzt hochgeladene Upstream-Stand
+  (main, 0.4.4) enthielt **weder** `.gitignore` **noch** `.gitattributes`,
+  obwohl der ursprünglich analysierte 0.4.2-Stand noch eine `.gitignore`
+  hatte. Beide Dateien ergänzt, obwohl nur `enrol_adele`/`mod_adele`
+  ausdrücklich genannt waren — sonst hätte eines von drei Repos die
+  vereinheitlichte Hygiene nicht mitgetragen.
+
+**Korrektur beim Übernehmen:** Die Vorlage schrieb `makefile` (klein) in der
+`export-ignore`-Liste; die tatsächliche Datei heißt `Makefile` (nur in
+`enrol_adele` vorhanden). Auf einem case-sensitiven Dateisystem — wie es
+`git archive`/GitHub Actions verwenden — hätte die kleingeschriebene Variante
+nicht gegriffen. Groß-/Kleinschreibung entsprechend korrigiert.
+
+Keine funktionale Änderung, keine Versionserhöhung in einem der drei Plugins.
+
+### 2. Issue-Entwurf erneut bereitgestellt
+
+Der in Teil 4 erstellte mod_adele-Issue-Entwurf (kopierbares Markdown für
+GitHub) wurde nach Einführung der „keine gesonderten Downloads"-Regel
+versehentlich nicht mehr mitgeliefert — die Regel war für die Projektdokumentation
+(Lasten-/Pflichtenheft, Arbeitsplan, Sitzungsprotokoll) gedacht, die ohnehin
+im `enrol_adele`-ZIP eingebettet ist, nicht für Artefakte wie einen
+GitHub-Issue-Text, der zum Kopieren in eine fremde Oberfläche bestimmt ist und
+sich nicht sinnvoll „nur im ZIP verstecken" lässt. Klargestellt: Ein Ausdruck
+dieser Art bleibt weiterhin ein gesonderter Download; zusätzlich zur
+Rückverfolgbarkeit liegt eine Kopie unter `enrol_adele/docs/issues/` im Repo.
+
+---
+
+## Teil 7 — Vier Rückfragen zum Host-Kurs-Verhalten, vier Issues, Arbeitsplan-Update
+
+**Ergebnis:** Vier konkrete Lücken im bestehenden Host-Kurs-Mechanismus
+(Fall 2/3) identifiziert und als Issue-Entwürfe dokumentiert; Arbeitsplan um
+Phase F erweitert; ausführliche Neufassung von ticket #486 als
+Referenzspezifikation erstellt. Keine Codeänderung in diesem Teil — reine
+Analyse, Issue-Formulierung, Planung.
+
+### Vier Rückfragen, vier Befunde
+
+| # | Frage des Auftraggebers | Befund |
+|---|---|---|
+| 1 | Laufen Fall-2/3-Einschreibungen über `enrol_adele`, nicht mehr manuell? | **Bereits abgedeckt** — `reconcile_host_user()` und die Umstellung von `subscribe_user_course()` (Teil 4) leisten genau das. Kein neues Issue nötig. |
+| 2 | Werden Nutzer, die den Lernpfad verlassen, auch aus Fall-2/3-Einschreibungen ausgetragen? | **Lücke bestätigt.** `purge_user()` räumt nur Zielkurs-Instanzen ab; `purge_host_user()` existiert (seit 0.1.2), wird aber nirgends aufgerufen — bereits als E-10 dokumentiert, jetzt mit Issue-Entwurf. |
+| 3 | Können Lehrkräfte den Host-Kurs-Zugang bei Fall 2/3 abschwächen (verdeckt/keine Einschreibung)? | **Neue Lücke.** Es gibt keinen Konfigurationsweg; jede qualifizierende Node-Kurs-Mitgliedschaft erzwingt aktiven, sichtbaren Host-Kurs-Zugang. Neuer offener Punkt E-12. |
+| 4 | Werden konkurrierende Einschreibungen bei Mehrfacheinbettung sauber priorisiert? | **Neue Lücke.** `sync_host_access_for_node_enrolment()` ruft `reconcile_host_user()` pro Embedding einzeln auf; teilen sich zwei Embeddings dieselbe Host-Instanz mit widersprüchlicher Berechtigung, gewinnt nicht-deterministisch der letzte Aufruf. Neuer offener Punkt E-13. |
+
+### Vier Issue-Entwürfe (`docs/issues/`)
+
+- `enrol_adele-issue-host-purge-on-leave.md` — neue Methode
+  `purge_all_host_user()`, verdrahtet in `enrol_adele\observer`s
+  A-4-Zweig.
+- `enrol_adele-issue-host-visibility.md` — neues Aktivitäts-Setting
+  `hostenrolmentmode` (`visible`/`hidden`/`none`) in `mod_adele`, erfordert
+  Schema-Änderung.
+- `enrol_adele-issue-host-priority.md` — Aggregation vor Anwendung statt pro
+  Embedding; Prioritätsregel „großzügigste Option gewinnt", konsistent mit
+  Entscheidung F-1/A-6.
+- `local_adele-issue486-ausfuehrlich.md` — ausführliche Neufassung des
+  ursprünglichen Stichpunkt-Tickets #486, als vollständige Referenz für das,
+  was inzwischen tatsächlich gebaut wurde.
+
+### Arbeitsplan
+
+Neue Phase F ergänzt (vier Arbeitspakete F.1–F.4) mit
+Reihenfolge-Empfehlung: F.1 zuerst (eigenständig, schließt eine
+Sicherheitslücke), F.2 vor F.3 (Prioritätsregel braucht die
+Sichtbarkeitsdimension), F.4 jederzeit unabhängig. Pflichtenheft Abschnitt 8
+um E-12/E-13 ergänzt, E-10 auf „Issue formuliert" aktualisiert.
+
+### Ausgeliefert
+
+Nur Dokumente (vier Issue-Entwürfe + Arbeitsplan-/Pflichtenheft-Update), keine
+neuen Plugin-ZIPs — kein Code wurde in diesem Teil geändert.
+
+---
+
+## Teil 8 — Erster echter CI-Lauf, kritischer Aktivierungs-Bug behoben
+
+**Ergebnis:** Der erste tatsächliche CI-Lauf für `enrol_adele` (Moodle
+4.5.12+, PHP 8.1.34, PostgreSQL 13.23) deckte zwei unabhängige, echte Bugs
+auf. Beide behoben: `enrol_adele` 0.1.3, `local_adele` 0.4.6.
+
+### Befund 1 — kritisch: Plugin war nie aktiviert
+
+Moodle deaktiviert Einschreibe-Plugins standardmäßig, bis sie explizit in
+`$CFG->enrol_plugins_enabled` eingetragen werden. `enrol_adele` hatte kein
+`db/install.php`, das das nachholt — und da das Plugin bewusst kein
+lehrkraft-seitiges „Instanz hinzufügen" besitzt (`can_add_instance() =
+false`), gab es auch keine andere Stelle, an der ein Admin auf die fehlende
+Aktivierung gestoßen wäre. `reconciler::is_active()` prüft
+`enrol_is_enabled('adele')` und bricht bei `false` still ab — kein Fehler,
+kein Log-Eintrag, einfach gar keine Wirkung. Erklärt alle drei
+Testfehlschläge (`reconcile lifecycle shared course`,
+`purge learning path is isolated`, `reconcile host user lifecycle`):
+Jedes Mal derselbe Effekt — `reconcile_*()` lief leer durch.
+
+**Fix:** `db/install.php` nach Vorbild von `enrol_coursecompleted`
+(bereits bei der ursprünglichen Referenz-Plugin-Analyse dokumentiert), plus
+Upgrade-Schritt 2026072302 für bereits installierte Standorte — wichtig,
+da das eigene Test-Moodle des Auftraggebers (`moodle45_aliseadele`) bereits
+eine ältere Version installiert hat und sonst dauerhaft inaktiv geblieben
+wäre.
+
+### Befund 2 — echter, vorbestehender local_adele-Bug, durch unseren Test aufgedeckt
+
+`test_host_course_removal_rules()` löst über den echten Moodle-Data-
+Generator eine Einschreibung im Hostkurs aus — das triggert real
+`mod_adele_observer::user_enrolment_created`, welcher real
+`local_adele\enrollment::subscribe_user_to_learning_path()` aufruft, was
+wiederum ein echtes `user_path_updated`-Event auslöst und in
+`relation_update::subscribe_user_starting_node()` läuft. Diese Funktion las
+`$node['type']` **ohne** `??`-Fallback — im Gegensatz zur fast identischen
+Prüfung wenige Zeilen darüber, die den Fallback korrekt setzt. Unser
+synthetisches Test-Fixture (`plant_state()`) hatte nie ein `type`-Feld
+gesetzt, weil unsere eigenen Reconciler-Tests es nie gebraucht hatten —
+bis der Test über den echten Event-Kaskaden-Pfad lief.
+
+**Fix, zweigleisig:** (a) Test-Fixture um `'type' => 'courseNode'` ergänzt
+(der eigentliche Reconciler-Test soll sich nicht auf einen local_adele-Bug
+verlassen müssen). (b) `relation_update.php` defensiv mit `?? ''`
+nachgezogen, konsistent mit der Schwesterprüfung — ein echter, potenziell
+auch produktiv auftretender Bug, den wir gefunden haben, während wir ohnehin
+schon in der Datei arbeiteten.
+
+### Ausgeliefert
+
+`enrol_adele` 0.1.3, `local_adele` 0.4.6. `mod_adele` unverändert (0.1.6) —
+eigene CI-Rückmeldung steht laut Auftraggeber noch aus, wird in der nächsten
+Iteration behandelt.
+
+---
+
+## Teil 9 — `make check` reparieren, Makefile-Vorlage übernommen
+
+**Ergebnis:** `make check` scheiterte, weil das alte Makefile dieses Target
+schlicht nicht kannte (nur `checks`, Plural). Die vom Auftraggeber
+bereitgestellte Makefile-Vorlage (Original für `mod_elang`) wurde für
+`enrol_adele` angepasst und als neue Basis übernommen.
+
+**Angepasst:** `PLUGIN_NAME`/`PLUGIN_REL` auf `enrol_adele`/`enrol/adele`;
+`lint-mustache` und `fix-phpdoc` um Guards ergänzt, die sauber überspringen,
+wenn `templates/` bzw. `tools/*.php` fehlen (enrol_adele hat keins von
+beidem) — im Stil der bereits in der Vorlage vorhandenen Guards für
+`amd/src/`. Die Pfaderkennung (`MOODLE_ROOT` zwei Ebenen über dem
+Plugin-Checkout) funktioniert unverändert, da `enrol/adele` — wie
+`mod/elang` — exakt zwei Ebenen unter der Moodle-Wurzel liegt.
+
+**Bewusst ergänzt, nicht Teil der Vorlage:** `zip`/`clean`/`link`/`unlink` —
+die Vorlage deckt nur Checks/Fixes/Tests ab, kein Paketieren. Da diese vier
+Targets nicht mit der Vorlage kollidieren, wurden sie aus dem alten
+Makefile übernommen (Variable `PLUGIN_DIR` dabei umbenannt zu
+`PLUGIN_BASENAME`, da die Vorlage `PLUGIN_DIR` bereits mit anderer Bedeutung
+— absoluter Pfad statt bloßem Verzeichnisnamen — belegt).
+
+**Verifiziert:** `make -n` für alle zwölf Targets (fehlerfrei aufgelöst),
+`make zip` real ausgeführt (korrekt strukturiertes ZIP mit `adele/` als
+Wurzelordner), `make clean` räumt korrekt auf. Die Moodle-abhängigen
+Targets (`lint-phpdoc`, `phpunit`, `lint-js`, `amd`) lassen sich in dieser
+Umgebung mangels Moodle-Checkout nicht real ausführen, nur die
+Pfadauflösung wurde per Dry-Run bestätigt.
+
+Keine funktionale Änderung am Plugin, keine Versionserhöhung.
+
+---
+
+## Teil 10 — Zweiter CI-Rückkopplungs-Fix: Test-Isolation statt Plugin-Bug
+
+**Ergebnis:** Nach den 0.1.3-Fixes lief ein echter CI-Durchlauf gegen
+MariaDB (Moodle 4.5.12+, PHP 8.2.30) mit nur noch einem Fehlschlag:
+`test_host_course_removal_rules`, „Failed asserting that false is not
+false" bei der Prüfung der Zielkurs-Einschreibung direkt nach
+`reconcile_user()`.
+
+### Ursache
+
+Kein Plugin-Bug, sondern eine Nebenwirkung des vorherigen Fixes: Der
+`user_enrolment_created`-Aufruf des Tests löst — wie beabsichtigt — den
+mod_adele-Observer aus, der über local_adele erneut subscribed. Das
+triggert synchron local_adele's **echte** Completion-/Restriction-
+Neuberechnung (`updated_single()`), die den von uns manuell gesetzten
+„accessible"-Status überschreibt — unser Fixture-Knoten trägt keine echten
+Bedingungsdaten, also berechnet die reale Pipeline typischerweise „noch
+nicht zugänglich". Vor dem Type-Fix aus Teil 8 unterbrach der Absturz diese
+Kaskade, bevor sie etwas überschreiben konnte — der jetzige Fehlschlag ist
+also die vorherige stille Maskierung eines Test-Isolationsproblems, keine
+neue Regression.
+
+### Fix
+
+Direkt vor dem eigenen `reconciler::reconcile_user()`-Aufruf des Tests wird
+der Knotenstatus über den bereits vorhandenen `set_node_status()`-Helfer
+erneut auf „accessible" gesetzt — unabhängig davon, was die Kaskade
+zwischenzeitlich geschrieben hat. Reine Testkorrektur, keine funktionale
+Änderung, **kein Versionsbump** (wie vom Auftraggeber verlangt).
+
+### Ausgeliefert
+
+`enrol_adele` weiterhin 0.1.3 (unverändert), nur `tests/reconciler_test.php`
+gepatcht.

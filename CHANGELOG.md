@@ -5,6 +5,35 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] — 2026-07-23
+
+### Fixed
+
+- **Critical:** the plugin was never enabled by default. Moodle enrol plugins
+  are site-disabled until explicitly added to `$CFG->enrol_plugins_enabled` —
+  a manual admin step this plugin gave no indication was needed, since it has
+  no teacher-facing "add instance" workflow (`can_add_instance()` is always
+  `false`) that would otherwise surface the problem. With the plugin
+  disabled, `reconciler::is_active()` silently short-circuited every call —
+  no enrolments, no suspensions, no purges, ever, with no error anywhere.
+  Surfaced by the first real CI run (`reconciler_test`, 3 of 4 tests failing
+  with "Attempt to read property on bool" / "false is not false").
+  `db/install.php` now auto-enables the plugin on fresh installs
+  (pattern matches `enrol_coursecompleted`); a new upgrade step
+  (2026072302) applies the same fix retroactively to already-installed sites.
+- PHPUnit fixtures (`tests/reconciler_test.php`) now set a `type` on synthetic
+  nodes. Without it, a test that exercises the real mod_adele → local_adele
+  event cascade (`test_host_course_removal_rules`) crashed inside
+  `local_adele\relation_update::subscribe_user_starting_node()` with
+  "Undefined array key 'type'" — a real, pre-existing local_adele bug the
+  test happened to expose, not a defect in this plugin.
+
+### Notes
+
+- Requires local_adele 0.4.6 (2026072302), which fixes the underlying
+  `subscribe_user_starting_node()` bug this test surfaced (missing `??`
+  fallback, inconsistent with the identical check a few lines above it).
+
 ## [0.1.2] — 2026-07-23
 
 ### Added
@@ -68,6 +97,60 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `extra_plugin_runner` it never had, despite `version.php` requiring it.
 
 ## [Unreleased documentation changes]
+
+### Fixed — tests (Session 002, Teil 10)
+
+- `test_host_course_removal_rules` failed against real Moodle/MariaDB CI
+  (`Failed asserting that false is not false`) after the 0.1.3 fixes landed.
+  Root cause: the mod_adele observer reacts to the test's own
+  `enrol_user()` call and re-subscribes via local_adele, which
+  synchronously runs its real completion/restriction recompute pipeline —
+  overwriting the fixture's manually planted 'accessible' status with
+  whatever it derives for a node that carries no real condition data
+  (typically "not yet accessible"), before the test's own
+  `reconcile_user()` call ever reads it. Not a defect in enrol_adele or in
+  local_adele — a test-isolation gap masked earlier by the "Undefined
+  array key 'type'" crash (0.1.3) that used to interrupt the cascade
+  before it could overwrite anything. Fixed by re-asserting the intended
+  node status right before reconciling. No functional change, no version
+  bump (test-only).
+
+
+### Fixed — tooling (Session 002, Teil 9)
+
+- `make check` did not exist — the old Makefile only had `checks` (plural),
+  so `make check` failed with "No rule to make target". Makefile replaced
+  wholesale with the auto-detecting-paths template used across the
+  project's other plugins (adapted from a `mod_elang` original), keeping
+  `zip`/`clean`/`link`/`unlink` as an enrol_adele-specific addition since the
+  template itself has no packaging targets. No functional plugin change, no
+  version bump.
+
+
+### Added — issue drafts (Session 002, Teil 7)
+
+- Vier Issue-Entwürfe zu Lücken im Host-Kurs-Verhalten (Fall 2/3), aus
+  Rückfragen zum bestehenden Host-Kurs-Mechanismus abgeleitet:
+  `enrol_adele-issue-host-purge-on-leave.md` (E-10 — Host-Kurs-Einschreibungen
+  werden nicht mit ausgetragen, wenn ein Nutzer den Lernpfad verlässt),
+  `enrol_adele-issue-host-visibility.md` (E-12 — Lehrkräfte können den
+  Host-Kurs-Zugang bei Fall 2/3 nicht konfigurieren), `enrol_adele-issue-host-
+  priority.md` (E-13 — konkurrierende Embeddings desselben Lernpfads im
+  selben Host-Kurs überschreiben sich nicht-deterministisch), sowie eine
+  ausführliche Neufassung von ticket #486
+  (`local_adele-issue486-ausfuehrlich.md`). Alle unter `docs/issues/`.
+  Arbeitsplan Phase F.
+
+
+### Changed — repo hygiene (Session 002, Teil 6)
+
+- `.gitignore`/`.gitattributes` standardised across all three plugins
+  (`enrol_adele`, `local_adele`, `mod_adele`) from a project-wide template.
+  `local_adele`'s upstream 0.4.4/0.4.5 base shipped with neither file — both
+  restored. No functional change, no version bump.
+- Issue draft for mod_adele's live option-2/3 trigger + host-course-via-
+  enrol_adele change archived under `docs/issues/` for traceability.
+
 
 ### Changed — documentation (Session 002, Teil 1)
 

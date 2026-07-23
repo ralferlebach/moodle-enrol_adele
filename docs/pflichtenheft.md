@@ -325,6 +325,23 @@ wiederverwenden können.
 
 ## 5. Plugin-Klasse, Restore, Rolle
 
+### 5.0 Aktivierung (kritischer Fund, Session 002 Teil 8)
+
+Moodle deaktiviert Einschreibe-Plugins standardmäßig auf Site-Ebene, bis sie
+explizit in `$CFG->enrol_plugins_enabled` eingetragen werden — unabhängig
+davon, ob eine einzelne Instanz existiert. Da dieses Plugin **kein**
+lehrkraft-seitiges „Instanz hinzufügen" besitzt (`can_add_instance() =
+false`, Abschnitt 5.1), gab es keinerlei Hinweis darauf, dass dieser manuelle
+Admin-Schritt überhaupt nötig ist — `reconciler::is_active()` prüft
+`enrol_is_enabled('adele')` und bricht bei `false` still ab, ohne Fehler,
+ohne Log. Der erste echte CI-Lauf deckte das auf: sämtliche
+Reconciliation-Tests scheiterten, weil nie irgendetwas eingeschrieben wurde.
+
+`db/install.php` trägt das Plugin jetzt bei der Installation automatisch in
+`$CFG->enrol_plugins_enabled` ein (Muster: `enrol_coursecompleted`); ein
+Upgrade-Schritt (2026072302) holt das für bereits installierte Standorte
+nach.
+
 ### 5.1 Plugin-Klasse (Ergänzungen zum Stub)
 
 Der Stub aus 0.1.0 bleibt gültig (`roles_protected()`, `allow_unenrol()` /
@@ -459,8 +476,10 @@ Die Einzeloperationen sind bereits durch die Kern-Events
 | ~~O-4~~ | Rolleneinstellung | erledigt (F-8): wandert zu `enrol_adele/roleid`, Abschnitt 5.3 |
 | ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor (Lastenheft Abschnitt 4) |
 | ~~O-6~~ | Austragungs-Propagation bei Option 1 | erledigt (F-2/F-4): Regelwerk Abschnitt 4 |
-| **E-10** | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft (z. B. Embedding/Aktivität gelöscht). Baustein für eine künftige Verwaltungsseiten-Aktion. | offen |
+| **E-10** | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft. Löst nicht mit ab, wenn ein Nutzer den Lernpfad über A-4 verlässt — Host-Kurs-Einschreibungen bleiben aktiv bestehen. Issue-Entwurf vorhanden (`docs/issues/enrol_adele-issue-host-purge-on-leave.md`), Arbeitsplan Phase F.1. | offen, Issue formuliert |
 | **E-11** | mod_adele-Issue #11 ("Message was not sent" beim ersten Anlegen eines Lernpfads in einem Kurs): Ursache nicht abschließend verifiziert (Screenshot technisch nicht abrufbar). Arbeitshypothese: Willkommensnachricht der ersten Einschreibung im Kurs (`enrol_manual`-Setting „Willkommensnachricht senden") scheitert am Messaging-Subsystem — erklärt das „nur beim ersten Mal"-Muster, ist aber nicht bestätigt. | offen, ungelöst |
+| **E-12** | Kein Weg für Lehrkräfte, den Host-Kurs-Zugang bei Fall 2/3 abzuschwächen (sichtbar/verdeckt/keine Einschreibung) — jede qualifizierende Node-Kurs-Mitgliedschaft erzeugt zwingend eine aktive, sichtbare Host-Kurs-Einschreibung. Issue-Entwurf vorhanden (`docs/issues/enrol_adele-issue-host-visibility.md`), Arbeitsplan Phase F.2. | offen, Issue formuliert |
+| **E-13** | Mehrere Embeddings desselben Lernpfads im selben Host-Kurs überschreiben sich gegenseitig nicht-deterministisch statt sich zu vereinigen ("großzügigste Option gewinnt"). Issue-Entwurf vorhanden (`docs/issues/enrol_adele-issue-host-priority.md`), Arbeitsplan Phase F.3. | offen, Issue formuliert |
 
 ---
 

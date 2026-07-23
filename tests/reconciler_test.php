@@ -58,6 +58,18 @@ final class reconciler_test extends \advanced_testcase {
         foreach ($coursesbynode as $nodeid => $courseids) {
             $nodes[] = [
                 'id' => $nodeid,
+                // Real local_adele nodes always carry a 'type'; relation_update.php's
+                // subscribe_user_starting_node() reads $node['type'] without a
+                // fallback (unlike the sibling check a few lines above it, which
+                // does use '??'). A type-less node — which only ever occurred here,
+                // in this synthetic fixture — crashes with "Undefined array key
+                // type" the moment local_adele's OWN production code processes it.
+                // That happens for real in test_host_course_removal_rules(): the
+                // data generator's enrol_user() call fires mod_adele's observer,
+                // which re-subscribes via local_adele and triggers a real
+                // user_path_updated event, cascading into that exact code path.
+                // Any non-'dropzone' string satisfies the check.
+                'type' => 'courseNode',
                 'parentCourse' => [],
                 'data' => ['course_node_id' => $courseids],
             ];
@@ -282,6 +294,19 @@ final class reconciler_test extends \advanced_testcase {
         ]);
 
         $this->getDataGenerator()->enrol_user($userid, $host->id, 'student', 'manual');
+        // The mod_adele observer reacts to this enrolment (participantslist
+        // option 1) and re-subscribes via local_adele, which synchronously
+        // triggers its OWN real recompute pipeline (updated_single() ->
+        // course_completion_status/course_restriction_status). That pipeline
+        // recomputes node status from actual completion/restriction condition
+        // data — data our bare-bones fixture node never carried — and
+        // overwrites the 'accessible' status this test planted with whatever
+        // it derives from an unconditioned node (typically "not yet
+        // accessible"). This is a property of the fixture, not of enrol_adele
+        // or of local_adele: force the status back to what this test actually
+        // exercises before reconciling, so the assertion is not at the mercy
+        // of an unrelated production code path's side effects.
+        $this->set_node_status($lpid, $userid, 'dndnode_1', 'accessible');
         reconciler::reconcile_user($lpid, $userid);
         $this->assertNotFalse($this->get_ue($lpid, (int) $target->id, $userid));
         $this->assertTrue(observer::is_user_carried($lpid, $userid));
