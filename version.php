@@ -25,11 +25,11 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
-$plugin->release = '0.1.0';
-$plugin->version = 2026071601;
+$plugin->release = '0.1.2';
+$plugin->version = 2026072301;
 $plugin->requires = 2022112800;
 $plugin->maturity = MATURITY_ALPHA;
 $plugin->supported = [401, 501];
 $plugin->dependencies = [
-    'local_adele' => 2026071600,
+    'local_adele' => 2026072301,
 ];

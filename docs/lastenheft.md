@@ -1,7 +1,7 @@
 # Lastenheft `enrol_adele`
 
 **Dokumentstatus:** Fassung 2.0 (ersetzt Entwurf 1.0)
-**Stand:** 2026-07-16, nach Klärung der Rückfragen F-1 bis F-10 (Session 001, Teil 2)
+**Stand:** 2026-07-23, fortgeschrieben bis Session 002, Teil 5
 **Auftraggeber:** Ralf Erlebach
 **Betroffene Komponenten:** `local_adele`, `mod_adele`, `enrol_adele` (neu)
 
@@ -127,7 +127,7 @@ Nicht Gegenstand dieses Vorhabens:
 * Rückportierung in die Upstream-Repositories von Wunderbyte.
 * Die drei historischen `mod_adele`-Branches `adding-privacy-api`,
   `fix-linking-issues`, `fixing-ux-issue-mod_form` — ihr Inhalt ist im heutigen
-  master bereits enthalten oder überholt (siehe Session 001, Teil 2, Abschnitt 2).
+  master bereits enthalten oder überholt (siehe Session 002, Teil 1, Abschnitt 2).
 
 ---
 
@@ -136,11 +136,11 @@ Nicht Gegenstand dieses Vorhabens:
 | Nr. | Lieferobjekt | Status |
 |---|---|---|
 | 1 | Lastenheft, Pflichtenheft, Sitzungsprotokolle | fortgeschrieben (Fassung 2.0) |
-| 2 | Arbeitsplan | **geliefert (Session 001, Teil 2)** |
+| 2 | Arbeitsplan | **geliefert (Session 002, Teil 1)** |
 | 3 | `enrol_adele` als installierbarer Stub, CI-fähig | geliefert (Teil 1) |
 | 4 | `enrol_adele` 0.1.1: Instanzverwaltung, Reconciliation-Engine, A-4-Observer, Task | **geliefert (Teil 3)** |
-| 5 | `local_adele` 0.4.3 (Branch `ralferlebach-enrol-plugin`) | **geliefert (Teil 3)** |
-| 6 | `mod_adele` 0.1.5 (Branch `ralferlebach-enrol-plugin`), inkl. Option 3 und Bugfix A-14 | **geliefert (Teil 3)** |
+| 5 | `local_adele` 0.4.3 (Branch `development`) | geliefert (Teil 3); Reapplikation auf neueren Upstream-Stand aussteht (Teil 4) |
+| 6 | `mod_adele` 0.1.5 (Branch `development`), inkl. Option 3 und Bugfix A-14 | **geliefert (Teil 3)** |
 | 7 | `enrol_adele` 0.1.2: Verwaltungsseite (A-5), Restore-Hooks (A-13), eigene Events | offen |
 | 8 | Testplan und Abnahme | offen |
 

@@ -300,4 +300,66 @@ final class reconciler_test extends \advanced_testcase {
         );
         $this->assertFalse($this->get_ue($lpid, (int) $target->id, $userid));
     }
+
+    /**
+     * Host-course reconciliation (options 2/3, requirement following ticket
+     * #486 follow-up): enrolling is driven by a caller-supplied boolean, not by
+     * local_adele's node feedback status, and lands on a KIND_HOST instance
+     * distinct from any KIND_TARGET instance the same learning path might have
+     * on the same course. Covers enrol, suspend, reactivate and purge.
+     *
+     * @return void
+     */
+    public function test_reconcile_host_user_lifecycle(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+        if (!class_exists('\local_adele\enrol_state')) {
+            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
+        }
+
+        $host = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $lpid = $DB->insert_record('local_adele_learning_paths', (object) [
+            'name' => 'Hostkurs-Testpfad',
+            'description' => '',
+            'timecreated' => time(),
+            'timemodified' => time(),
+            'createdby' => $user->id,
+            'json' => json_encode(['tree' => ['nodes' => [], 'edges' => []]]),
+        ]);
+
+        reconciler::reconcile_host_user($lpid, (int) $host->id, (int) $user->id, true);
+        $instance = $DB->get_record('enrol', [
+            'enrol' => 'adele',
+            'courseid' => $host->id,
+            'customint1' => $lpid,
+            'customint2' => instance_manager::KIND_HOST,
+        ]);
+        $this->assertNotFalse($instance);
+        $ue = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id]);
+        $this->assertEquals(ENROL_USER_ACTIVE, $ue->status);
+
+        // No longer entitled (e.g. left the qualifying node course): suspend,
+        // never delete outright — mirrors the target-course node-closed case.
+        reconciler::reconcile_host_user($lpid, (int) $host->id, (int) $user->id, false);
+        $ue = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id]);
+        $this->assertEquals(ENROL_USER_SUSPENDED, $ue->status);
+
+        // Re-entitled: the SAME user_enrolment reactivates, no duplicate record.
+        reconciler::reconcile_host_user($lpid, (int) $host->id, (int) $user->id, true);
+        $reactivated = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id]);
+        $this->assertEquals(ENROL_USER_ACTIVE, $reactivated->status);
+        $this->assertEquals($ue->id, $reactivated->id);
+
+        // A target-course instance on the SAME course for the SAME learning path
+        // (the self-embedding edge case) does not collide with the host instance.
+        $targetinstance = instance_manager::ensure_instance($lpid, (int) $host->id, instance_manager::KIND_TARGET);
+        $this->assertNotEquals($targetinstance->id, $instance->id);
+
+        reconciler::purge_host_user($lpid, (int) $host->id, (int) $user->id);
+        $this->assertFalse(
+            $DB->record_exists('user_enrolments', ['enrolid' => $instance->id, 'userid' => $user->id])
+        );
+    }
 }

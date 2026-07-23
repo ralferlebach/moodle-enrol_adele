@@ -1,7 +1,7 @@
 # Pflichtenheft `enrol_adele`
 
 **Dokumentstatus:** Fassung 2.0 (ersetzt Entwurf 1.0; die Grant-Tabelle aus 1.0 ist verworfen)
-**Stand:** 2026-07-16, fortgeschrieben nach der initialen Umsetzung (Session 001, Teil 3)
+**Stand:** 2026-07-23, fortgeschrieben bis Session 002, Teil 5
 **Grundlage:** [Lastenheft 2.0](lastenheft.md), Analyse der Referenz-Plugins
 `enrol_coursecompleted`, `enrol_autoenrol`, `enrol_oss`, `enrol_campusonline`
 sowie des Branches `mod_adele/ralferlebach-fix-enrolment-issue`
@@ -78,24 +78,95 @@ bleibt undeklariert: `local_adele` ruft ausschließlich über
 
 ---
 
+## 1a. Erweiterung: Host-Kurs-Instanzen (Session 002, Teil 4)
+
+Bislang besaß `enrol_adele` ausschließlich **Zielkurs**-Einschreibungen. Mit
+Teil 5 kommt eine zweite, unabhängige Instanzart hinzu: **Host-Kurs**-
+Einschreibungen für die Optionen 2 („Startnode") und 3 („irgendeine Node") von
+`mod_adele`. Auslöser: die Host-Kurs-Mitgliedschaft bei diesen beiden Optionen
+ist eine *Folge* der Node-Kurs-Mitgliedschaft, keine eigenständige
+Entscheidung — sie muss also ebenso entziehbar sein, wie sie gewährt wurde.
+Bislang lief sie über `enrol_manual` und war damit weder revidierbar noch von
+`enrol_adele` unterscheidbar (derselbe strukturelle Mangel, den `enrol_adele`
+für Zielkurse ursprünglich beheben sollte, ticket #486).
+
+**Identität:** `enrol = 'adele'`, `courseid` = Host-Kurs, `customint1` =
+Lernpfad-ID (wie bei Zielkurs-Instanzen), zusätzlich `customint2` als
+Unterscheidungsmerkmal:
+
+```
+customint2 = 1 (instance_manager::KIND_TARGET) — bestehende Zielkurs-Instanzen
+customint2 = 2 (instance_manager::KIND_HOST)   — neue Host-Kurs-Instanzen
+```
+
+Ohne `customint2` würden sich Ziel- und Host-Instanz kollidieren, sobald ein
+Kurs zufällig gleichzeitig Host UND Node-Kurs desselben Lernpfads ist
+(Selbsteinbettung, Randfall).
+
+**Mechanik — bewusst asymmetrisch zu Zielkurs-Instanzen:** Bei Zielkursen
+leitet `reconciler::reconcile_user()` die Berechtigung selbst aus
+`local_adele\enrol_state` ab (mengenbasiert über alle Knoten). Bei Host-Kursen
+kennt ausschließlich `mod_adele` die Zuordnung Kurs → Option → Lernpfad;
+`reconciler::reconcile_host_user(int $lpid, int $hostcourseid, int $userid,
+bool $entitled)` nimmt die Berechtigung deshalb als Parameter entgegen und ist
+rein mechanisch (anlegen/reaktivieren/suspendieren einer einzelnen Instanz,
+kein Aggregieren über mehrere Kurse). Die Berechtigungsermittlung selbst lebt
+in `mod_adele\mod_adele_observer::is_user_entitled_to_host_via_option()`: „hat
+der Nutzer irgendeine Einschreibung (jede Methode, Suspendierung zählt —
+konsistent mit F-4/A-8) in einem qualifizierenden Node-Kurs?"
+
+**Auslöser (neu, `mod_adele`):** `user_enrolment_created` **und**
+`user_enrolment_deleted`, site-weit registriert (nicht nur in Host-Kursen),
+da der auslösende Kurs typischerweise ein *Node*-Kurs ist, nicht der Host-Kurs
+selbst. Jedes Event berechnet die Berechtigung frisch aus dem aktuellen
+Datenbankzustand neu (nicht aus dem einzelnen Event abgeleitet), da ein Node-
+Kurs von mehreren Knoten gleichzeitig referenziert werden kann und ein Nutzer
+mehrere qualifizierende Node-Kurs-Einschreibungen gleichzeitig halten kann.
+
+**Kein automatischer Hard-Removal-Trigger auf der Host-Seite** über das
+Suspendieren hinaus — `purge_host_user()` existiert als Baustein, ist aber
+nicht verdrahtet (offener Punkt E-10, Abschnitt 8). Löschen eines Lernpfads
+entfernt Host- wie Zielinstanzen gleichermaßen, da `purge_learning_path()`
+nicht nach `customint2` filtert.
+
 ## 2. Soll-Zustand
 
-### 2.1 Korrigierte User-Path-Identität (Vorarbeit in `local_adele`)
-
-Unverändert aus Fassung 1.0, jetzt durch den Branch
-`ralferlebach-fix-enrolment-issue` bestätigt, der die neue Signatur bereits
-aufruft:
+### 2.1 Korrigierte User-Path-Identität (umgesetzt in `local_adele` 0.4.5)
 
 ```php
-// local_adele\enrollment — neu, idempotent:
+// local_adele\enrollment — neu, idempotent, race-sicher:
 subscribe_user_to_learning_path($learningpath, $params);   // ohne $courseid
 ```
 
-Eindeutigkeit: `UNIQUE (learning_path_id, user_id)` unter den Datensätzen mit
-`status = 'active'`. `course_id` wird aus Suche und Identität entfernt
-(`enrollment.php:65–101`, `buildsqlqueryuserpath()` 139–160). Der bestehende
-Drei-Parameter-Aufrufer bleibt während einer Deprecation-Phase als dünner
+Eindeutigkeit: DB-Unique-Index `(user_id, learning_path_id)`, global — nicht
+auf `status = 'active'` beschränkt. Das ist sicher, weil `status = 'archived'`
+ausschließlich beim Löschen eines Lernpfads gesetzt wird (Abschnitt 2.4/A-3),
+gemeinsam mit dem Löschen der `learning_path_id`-Zeile selbst; da Moodle
+Primärschlüssel nicht wiederverwendet, kann keine künftige Subskription je auf
+dieselbe `learning_path_id` treffen wie eine archivierte Zeile. `course_id` ist
+aus Suche und Identität entfernt (`enrollment.php`, `buildsqlqueryuserpath()`).
+Der bestehende Drei-Parameter-Aufrufer bleibt als dünner, ignorierender
 Wrapper erhalten.
+
+**Konflikt mit ticket #501 und seine Auflösung (Session 002, Teil 4):** Unabhängig von
+diesem Projekt hat lokal_adele 0.4.4 im selben Zeitraum ticket #501 (Race
+Condition beim Check-then-Insert) mit einem Unique-Index auf dem *alten*
+Tripel `(user_id, course_id, learning_path_id)` behoben — dem genauen Modell,
+das dieses Projekt ablöst. Die lokal_adele-Migration 2026072301 (Session 002,
+Teil 4) baut auf 2026072200 auf: sie löscht den alten Dreier-Index, dedupliziert
+verbliebene kursgebundene Duplikate für denselben Nutzer/Lernpfad (höchste ID
+gewinnt, gleiche Begründung wie in 2026072200) und legt den neuen Zweier-Index
+an. Die race-sichere Insert-Then-Catch-Logik aus #501 bleibt erhalten, nur auf
+das neue Tripel angepasst.
+
+**Nebenbefund beim Reapplizieren (Session 002, Teil 4):** Der ursprüngliche SQL-Befehl der
+2026072200-Migration (`DELETE ... WHERE id NOT IN (SELECT ... FROM (SELECT
+...))`, verschachtelte Subquery auf derselben Tabelle) ist auf mindestens einer
+produktiven Installation mit `dml_write_exception` gescheitert — ein bekanntes
+MySQL/MariaDB-Fehlerbild (Error 1093), gegen das die Verschachtelung keine
+Garantie bietet. Ersetzt durch zwei getrennte Anweisungen: eine lesende
+`SELECT ... WHERE EXISTS (...)` (Selbst-Joins sind dort immer unproblematisch)
+gefolgt von einem einfachen `DELETE ... WHERE id IN (<Liste>)`.
 
 ### 2.2 Die Soll-Zustands-Funktion
 
@@ -305,7 +376,8 @@ den Reconciler ersetzt. Damit:
 
 ## 6. Verwaltungsseite (A-5)
 
-Admin-Seite unter *Website-Administration → Plugins → Einschreibung → ADELE*
+Admin-Seite unter *Website-Administration → Plugins → Einschreibungsmethoden
+→ Lernpfad-Einschreibung*
 (`enrol/adele/manage.php`), Capability `enrol/adele:config`. Vorbilder:
 `enrol_coursecompleted/manage.php` (Aufbau, Capability-Prüfung) und
 `enrol_campusonline` (Admin-Tabellen).
@@ -387,6 +459,8 @@ Die Einzeloperationen sind bereits durch die Kern-Events
 | ~~O-4~~ | Rolleneinstellung | erledigt (F-8): wandert zu `enrol_adele/roleid`, Abschnitt 5.3 |
 | ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor (Lastenheft Abschnitt 4) |
 | ~~O-6~~ | Austragungs-Propagation bei Option 1 | erledigt (F-2/F-4): Regelwerk Abschnitt 4 |
+| **E-10** | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft (z. B. Embedding/Aktivität gelöscht). Baustein für eine künftige Verwaltungsseiten-Aktion. | offen |
+| **E-11** | mod_adele-Issue #11 ("Message was not sent" beim ersten Anlegen eines Lernpfads in einem Kurs): Ursache nicht abschließend verifiziert (Screenshot technisch nicht abrufbar). Arbeitshypothese: Willkommensnachricht der ersten Einschreibung im Kurs (`enrol_manual`-Setting „Willkommensnachricht senden") scheitert am Messaging-Subsystem — erklärt das „nur beim ersten Mal"-Muster, ist aber nicht bestätigt. | offen, ungelöst |
 
 ---
 

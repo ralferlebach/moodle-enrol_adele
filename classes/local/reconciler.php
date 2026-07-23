@@ -79,11 +79,15 @@ class reconciler {
 
         $entitled = \local_adele\enrol_state::get_entitled_courseids($learningpathid, $userid);
         $plugin = enrol_get_plugin('adele');
-        $instances = instance_manager::get_instances($learningpathid);
+        $instances = instance_manager::get_instances($learningpathid, instance_manager::KIND_TARGET);
 
         foreach ($entitled as $courseid) {
             if (!isset($instances[$courseid])) {
-                $instance = instance_manager::ensure_instance($learningpathid, $courseid);
+                $instance = instance_manager::ensure_instance(
+                    $learningpathid,
+                    $courseid,
+                    instance_manager::KIND_TARGET
+                );
                 if ($instance) {
                     $instances[$courseid] = $instance;
                 }
@@ -195,7 +199,7 @@ class reconciler {
         if (!$plugin) {
             return;
         }
-        foreach (instance_manager::get_instances($learningpathid) as $instance) {
+        foreach (instance_manager::get_instances($learningpathid, instance_manager::KIND_TARGET) as $instance) {
             if (
                 $DB->record_exists(
                     'user_enrolments',
@@ -204,6 +208,101 @@ class reconciler {
             ) {
                 $plugin->unenrol_user($instance, $userid);
             }
+        }
+    }
+
+    /**
+     * Reconcile one user's HOST-course enrolment for one learning path embedding.
+     *
+     * Unlike reconcile_user() (target courses, entitlement derived from
+     * local_adele's node feedback status), entitlement here is a plain boolean
+     * the caller supplies: only mod_adele knows whether the user currently
+     * holds membership in a qualifying node course for a given embedding's
+     * option (2 = starting node, 3 = any node). This method is purely
+     * mechanical — create/reactivate/suspend the one host-course instance —
+     * mirroring the target-course logic without the set aggregation, since a
+     * host-course instance is scoped to a single course.
+     *
+     * @param int $learningpathid The learning path id.
+     * @param int $hostcourseid The course embedding the mod_adele activity.
+     * @param int $userid The user id.
+     * @param bool $entitled Whether the user currently qualifies for host access.
+     * @return void
+     */
+    public static function reconcile_host_user(
+        int $learningpathid,
+        int $hostcourseid,
+        int $userid,
+        bool $entitled
+    ): void {
+        global $DB;
+
+        if (!self::is_active()) {
+            return;
+        }
+
+        $plugin = enrol_get_plugin('adele');
+        $instance = instance_manager::get_instances($learningpathid, instance_manager::KIND_HOST)[$hostcourseid]
+            ?? null;
+
+        if ($entitled && !$instance) {
+            $instance = instance_manager::ensure_instance($learningpathid, $hostcourseid, instance_manager::KIND_HOST);
+        }
+        if (!$instance) {
+            return;
+        }
+        if ((int) $instance->status !== ENROL_INSTANCE_ENABLED) {
+            return;
+        }
+
+        $ue = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $userid]);
+
+        if ($entitled && !$ue) {
+            $plugin->enrol_user(
+                $instance,
+                $userid,
+                $instance->roleid ?: instance_manager::get_role_id(),
+                0,
+                0,
+                ENROL_USER_ACTIVE
+            );
+        } else if ($entitled && (int) $ue->status === ENROL_USER_SUSPENDED) {
+            $plugin->update_user_enrol($instance, $userid, ENROL_USER_ACTIVE);
+        } else if (!$entitled && $ue && (int) $ue->status === ENROL_USER_ACTIVE) {
+            $plugin->update_user_enrol($instance, $userid, ENROL_USER_SUSPENDED);
+        }
+    }
+
+    /**
+     * Hard-remove one user's HOST-course enrolment for one learning path embedding.
+     *
+     * Not currently wired to an automatic trigger (there is no host-side
+     * equivalent of "learning path deleted" yet beyond the embedding itself
+     * disappearing, which purge_learning_path() already covers by removing
+     * every instance — target and host alike — of the learning path). Kept as
+     * a building block for a future admin action or embedding-removal hook.
+     *
+     * @param int $learningpathid The learning path id.
+     * @param int $hostcourseid The course embedding the mod_adele activity.
+     * @param int $userid The user id.
+     * @return void
+     */
+    public static function purge_host_user(int $learningpathid, int $hostcourseid, int $userid): void {
+        global $DB;
+
+        $plugin = enrol_get_plugin('adele');
+        if (!$plugin) {
+            return;
+        }
+        $instance = instance_manager::get_instances($learningpathid, instance_manager::KIND_HOST)[$hostcourseid]
+            ?? null;
+        if (
+            $instance && $DB->record_exists(
+                'user_enrolments',
+                ['enrolid' => $instance->id, 'userid' => $userid]
+            )
+        ) {
+            $plugin->unenrol_user($instance, $userid);
         }
     }
 

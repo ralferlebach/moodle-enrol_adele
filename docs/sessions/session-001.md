@@ -1,14 +1,19 @@
-# Session 001 — Analyse, Spezifikation, Architektur und initiale Umsetzung
+# Session 001 — Analyse, Spezifikation und Plugin-Stub
 
 **Datum:** 2026-07-16
 **Teilnehmer:** Ralf Erlebach, Claude
 **Ergebnis:** `enrol_adele` 0.1.0 (Stub), Lastenheft, Pflichtenheft
 
-
-> **Konvention (festgehalten auf Wunsch des Auftraggebers):** Ein Claude-Chat =
-> eine Session. Alles, was innerhalb eines Chats geschieht — auch mehrere
+> **Konvention (Stand zum Zeitpunkt dieser Sitzung):** Ein Claude-Chat = eine
+> Session. Alles, was innerhalb eines Chats geschieht — auch mehrere
 > Arbeitsblöcke — wird im selben Sitzungsprotokoll fortgeschrieben.
 > Versionsnummern werden nur bei funktionalen Änderungen am Plugin erhöht.
+>
+> **Nachträgliche Präzisierung (Session 002):** Diese Sitzung deckt
+> ausschließlich die Analyse- und Stub-Erstellungsarbeit ab. Die Klärung der
+> Rückfragen F-1…F-10 und alle weitere Umsetzung finden ab
+> [`session-002.md`](session-002.md) statt — trotz teils gleichen Kalendertags
+> eine eigenständige Session, da ein neues Chat-Fenster begann.
 
 ---
 
@@ -184,175 +189,3 @@ abweichende Makefile- oder CI-Struktur —, sollten sie beim nächsten Mal
 gegengehalten werden.
 
 ---
-
-## Teil 2 — Referenz-Plugins, Branch-Analyse, Architekturentscheidung
-
-**Datum:** 2026-07-16
-**Teilnehmer:** Ralf Erlebach, Claude
-**Ergebnis:** Rückfragen F-1…F-10 geklärt, Architektur auf zustandslose
-Reconciliation umgestellt (Grant-Tabelle verworfen), Lastenheft/Pflichtenheft
-Fassung 2.0, Arbeitsplan
-
----
-
-### 1. Analysierte Artefakte
-
-| Artefakt | Version/Stand |
-|---|---|
-| `enrol_coursecompleted` | 2026060600 (Moodle 5.2) |
-| `enrol_autoenrol` | 2025031400 (Moodle 4.5) |
-| `enrol_oss` | 2026012201 (Moodle 5.1) |
-| `enrol_campusonline` | 2026062201 (Moodle 5.1) |
-| `local_adele` main | 0.4.2 — byte-identisch mit Session-001-Stand |
-| `mod_adele` master | 0.1.4 — byte-identisch mit Session-001-Stand |
-| `mod_adele`-Branches | `fix-enrolment-issue`, `fixing-ux-issue-mod_form`, `fix-linking-issues`, `adding-privacy-api` |
-
-### 2. Befunde: die vier mod_adele-Branches
-
-**`ralferlebach-fix-enrolment-issue` (Version 2026031600 — neuer als master)
-ist der einzige zukunftsrelevante Branch.** Inhalt:
-
-* Neue Einschreibeoption **3 = „Everyone who is subscribed to any node of the
-  learning path"** (`enroll_any_nodes_participants()`) — genau die im Auftrag
-  als „noch nicht implementiert" erwähnte Any-Node-Variante. In der
-  Architektur als Option 3 fest eingeplant (A-15).
-* Ruft `subscribe_user_to_learning_path($learningpath, $params)` **ohne
-  `$courseid`** auf — nimmt die korrigierte User-Path-Identität vorweg. Gegen
-  `local_adele` main (Signatur mit drei Pflichtparametern,
-  `enrollment.php:65`) ist das ein fataler Fehler; **deshalb ist der Branch
-  nicht integrierbar, bis dieses Vorhaben die local_adele-Seite liefert.**
-  Das erklärt seinen Schwebezustand.
-* Defensive Guards (`is_local_adele_available()`, Null-Prüfungen auf Records) —
-  gleiche Philosophie wie unsere optionale Kopplung.
-* `mod_form`: `participantslist` von `autocomplete` auf `select multiple
-  size=3`, Option 3 ergänzt.
-* Der Vergleichsfehler `participantslist == '1'` auf der rohen Kommaliste in
-  `user_enrolment_created` (Zeile 105) ist **auch in diesem Branch noch
-  unbehoben** → bleibt als A-14 bei uns.
-* Kuriosum: `$plugin->release = '0.9'` bei `version = 2026031600` — beim
-  Portieren die Versionierung von master fortführen, nicht die des Branches.
-
-**Die drei übrigen Branches sind historisch** (Versionen 2024091800 bis
-2024101400, alle älter als master 2025030400): `adding-privacy-api` (Privacy
-ist längst in master, Branch kennt `completionlearningpathfinished` noch
-nicht), `fix-linking-issues` und `fixing-ux-issue-mod_form` (mod_form-Stand von
-master ist weiter). Keine Übernahme; im Lastenheft unter Abgrenzung vermerkt.
-
-### 3. Befunde: die vier Referenz-Plugins
-
-| Plugin | Übernommenes Muster |
-|---|---|
-| `enrol_coursecompleted` | Instanz-Identität über `customint1` = Quell-Entität (validiert unser Design); `manage.php` mit eigenen Capabilities; Hook `before_course_deleted`. **Anti-Pattern dokumentiert:** direktes `$DB->delete_records('enrol', …)` hinterlässt verwaiste `user_enrolments` — wir gehen über `delete_instance()`. |
-| `enrol_autoenrol` | `ENROL_EXT_REMOVED_*`-Semantik, `role_unassign_all()` mit component/itemid, CLI-Sync |
-| `enrol_campusonline` | **Das Kernmuster:** autoritative Quelle + idempotente Reconciliation (fehlend→einschreiben, suspendiert→aktivieren, unberechtigt→suspendieren) |
-| `enrol_oss` | bestätigt Scheduled-Task-Sicherheitsnetz; sonst LDAP-spezifisch |
-
-Keines der vier materialisiert Begründungen in einer eigenen Tabelle — zusammen
-mit der Knoten-ID-Wiederverwendung (`getNodeId()` vergibt `höchste+1`, IDs
-gelöschter Knoten werden recycelt) der Ausschlag für F-6.
-
-### 4. Entscheidungen (Antworten auf F-1…F-10)
-
-| # | Entscheidung |
-|---|---|
-| F-1 | Geteilte Zielkurse: Einschreibung bleibt aktiv, solange irgendein Knoten den Kurs gewährt. → A-6; durch mengenbasierte Soll-Zustands-Ermittlung automatisch erfüllt. |
-| F-2 | Asymmetrie bestätigt: Knoten gesperrt → deaktivieren; LP gelöscht oder Zugang über mod_adele verloren → löschen. → A-7 |
-| F-3 | Bug A-14 beheben; Branches analysieren (Abschnitt 2); Option 3 in Architektur einplanen (A-15). |
-| F-4 | Suspendierung im Hostkurs ist keine Austragung → keine Reaktion (A-8). |
-| F-5 | Verwaltungsseite mit beiden Aktionen: „Neu berechnen" und „Hart löschen" (A-5). |
-| F-6 | **Zustandslose Reconciliation. Keine Grant-Tabelle, keine Log-Tabelle** — Nachvollziehbarkeit über Moodle-Standard-Logging (Kern-Events + drei eigene Events für Massenoperationen). Größte Änderung gegenüber Pflichtenheft 1.0. |
-| F-7 | Hostkurs-Einschreibungen bleiben `enrol_manual` (A-10). `enrol_adele` besitzt ausschließlich Zielkurs-Einschreibungen. |
-| F-8 | Kein doppeltes Setting: Codeanalyse zeigt, dass `local_adele/enroll_as_setting` nur an den zwei Zielkurs-Einschreibestellen verwendet wird — es wandert vollständig zu `enrol_adele/roleid`, Altsetting deprecated mit einmaliger Wertübernahme. |
-| F-9 | Bestandsdaten bleiben unangetastet; keine Migration. Lieferobjekt 6 aus Fassung 1.0 gestrichen. |
-| F-10 | Annahme bestätigt, mit technischer Präzisierung: Damit wiederhergestellte Kurse wirklich keine ADELE-Einschreibungen tragen, müssen `restore_instance()` (Skip-Strategie) und `restore_user_enrolment()` (No-op) **aktiv** implementiert werden — sonst wandelt Moodle sie je nach Restore-Einstellung in `manual`-Einschreibungen um. Ausnahme: Restore in denselben Kurs, wenn der Lernpfad existiert und den Kurs führt → mappen; Reconciliation heilt den Rest. |
-
-Konsequenz aus F-6 nebenbei: `db/install.xml` bleibt dauerhaft leer, der
-Privacy-`null_provider` bleibt dauerhaft korrekt — die für 0.2.0 geplante
-Privacy-Umstellung entfällt ersatzlos.
-
-### 5. Neue Invariante
-
-Damit Reconciliation und harte Löschung nicht gegeneinander arbeiten:
-
-```
-Einschreibungen existieren  ⇔  local_adele_path_user.status = 'active'
-```
-
-Jede harte Löschung muss zuerst den User-Path deaktivieren, sonst schreibt der
-nächste Reconciliation-Lauf sofort wieder ein. Details Pflichtenheft 2.5.
-
-### 6. Verbleibende offene Punkte
-
-| ID | Punkt | Blockiert |
-|---|---|---|
-| **R-1** | User-Path bei harter Löschung: Statuswechsel `inactive` (Empfehlung, Snapshot bleibt wie bei #446) oder Datensatz löschen? | nur Phase D (AP D.4) |
-| **R-2** | `fix-enrolment-issue` in den Arbeitsbranch `ralferlebach-enrol-plugin` übernehmen (Empfehlung: ja — Option 3 und Signaturwechsel sind dort vorbereitet, getrennte Weiterführung erzeugt Doppelarbeit und Merge-Konflikte) oder separat lassen? | nur Phase D (AP D.6) |
-
-Phasen B und C des Arbeitsplans sind von beiden unabhängig.
-
-### 7. Geänderte/neue Dokumente
-
-* `docs/lastenheft.md` → Fassung 2.0 (Anforderungen A-1…A-15)
-* `docs/pflichtenheft.md` → Fassung 2.0 (Reconciliation statt Grants; Restore;
-  Verwaltungsseite; Event-Matrix; Regelwerk A-4)
-* `docs/arbeitsplan.md` → neu (Phasen A–D, Arbeitspakete, Reihenfolge)
-* `README.md`, `CHANGELOG.md` → an Fassung 2.0 angepasst
-* Code des Stubs: **unverändert** (weiterhin reine Installierbarkeit; die
-  Roadmap-Änderung betrifft nur Doku und Planung)
-
----
-
-## Teil 3 — Initiale Umsetzung (enrol_adele 0.1.1, local_adele 0.4.3, mod_adele 0.1.5)
-
-**Ergebnis:** Reconciliation-Engine, A-4-Observer und die Aufrufer-Umstellung
-in allen drei Plugins; auslieferbar als drei ZIPs.
-
-## 1. Entscheidungen dieses Teils
-
-| ID | Entscheidung |
-|---|---|
-| **R-1** | Bei Zugangsverlust nach A-4 wird die Zeile in `local_adele_path_user` **gelöscht**. Begründung des Auftraggebers: Bei erneuter Einschreibung re-deriviert sich der Fortschritt aus den im System vorliegenden Kurs- und Zeitzuständen. Bestätigt mit zwei dokumentierten Einschränkungen (Pflichtenheft 2.5): (a) manuelle Master-Overrides einer Lehrkraft leben nur im User-Path-JSON und gehen verloren; (b) `first_enrolled` wird neu gestempelt, zeitgesteuerte Restriktionsfenster beginnen von vorn. |
-| **R-2** | Der Branch `ralferlebach-fix-enrolment-issue` fließt in den Arbeitsbranch ein: Option 3 („irgendein Knoten"), defensive Guards und der Aufruf der neuen Subscribe-Signatur sind in `mod_adele` 0.1.5 übernommen; der dort noch unbehobene Vergleichsfehler A-14 ist mitbehoben. |
-| Versionierung | `mod_adele`: master trägt bereits 0.1.4, daher 0.1.5 (Moodle verlangt für Upgrades eine steigende Version). `local_adele` 0.4.3 und `enrol_adele` 0.1.1 wie beauftragt. |
-
-## 2. Gelieferter Funktionsumfang
-
-**enrol_adele 0.1.1** — `local\instance_manager` (Instanzen lazy je Lernpfad ×
-Zielkurs, Rolle aus `enrol_adele/roleid` mit Übernahme aus dem Altsetting per
-F-8); `local\reconciler` (`reconcile_user/learning_path/all`,
-`purge_user/purge_learning_path`, alles idempotent, Löschung nur über
-`delete_instance()`); Observer `user_enrolment_deleted` mit dem vollständigen
-Regelwerk A-4 (Optionen 1/2/3, Rekursionsschutz, ADELE-Einschreibungen zählen
-nie als tragend); nächtlicher Scheduled Task als Sicherheitsnetz; `sync()` in
-der Plugin-Klasse; PHPUnit-Tests für die Prüfkriterien 1–3.
-
-**local_adele 0.4.3** — neue Klasse `enrol_state` (Soll-Zustands-Funktion
-`get_entitled_courseids()`, JSON-Hoheit bleibt hier; `request_reconcile()` /
-`request_purge()` als optionale Kopplung nach L-Q-08);
-`subscribe_user_to_learning_path()` mit optionalem `$courseid` (nur noch
-Provenienz, Identität = Lernpfad × Nutzer, `buildsqlqueryuserpath()` ohne
-`course_id`); Reconcile-Hook nach jedem Recompute (`relation_update`) und nach
-`node_completion` (dort bleiben `first_enrolled`, Boundary-Scheduling und
-Gruppenzuordnung aktiv); `delete_learning_path()` purgt zuerst und archiviert
-die User-Path-Snapshots. Ohne installiertes `enrol_adele` greift überall das
-unveränderte `enrol_manual`-Altverhalten.
-
-**mod_adele 0.1.5** — Übernahme aus `fix-enrolment-issue`: Option 3 samt
-Lang-Strings (en/de) und `mod_form`-Eintrag, defensive Guards; Bugfix A-14
-(`explode` vor dem Options-Vergleich); alle Subscribe-Aufrufe ohne `courseid`;
-Hostkurs-Einschreibung unverändert `enrol_manual` (A-10).
-
-## 3. Verifikation
-
-`php -l` und `moodle-cs` (Standard `moodle`) über alle neuen und geänderten
-Dateien: null Fehler, null Warnungen. Die PHPUnit-Tests sind geschrieben, aber
-in dieser Umgebung nicht ausgeführt (keine Moodle-Instanz) — erster Lauf in der
-CI, sobald die Branches gepusht sind. Die CI-Workflows verweisen jetzt auf die
-Arbeitsbranches `ralferlebach-enrol-plugin` beider Nachbar-Repos; bis diese
-existieren, kann die Matrix nicht grün laufen.
-
-## 4. Offen nach diesem Teil
-
-Verwaltungsseite (A-5), Restore-Hooks (A-13), eigene Events, Behat — geplant
-als 0.1.2, siehe Arbeitsplan (C.2–C.5). Deprecation von
-`local_adele/enroll_as_setting` (D.5) und die Gesamtabnahme (D.8) folgen.

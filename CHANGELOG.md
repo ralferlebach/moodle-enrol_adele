@@ -5,6 +5,29 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-07-23
+
+### Added
+
+- Second, independent instance kind: HOST-course instances
+  (`instance_manager::KIND_HOST`, discriminated from the existing
+  KIND_TARGET via `customint2`) for `mod_adele` subscription options 2
+  ("starting node") and 3 ("any node"), where host-course membership is a
+  CONSEQUENCE of node-course membership rather than an independent grant.
+- `reconciler::reconcile_host_user()`: mechanical enrol/reactivate/suspend for
+  one host-course instance, driven by a caller-supplied boolean (only
+  `mod_adele` knows the course → option → learning path mapping).
+  `reconciler::purge_host_user()` as a building block for a future hard-removal
+  trigger (not yet wired to anything automatic — see pflichtenheft E-10).
+- PHPUnit coverage for the host-course lifecycle (enrol, suspend, reactivate,
+  purge, non-collision with a target instance on the same course).
+
+### Notes
+
+- Requires local_adele 0.4.5 (2026072301), which completes the identity
+  migration to `(user_id, learning_path_id)` and fixes a production upgrade
+  blocker. Companion releases: local_adele 0.4.5, mod_adele 0.1.6.
+
 ## [0.1.1] — 2026-07-16
 
 ### Added
@@ -31,9 +54,22 @@ the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html
   `\local_adele\enrol_state` — the single place that interprets the user path
   JSON. Companion releases: local_adele 0.4.3, mod_adele 0.1.5.
 
+### Changed (Session 002, Teil 3)
+
+- Display name shortened from "ADELE learning path enrolment" to "Learning
+  path enrolment" (`pluginname`, `pluginname_desc`, `privacy:metadata`,
+  `reconciletask`, both capability descriptions; en/de). The component
+  identifier `enrol_adele` and the per-instance label `ADELE: {$a}` are
+  unchanged. No functional change — no version bump.
+- CI: all three plugins now share a `development` working branch, replacing
+  the never-created `ralferlebach-enrol-plugin`. local_adele's CI additionally
+  switched its mod_adele dependency from upstream `Wunderbyte-GmbH/master` to
+  our own fork's `development` branch; mod_adele's CI gained a local_adele
+  `extra_plugin_runner` it never had, despite `version.php` requiring it.
+
 ## [Unreleased documentation changes]
 
-### Changed — documentation (Session 001, Teil 2)
+### Changed — documentation (Session 002, Teil 1)
 
 - Architecture pivoted from a persisted grants table to a **stateless,
   idempotent reconciliation** (decision F-6): the intended state is derived

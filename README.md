@@ -1,13 +1,15 @@
-# ADELE learning path enrolment (`enrol_adele`)
+# Learning path enrolment (`enrol_adele`)
 
 Moodle enrolment plugin for the ADELE learning path ecosystem.
 
-> **Status: 0.1.1 — initial implementation.**
+> **Status: 0.1.2 — initial implementation, host-course instances added.**
 > The stateless reconciliation engine, the host-course removal rules
 > (subscription options 1/2/3) and the nightly safety-net task are live.
-> Requires local_adele 0.4.3; companion releases: local_adele 0.4.3,
-> mod_adele 0.1.5. The admin manage page and backup/restore hooks follow
-> in 0.1.2 — see [`docs/arbeitsplan.md`](docs/arbeitsplan.md).
+> Since 0.1.2, a second independent instance kind reconciles HOST-course
+> enrolments for subscription options 2/3 as well as target-course ones.
+> Requires local_adele 0.4.5; companion releases: local_adele 0.4.5,
+> mod_adele 0.1.6. The admin manage page and backup/restore hooks follow
+> in 0.1.3 — see [`docs/arbeitsplan.md`](docs/arbeitsplan.md).
 
 ---
 
@@ -48,7 +50,7 @@ produces one instance per target course — and two learning paths that share a
 target course deliberately get two separate instances, because they are two
 separate access sources with separate lifecycles.
 
-The plugin keeps no state of its own (no tables — decided in Session 001, Teil 2).
+The plugin keeps no state of its own (no tables — decided in Session 002, Teil 1).
 Instead, a stateless, idempotent reconciliation compares the intended state
 from `local_adele`'s user paths — the set of courses whose nodes are currently
 accessible or completed — against Moodle's `user_enrolments`, and enrols,
@@ -108,8 +110,8 @@ The code checker runs at **zero tolerance**: `codechecker_max_warnings: 0` in CI
 | Repository | Working branch |
 |---|---|
 | [`moodle-enrol_adele`](https://github.com/ralferlebach/moodle-enrol_adele) | `development` |
-| [`moodle_local_adele`](https://github.com/ralferlebach/moodle_local_adele) | `ralferlebach-enrol-plugin` |
-| [`moodle-mod_adele`](https://github.com/ralferlebach/moodle-mod_adele) | `ralferlebach-enrol-plugin` |
+| [`moodle_local_adele`](https://github.com/ralferlebach/moodle_local_adele) | `development` |
+| [`moodle-mod_adele`](https://github.com/ralferlebach/moodle-mod_adele) | `development` |
 
 ADELE is developed by [Wunderbyte GmbH](https://www.wunderbyte.at/). This is a
 fork-side extension and is not affiliated with upstream.

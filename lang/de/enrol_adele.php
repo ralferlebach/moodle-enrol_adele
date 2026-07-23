@@ -24,11 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['adele:config'] = 'ADELE-Einschreibeinstanzen konfigurieren';
-$string['adele:unenrol'] = 'Nutzer/innen über ADELE aus einem Kurs austragen';
+$string['adele:config'] = 'Lernpfad-Einschreibeinstanzen konfigurieren';
+$string['adele:unenrol'] = 'Nutzer/innen über die Lernpfad-Einschreibung aus einem Kurs austragen';
 $string['defaultrole_desc'] = 'Die Rolle, die ADELE zuweist, wenn ein/e Nutzer/in in einen Zielkurs eines Lernpfads eingeschrieben wird.';
 $string['instancename'] = 'ADELE: {$a}';
-$string['pluginname'] = 'ADELE-Lernpfad-Einschreibung';
-$string['pluginname_desc'] = 'Die ADELE-Einschreibemethode ist Eigentümerin aller Kurseinschreibungen, die ein ADELE-Lernpfad in seinen Zielkursen erzeugt. Eine Einschreibeinstanz gehört zu genau einem Lernpfad und genau einem Zielkurs. Dadurch bleiben die Einschreibungen verschiedener Lernpfade getrennt, und ADELE kann die selbst erzeugten Einschreibungen zurücknehmen, ohne manuelle, Selbst- oder Cohort-Einschreibungen anzutasten.';
-$string['privacy:metadata'] = 'Das Plugin „ADELE-Lernpfad-Einschreibung“ speichert keine personenbezogenen Daten. Die erzeugten Einschreibungen werden vom Einschreibesystem des Moodle-Kerns gespeichert.';
-$string['reconciletask'] = 'ADELE-Lernpfad-Einschreibungen abgleichen';
+$string['instancenamehost'] = 'ADELE (Lernpfadzugang): {$a}';
+$string['pluginname'] = 'Lernpfad-Einschreibung';
+$string['pluginname_desc'] = 'Diese Einschreibemethode ist Eigentümerin aller Kurseinschreibungen, die ein ADELE-Lernpfad in seinen Zielkursen erzeugt. Eine Einschreibeinstanz gehört zu genau einem Lernpfad und genau einem Zielkurs. Dadurch bleiben die Einschreibungen verschiedener Lernpfade getrennt, und die selbst erzeugten Einschreibungen können zurückgenommen werden, ohne manuelle, Selbst- oder Cohort-Einschreibungen anzutasten.';
+$string['privacy:metadata'] = 'Das Plugin „Lernpfad-Einschreibung“ speichert keine personenbezogenen Daten. Die erzeugten Einschreibungen werden vom Einschreibesystem des Moodle-Kerns gespeichert.';
+$string['reconciletask'] = 'Lernpfad-Einschreibungen abgleichen';

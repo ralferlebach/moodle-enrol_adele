@@ -24,11 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['adele:config'] = 'Configure ADELE enrolment instances';
-$string['adele:unenrol'] = 'Unenrol users from a course through ADELE';
+$string['adele:config'] = 'Configure learning path enrolment instances';
+$string['adele:unenrol'] = 'Unenrol users from a course through the learning path enrolment method';
 $string['defaultrole_desc'] = 'The role that ADELE assigns when it enrols a user into a target course of a learning path.';
 $string['instancename'] = 'ADELE: {$a}';
-$string['pluginname'] = 'ADELE learning path enrolment';
-$string['pluginname_desc'] = 'The ADELE enrolment method owns the course enrolments that an ADELE learning path creates in its target courses. One enrolment instance belongs to exactly one learning path and one target course. This keeps the enrolments of different learning paths apart and lets ADELE withdraw its own enrolments without ever touching manual, self or cohort enrolments.';
-$string['privacy:metadata'] = 'The ADELE learning path enrolment plugin does not store any personal data. The enrolments it creates are stored by the Moodle core enrolment subsystem.';
-$string['reconciletask'] = 'Reconcile ADELE learning path enrolments';
+$string['instancenamehost'] = 'ADELE (path access): {$a}';
+$string['pluginname'] = 'Learning path enrolment';
+$string['pluginname_desc'] = 'This enrolment method owns the course enrolments that an ADELE learning path creates in its target courses. One enrolment instance belongs to exactly one learning path and one target course. This keeps the enrolments of different learning paths apart and lets it withdraw its own enrolments without ever touching manual, self or cohort enrolments.';
+$string['privacy:metadata'] = 'The learning path enrolment plugin does not store any personal data. The enrolments it creates are stored by the Moodle core enrolment subsystem.';
+$string['reconciletask'] = 'Reconcile learning path enrolments';

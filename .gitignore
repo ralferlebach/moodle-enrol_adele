@@ -3,6 +3,7 @@
 Thumbs.db
 desktop.ini
 *Zone.Identifier
+._*
 
 # IDE
 .idea/
@@ -16,6 +17,10 @@ npm-debug.log*
 yarn-error.log*
 package-lock.json
 yarn.lock
+
+# vue
+/vue3/node_modules/
+/vue3/coverage
 
 # PHP / Composer
 vendor/
