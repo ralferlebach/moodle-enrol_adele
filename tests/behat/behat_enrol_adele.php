@@ -43,6 +43,27 @@ use Behat\Behat\Context\Step\Given;
  */
 class behat_enrol_adele extends behat_base {
     /**
+     * Visit a relative URL directly.
+     *
+     * Fix (Session 003, Teil 16): "Given I am on "<url>"" (used previously)
+     * is not a registered step in this site's actual Moodle/Behat version -
+     * the second real CI run showed "missing steps" for it. Rather than
+     * guess a third time at whichever exact core step phrasing this Moodle
+     * version does support, this defines an unambiguous custom one using
+     * only behat_base's own well-established locate_path() helper (already
+     * relied on internally by many core steps, e.g. i_am_on_homepage()),
+     * so correctness does not depend on the exact core step catalogue of
+     * whichever Moodle version this runs against.
+     *
+     * @Given /^I directly visit the url "(?P<url_string>(?:[^"]|\\")*)"$/
+     * @param string $url Relative URL, e.g. "enrol/adele/manage.php".
+     * @return void
+     */
+    public function i_directly_visit_the_url(string $url): void {
+        $this->getSession()->visit($this->locate_path($url));
+    }
+
+    /**
      * Create a minimal learning path and an active ADELE enrol instance for
      * it in the given course, for the given user.
      *

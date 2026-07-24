@@ -885,6 +885,109 @@ Patch-ZIP (nur geänderte Dateien): `enrol_adele`,
 
 ---
 
+## Teil 16 — Zwei echte Regressionen aus eigenen G.8-Fixes gefunden und behoben
+
+### 1. Auftrag
+
+Fünfter CI-Lauf, mit vollständigeren Fehlermeldungen als zuvor. Der
+Auftraggeber weist zu Recht darauf hin, dass ein zuvor als „ausgeliefert"
+gemeldeter Fix nicht gewirkt hat.
+
+### 2. `enrollment.php`-Fix — bestätigt vorhanden, nicht neu betroffen
+
+Der `DISTINCT`-Fix aus Teil 14 ist unverändert an derselben Stelle vorhanden
+(Zeile 150, mit Beleg gezeigt). Die erneute Meldung desselben Fehlers
+deutet weiterhin auf denselben Grund wie in den vorigen Malen: der Patch
+war zum Zeitpunkt dieses Laufs noch nicht im getesteten Repository-Stand.
+
+### 3. Echte Regression 1: `validate_context()` sperrt Pfad-Editor/innen aus
+
+`user_path_relation_access_test`: „Path editor can read user path" scheitert
+mit `require_login_exception: Not enrolled`. Ursache: `validate_context()`
+erzwingt bei einem Kurskontext faktisch Kurseinschreibung
+(`require_login($course, ...)` intern) — aber die Berechtigung eines
+Pfad-Editors/einer Pfad-Editorin kommt über `local_adele_lp_editors`/
+`canmanage`, nicht über Kurseinschreibung. Ein Manager, der einen Kurs
+verwaltet, den er nicht selbst besucht, ist der Normalfall, kein
+Randfall. `validate_context()` in `get_lp_user_path_relation.php`,
+`get_lp_user_path_relations.php` und `save_lp_user_path_relation.php`
+(alle drei mit demselben Dual-Kontext-Muster) wieder entfernt — die
+tatsächliche Sicherheitsgrenze ist die Capability-/Eigentumsprüfung direkt
+danach, die davon unberührt bleibt.
+
+### 4. Echte Regression 2 (schwerwiegender): Studierende von eigenem Lernpfad ausgesperrt
+
+Die lokal_adele-Behat-Fehler (`i_am_on_course_homepage()`,
+„May manage learning path plugins") hatten eine gravierendere Ursache als
+vermutet: `return_learningpaths()` liefert ausschließlich Pfade, bei denen
+die aktuelle Person **Editor/in** ist (`local_adele_lp_editors`) — **nie**
+Pfade, die sie als Lernende/r abonniert hat. Der G-Q1a-IDOR-Fix in
+`get_learningpath.php` (Teil 7) ging fälschlich davon aus, dass diese
+Funktion auch abonnierte Pfade abdeckt. Für gewöhnliche Studierende ist
+`return_learningpaths()` immer leer, `teacheredit`/`check_access()` treffen
+ebenfalls nie zu — der Fix hat dadurch **jede/n Studierende/n von ihrem/
+seinem eigenen Lernpfad ausgesperrt**, nicht nur die ursprünglich adressierte
+IDOR-Lücke geschlossen. Ein Basis-Nutzungsfluss war betroffen, kein
+Randfall.
+
+Behoben mit einer echten Abonnement-Prüfung gegen `local_adele_path_user`
+(`learning_path_id` + `user_id`), zusätzlich zur bestehenden Editor-/
+Lehrkraft-Prüfung — bewusst gegen `$USER->id`, nicht gegen den
+mitgelieferten, ungeprüften `$params['userid']`-Parameter, um nicht eine
+Variante genau der IDOR-Lücke wieder zu öffnen, die dieser Fix ursprünglich
+schließen sollte.
+
+### 5. `issue466_duplicate_editors_test.php` an G.18 angepasst
+
+„Duplicate key value violates unique constraint": Der Test simulierte
+absichtlich doppelte Editor-Zeilen per direktem Insert, um zu prüfen, dass
+`return_learningpaths()` damit nicht abstürzt — genau das Szenario, das
+G.18 (Teil 7) durch einen Unique-Index jetzt grundsätzlich verhindert. Der
+zweite Insert schlägt jetzt bei jedem Versuch fehl — das ist der Fix, der
+wie vorgesehen greift, kein Bug. Test umgeschrieben: prüft jetzt, dass der
+zweite Insert-Versuch tatsächlich mit `dml_write_exception` scheitert,
+statt ein Szenario zu simulieren, das das Schema nicht mehr zulässt.
+
+### 6. `enrol_adele`-Behat-Navigation — eigener Step definiert
+
+„behat_hooks has missing steps": `Given I am on "<url>"` ist in der
+tatsächlichen Moodle/Behat-Version des Auftraggebers kein registrierter
+Schritt — die zweite gescheiterte Vermutung zu Moodles Navigations-API in
+Folge. Statt ein drittes Mal zu raten, jetzt ein eigener, garantiert
+funktionierender Schritt (`I directly visit the url "..."`) auf Basis von
+`behat_base`s eigenem `locate_path()`-Helfer definiert — die Korrektheit
+hängt damit nicht mehr vom genauen Schritt-Katalog einer bestimmten
+Moodle-Version ab.
+
+### 7. Verifikation
+
+`php -l` über beide vollständigen Plugin-Bäume nach jeder Änderung:
+sauber.
+
+### 8. Ausgeliefert
+
+- `local_adele` **0.4.13** (2026072406, Versionsbump — zwei echte
+  Regressionsfixes): `classes/external/get_learningpath.php`,
+  `classes/external/get_lp_user_path_relation.php`,
+  `classes/external/get_lp_user_path_relations.php`,
+  `classes/external/save_lp_user_path_relation.php`,
+  `tests/issue466_duplicate_editors_test.php`, `version.php`.
+- `enrol_adele` **0.1.10 unverändert** (nur Testcode):
+  `tests/behat/behat_enrol_adele.php`, `tests/behat/manage.feature`.
+
+### 9. Offene Punkte
+
+- Weiterhin keine eigene Bestätigung möglich, dass alles jetzt grün läuft.
+- Der ursprüngliche `enrollment.php`-Fix (Teil 14) muss weiterhin ins
+  tatsächlich getestete Repository gelangen — unverändert ausständig.
+- Bitte bei künftigen G.8-artigen Änderungen (Hinzufügen von
+  `validate_context()`/neuen Berechtigungsprüfungen) stärker gegen
+  „wer nutzt diese Funktion tatsächlich, mit welcher Art von Berechtigung"
+  gegenprüfen, nicht nur gegen die formale Moodle-API-Empfehlung — beide
+  Regressionen dieser Runde entstanden aus genau dieser Lücke.
+
+---
+
 ## Teil 2 — Sessionstartprompt erneut geprüft, Risikoabwägung Codezirkel
 
 ### 1. Sessionstartprompt — auch unter `db/prompt-templates` nicht vorhanden
