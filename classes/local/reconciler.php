@@ -152,6 +152,19 @@ class reconciler {
         foreach ($userids as $userid) {
             self::reconcile_user($learningpathid, (int) $userid);
         }
+
+        // Specification 7.3: marks a deliberate, whole-learning-path
+        // recomputation (management page "Recompute" / equivalent ad-hoc
+        // task) - distinct from the routine per-user recompute hook, which
+        // does not trigger this event.
+        \enrol_adele\event\learning_path_reconciled::create([
+            'context' => \context_system::instance(),
+            'other' => [
+                'learningpathid' => $learningpathid,
+                'affected' => count($userids),
+            ],
+        ])->trigger();
+
         return count($userids);
     }
 
@@ -159,7 +172,12 @@ class reconciler {
      * Reconcile every active user path in the system (scheduled task, CLI).
      *
      * Safety net against missed events; the primary trigger is the recompute
-     * hook in local_adele.
+     * hook in local_adele. Extended (fix G.5, Session 003) to go beyond
+     * target-course enrolments: also migrates stale roles (G.14), removes
+     * orphaned instances (learning path no longer exists) and consolidates
+     * duplicate instances (fix G.6 closes the race that creates them going
+     * forward; this repairs any that already exist). Uses a recordset
+     * instead of loading everything into memory at once.
      *
      * @param progress_trace|null $trace Optional progress trace.
      * @return int Number of (learning path, user) pairs reconciled.
@@ -174,18 +192,194 @@ class reconciler {
             return 0;
         }
 
-        $pairs = $DB->get_records_sql(
+        $orphaned = self::remove_orphaned_instances($trace);
+        $duplicates = self::consolidate_duplicate_instances($trace);
+        $rolesmigrated = self::sync_instance_roles($trace);
+
+        $count = 0;
+        $rs = $DB->get_recordset_sql(
             "SELECT DISTINCT learning_path_id, user_id
                FROM {local_adele_path_user}
               WHERE status = 'active'"
         );
-        foreach ($pairs as $pair) {
+        foreach ($rs as $pair) {
             self::reconcile_user((int) $pair->learning_path_id, (int) $pair->user_id);
+            $count++;
         }
+        $rs->close();
+
         if ($trace) {
-            $trace->output('Reconciled ' . count($pairs) . ' learning path/user pairs.');
+            $trace->output(
+                "Reconciled {$count} learning path/user pairs, removed {$orphaned} orphaned " .
+                "instance(s), consolidated {$duplicates} duplicate instance(s), migrated roles " .
+                "on {$rolesmigrated} instance(s)."
+            );
         }
-        return count($pairs);
+        return $count;
+    }
+
+    /**
+     * Remove ADELE enrol instances whose learning path no longer exists.
+     *
+     * Fix G.5 (Session 003): reconcile_all() previously never looked at
+     * anything except active user paths, so an instance left behind by a
+     * learning path deletion that bypassed purge_learning_path() (e.g. a
+     * direct database edit, or a bug predating this fix) was never cleaned
+     * up. delete_instance() removes the instance and its user_enrolments.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of instances removed.
+     */
+    private static function remove_orphaned_instances(?progress_trace $trace = null): int {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/enrollib.php');
+
+        $plugin = enrol_get_plugin('adele');
+        if (!$plugin) {
+            return 0;
+        }
+
+        $orphaned = $DB->get_records_sql(
+            "SELECT e.*
+               FROM {enrol} e
+          LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
+              WHERE e.enrol = 'adele' AND lp.id IS NULL"
+        );
+        foreach ($orphaned as $instance) {
+            $plugin->delete_instance($instance);
+            if ($trace) {
+                $trace->output(
+                    "  Removed orphaned instance {$instance->id} " .
+                    "(learning path {$instance->customint1} no longer exists)."
+                );
+            }
+        }
+        return count($orphaned);
+    }
+
+    /**
+     * Consolidate duplicate ADELE instances (same learning path, course and
+     * kind) onto the lowest-id instance.
+     *
+     * Fix G.5/G.6 (Session 003): G.6 closes the race that creates these
+     * going forward; this repairs any that already exist. Any
+     * user_enrolments on a duplicate that the primary instance does not
+     * already have for that user are re-created on the primary before the
+     * duplicate is deleted, so no active access is lost — only the
+     * bookkeeping is merged.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of duplicate instances removed.
+     */
+    private static function consolidate_duplicate_instances(?progress_trace $trace = null): int {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/enrollib.php');
+
+        $plugin = enrol_get_plugin('adele');
+        if (!$plugin) {
+            return 0;
+        }
+
+        $groups = $DB->get_records_sql(
+            "SELECT MIN(id) AS primaryid, courseid, customint1, customint2, COUNT(*) AS n
+               FROM {enrol}
+              WHERE enrol = 'adele'
+           GROUP BY courseid, customint1, customint2
+             HAVING COUNT(*) > 1"
+        );
+
+        $removed = 0;
+        foreach ($groups as $group) {
+            $primary = $DB->get_record('enrol', ['id' => $group->primaryid]);
+            $duplicates = $DB->get_records_select(
+                'enrol',
+                "enrol = 'adele' AND courseid = :courseid AND customint1 = :lpid " .
+                    "AND customint2 = :kind AND id <> :primaryid",
+                [
+                    'courseid' => $group->courseid,
+                    'lpid' => $group->customint1,
+                    'kind' => $group->customint2,
+                    'primaryid' => $group->primaryid,
+                ]
+            );
+            foreach ($duplicates as $duplicate) {
+                $users = $DB->get_records('user_enrolments', ['enrolid' => $duplicate->id]);
+                foreach ($users as $ue) {
+                    $primaryue = $DB->get_record(
+                        'user_enrolments',
+                        ['enrolid' => $primary->id, 'userid' => $ue->userid]
+                    );
+                    if (!$primaryue) {
+                        $plugin->enrol_user(
+                            $primary,
+                            (int) $ue->userid,
+                            $primary->roleid ?: instance_manager::get_role_id(),
+                            0,
+                            0,
+                            (int) $ue->status
+                        );
+                    } else if ((int) $ue->status === ENROL_USER_ACTIVE && (int) $primaryue->status !== ENROL_USER_ACTIVE) {
+                        $plugin->update_user_enrol($primary, (int) $ue->userid, ENROL_USER_ACTIVE);
+                    }
+                }
+                $plugin->delete_instance($duplicate);
+                $removed++;
+                if ($trace) {
+                    $trace->output(
+                        "  Consolidated duplicate instance {$duplicate->id} onto {$primary->id} " .
+                        "(learning path {$group->customint1}, course {$group->courseid})."
+                    );
+                }
+            }
+        }
+        return $removed;
+    }
+
+    /**
+     * Migrate ADELE-owned role assignments on existing instances to the
+     * currently configured role.
+     *
+     * Fix G.14 (Session 003): previously, enrol_adele/roleid only affected
+     * newly created instances — reconcile_user()/reconcile_host_user() used
+     * $instance->roleid, which is set once at creation and never updated.
+     * Only role assignments this plugin itself made (component
+     * 'enrol_adele', itemid = instance id) are touched — a foreign role
+     * assignment in the same course context is never removed.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of instances migrated.
+     */
+    private static function sync_instance_roles(?progress_trace $trace = null): int {
+        global $DB;
+
+        $currentroleid = instance_manager::get_role_id();
+        $stale = $DB->get_records_select(
+            'enrol',
+            "enrol = 'adele' AND roleid <> :roleid AND roleid <> 0",
+            ['roleid' => $currentroleid]
+        );
+
+        $migrated = 0;
+        foreach ($stale as $instance) {
+            $context = \context_course::instance($instance->courseid, IGNORE_MISSING);
+            if (!$context) {
+                continue;
+            }
+            $assignments = $DB->get_records('user_enrolments', ['enrolid' => $instance->id]);
+            foreach ($assignments as $ue) {
+                role_unassign($instance->roleid, (int) $ue->userid, $context->id, 'enrol_adele', (int) $instance->id);
+                role_assign($currentroleid, (int) $ue->userid, $context->id, 'enrol_adele', (int) $instance->id);
+            }
+            $DB->set_field('enrol', 'roleid', $currentroleid, ['id' => $instance->id]);
+            $migrated++;
+            if ($trace) {
+                $trace->output(
+                    "  Migrated role on instance {$instance->id} from {$instance->roleid} to {$currentroleid} " .
+                    "(" . count($assignments) . " user(s))."
+                );
+            }
+        }
+        return $migrated;
     }
 
     /**
@@ -401,6 +595,15 @@ class reconciler {
         foreach ($instances as $instance) {
             $plugin->delete_instance($instance);
         }
+
+        \enrol_adele\event\learning_path_purged::create([
+            'context' => \context_system::instance(),
+            'other' => [
+                'learningpathid' => $learningpathid,
+                'removed' => count($instances),
+            ],
+        ])->trigger();
+
         return count($instances);
     }
 }

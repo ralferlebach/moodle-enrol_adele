@@ -57,24 +57,22 @@ class observer {
             return;
         }
         $dbman = $DB->get_manager();
-        if (!$dbman->table_exists('adele') || !$dbman->table_exists('local_adele_path_user')) {
+        if (!$dbman->table_exists('local_adele_host_courses') || !$dbman->table_exists('local_adele_path_user')) {
             return;
         }
 
         $userid = (int) $event->relateduserid;
         $courseid = (int) $event->courseid;
 
-        // Learning paths embedded in the course the user just left.
-        $embeddings = $DB->get_records('adele', ['course' => $courseid], '', 'id, learningpathid');
-        if (!$embeddings) {
+        // Learning paths embedded in the course the user just left. Fix G.2
+        // full solution (Session 003): reads local_adele's own host-course
+        // index instead of mod_adele's {adele} table directly.
+        $lpids = \local_adele\enrol_state::get_learningpaths_embedded_in_course($courseid);
+        if (!$lpids) {
             return;
         }
-        $lpids = [];
-        foreach ($embeddings as $embedding) {
-            $lpids[(int) $embedding->learningpathid] = true;
-        }
 
-        foreach (array_keys($lpids) as $lpid) {
+        foreach ($lpids as $lpid) {
             if (self::is_user_carried($lpid, $userid)) {
                 continue;
             }
@@ -93,6 +91,17 @@ class observer {
             // several host courses at once, each potentially having granted
             // host-course access.
             reconciler::purge_all_host_user($lpid, $userid);
+
+            // Specification 7.3: marks that rule A-4 actually fired for this
+            // user/path (not the routine per-node suspend/reactivate cycle,
+            // which is already visible via core user_enrolment_updated).
+            \enrol_adele\event\user_access_revoked::create([
+                'context' => \context_system::instance(),
+                'relateduserid' => $userid,
+                'other' => [
+                    'learningpathid' => $lpid,
+                ],
+            ])->trigger();
         }
     }
 
@@ -113,25 +122,23 @@ class observer {
     public static function is_user_carried(int $lpid, int $userid): bool {
         global $DB;
 
-        $embeddings = $DB->get_records(
-            'adele',
-            ['learningpathid' => $lpid],
-            '',
-            'id, course, participantslist'
-        );
+        // Fix G.2 full solution (Session 003): reads local_adele's own
+        // host-course index instead of mod_adele's {adele} table and
+        // participantslist string format directly — this class no longer
+        // has any knowledge of either.
+        $embeddings = \local_adele\enrol_state::get_host_embeddings($lpid);
 
         $hasoption2 = false;
         $hasoption3 = false;
         foreach ($embeddings as $embedding) {
-            $options = array_map('trim', explode(',', (string) $embedding->participantslist));
             if (
-                in_array('1', $options)
-                && self::has_foreign_enrolment($userid, [(int) $embedding->course])
+                $embedding['option1']
+                && self::has_foreign_enrolment($userid, [$embedding['courseid']])
             ) {
                 return true;
             }
-            $hasoption2 = $hasoption2 || in_array('2', $options);
-            $hasoption3 = $hasoption3 || in_array('3', $options);
+            $hasoption2 = $hasoption2 || $embedding['option2'];
+            $hasoption3 = $hasoption3 || $embedding['option3'];
         }
         if (!$hasoption2 && !$hasoption3) {
             return false;
@@ -176,7 +183,11 @@ class observer {
     /**
      * Whether the user holds any non-ADELE enrolment in one of the given courses.
      *
-     * Suspended enrolments count (decision F-4/A-8).
+     * Suspended enrolments count (decision F-4/A-8). Expired enrolments
+     * (timeend passed), not-yet-started enrolments (timestart in the
+     * future) and enrolments via a disabled enrol instance do NOT count
+     * (fix G.4, Session 003 — previously unchecked; F-4/A-8 only ever
+     * covered suspension, not expiry or a disabled method).
      *
      * @param int $userid The user id.
      * @param int[] $courseids Course ids to check.
@@ -189,12 +200,21 @@ class observer {
             return false;
         }
         [$insql, $inparams] = $DB->get_in_or_equal(array_unique($courseids), SQL_PARAMS_NAMED);
+        $now = time();
         $sql = "SELECT 1
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON e.id = ue.enrolid
                  WHERE ue.userid = :userid
                        AND e.enrol <> 'adele'
+                       AND e.status = :enabled
+                       AND (ue.timestart = 0 OR ue.timestart <= :now1)
+                       AND (ue.timeend = 0 OR ue.timeend > :now2)
                        AND e.courseid {$insql}";
-        return $DB->record_exists_sql($sql, ['userid' => $userid] + $inparams);
+        return $DB->record_exists_sql($sql, [
+            'userid' => $userid,
+            'enabled' => ENROL_INSTANCE_ENABLED,
+            'now1' => $now,
+            'now2' => $now,
+        ] + $inparams);
     }
 }

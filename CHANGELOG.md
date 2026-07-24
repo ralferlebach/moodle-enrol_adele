@@ -5,6 +5,257 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] — 2026-07-24
+
+### Added — C.4 vollständig: Same-Course-Ausnahme (Session 003, Teil 19)
+
+- `restore_instance()` erkennt jetzt `backup::TARGET_CURRENT_ADDING`/
+  `TARGET_CURRENT_DELETING` (Restore in denselben Kurs) über
+  `restore_task::get_target()` und löst dann sofort
+  `reconciler::reconcile_learning_path()` aus, statt bedingungslos zu
+  skippen — gegen echten Moodle-Core-Code verifiziert
+  (`course/classes/customfield/course_handler.php::
+  restore_instance_data_from_backup()`, identisches Muster). Für den
+  Neu-Kurs-Fall (Requirement A-13) bleibt es beim Skip.
+- Bewusst **kein** automatisierter Test für den Same-Course-Fall — Moodles
+  Restore-„Adding"-Verhalten gegenüber Bestandsdaten war ohne Live-Instanz
+  nicht sicher genug verifizierbar; Testanleitung C entsprechend erweitert.
+- `local_adele`: 3 phpcs-Warnungen behoben (Inline-Kommentare mussten mit
+  Großbuchstaben beginnen) in `lib.php`, `update_user_path_relation.php`,
+  `update_lp_animations.php`.
+- `php -l`: sauber.
+
+## [Unreleased documentation changes]
+
+### Added — automatisierter Backup/Restore-Test (Session 003, Teil 17)
+
+- `tests/backup_restore_test.php`: prüft Requirement A-13 direkt — nach
+  Restore in einen neuen Kurs existiert weder eine ADELE-Instanz noch eine
+  daraus konvertierte `manual`-Einschreibung; der Quellkurs bleibt durch
+  die Sicherung selbst unverändert. Eng an `mod_adele`s eigenem, in der CI
+  bereits grün laufendem `backup_restore_test.php` orientiert (gleiche
+  Backup-/Restore-Controller-Aufrufe), um nicht erneut auf ungeprüfte
+  Moodle-API-Annahmen angewiesen zu sein — um die tatsächliche
+  Restore-Ausführung (`execute_precheck()`/`execute_plan()`) erweitert,
+  die die Vorlage selbst nicht abdeckt.
+- `php -l`: sauber. Kein Versionsbump (reiner Testcode).
+
+## [0.1.10] — 2026-07-24
+
+### Added — C.5, G.2 und G.13 vollständig umgesetzt (Session 003, Teil 12)
+
+- **C.5:** `tests/behat/manage.feature` (drei Szenarien) und
+  `tests/behat/behat_enrol_adele.php` (eigener Given-Step, da
+  `enrol_adele` keine manuelle Instanz-Erzeugung hat).
+- **G.2 (vollständig):** `classes/observer.php` liest nicht mehr direkt
+  aus `mod_adele`s `{adele}`-Tabelle — neue `local_adele`-Indextabelle
+  `local_adele_host_courses` stattdessen, über
+  `enrol_state::get_host_embeddings()`/
+  `get_learningpaths_embedded_in_course()`. Abhängigkeit auf
+  `local_adele` auf ≥ 2026072404 angehoben.
+- **G.13 (vollständig, `local_adele`):** `delete_learning_path()`
+  blockiert die Löschung jetzt, wenn noch `mod_adele`-Aktivitäten den
+  Lernpfad einbetten.
+- **G.10:** bewusst nicht umgesetzt — bei der Umsetzung bestätigte sich,
+  dass eine neue System-Capability entweder wirkungslos wäre oder
+  bestehende pfadspezifische Editor-Zuweisungen brechen könnte. Offene
+  Rückfrage an den Auftraggeber, siehe `docs/arbeitsplan.md`.
+- `php -l` über alle drei vollständigen Plugin-Bäume: sauber.
+
+## [0.1.9] — 2026-07-24
+
+### Added — C.4 Restore-Hooks umgesetzt (Session 003, Teil 10)
+
+- `restore_instance()`/`restore_user_enrolment()` in `enrol_adele_plugin`
+  (`lib.php`) ergänzt — Skip-Strategie (Requirement A-13): ADELE-Instanzen
+  und -Einschreibungen werden bei einer Kurswiederherstellung nie aus dem
+  Backup übernommen, sondern von der nächsten Reconciliation aus dem
+  aktuellen Lernpfad-Zustand neu abgeleitet (selbstheilend, F-6/L-Q-09).
+- Vor der Umsetzung Moodles Restore-API gezielt recherchiert (nach den
+  beiden Regressionen in Teil 9/8 bewusst nicht aus dem Gedächtnis
+  geschrieben): gegen ein reales Plugin mit identischer Architektur
+  (`can_add_instance()=false`, `enrol_programs`) sowie gegen Moodle-Core
+  selbst (`enrol_manual_plugin::restore_user_enrolment()`) geprüft. Dabei
+  einen eigenen Fehler im ersten Entwurf gefunden und korrigiert: der
+  Methode fehlte der `$userid`-Parameter gegenüber der verifizierten
+  Fünf-Parameter-Signatur.
+- **Bewusst vereinfacht:** die in der Spezifikation vorgesehene
+  „Same-Course-Ausnahme“ ist **nicht** umgesetzt — reiner,
+  bedingungsloser Skip in jedem Fall. Die dafür nötige Erkennung bräuchte
+  Restore-Task-API-Oberfläche, die in dieser Umgebung nicht mit
+  ausreichender Sicherheit verifizierbar war. Unbedingter Skip ist in
+  jedem Fall sicher — siehe Begründung im Codekommentar.
+- Kein automatisierter Backup/Restore-Test — stattdessen eine manuelle
+  Testanleitung in `docs/verification-live-testing-guide.md`
+  (Testanleitung C) ergänzt.
+- `php -l`: sauber.
+
+## [Unreleased documentation changes]
+
+### Fixed — echter Produktionsfehler durch G.19 behoben (Session 003, Teil 9)
+
+- **`local_adele` (0.4.10, kein Versionsbump):** Ein zweiter echter CI-Lauf
+  des Auftraggebers deckte eine von G.19 (Teil 7) verursachte Regression
+  auf: `xmldb_local_adele_install()` läuft, bevor Moodle die eigenen
+  Capabilities des Plugins aus `db/access.php` in `{capabilities}`
+  registriert — `assign_capability()` validiert das und wirft einen
+  `coding_exception`, den ein Frischinstallations-Lauf immer auslöste
+  ("Capability 'local/adele:canmanage' was not found!"). Der
+  ursprüngliche, vor G.19 vorhandene rohe Insert in `{role_capabilities}`
+  umging genau dieses Ordnungsproblem absichtlich oder zufällig — jetzt
+  wiederhergestellt als Rückfall, wenn die Capability noch nicht
+  registriert ist; sobald sie es ist (z. B. bei einem späteren Upgrade),
+  wird weiterhin die korrekte `assign_capability()`-API verwendet.
+  `create_role()`/`set_role_contextlevels()` sind von diesem
+  Ordnungsproblem nicht betroffen und bleiben unverändert auf der
+  Moodle-API.
+- `php -l`: sauber. Keine Moodle-Instanz für einen eigenen Installationstest
+  verfügbar — Bestätigung steht beim Auftraggeber aus.
+
+## [Unreleased documentation changes]
+
+### Fixed — echter CI-Lauf, phpcs-Fund behoben (Session 003, Teil 8)
+
+- Erster tatsächlicher Lauf gegen eine echte Moodle-Instanz (Moodle 4.5.12,
+  PHP 8.2.30, MariaDB 10.11.14) durch den Auftraggeber bestätigt: `phpcs`
+  meldete einen Fund in `manage.php` (fehlender Docblock für die Konstante
+  `ADELE_MANAGE_ASYNC_THRESHOLD`) — behoben, `//`-Kommentar durch
+  `/** ... */`-Docblock ersetzt. Kein Versionsbump (reine Stilkorrektur,
+  keine funktionale Änderung).
+- Bestätigt durch denselben Lauf: `phpcpd` clean, PHPDoc-Checker clean,
+  **bestehende PHPUnit-Suite (`lib_test`, `reconciler_test`) grün — 9
+  Tests, 46 Assertions** — trotz der umfangreichen Änderungen an
+  `observer.php`/`reconciler.php`/`instance_manager.php` in Teil 7 keine
+  Regression in den vorhandenen Tests. Erste echte Bestätigung seit Beginn
+  dieser Sitzung, dass die gemachten Änderungen tatsächlich funktionieren,
+  nicht nur `php -l`-sauber sind.
+
+## [0.1.8] — 2026-07-24
+
+### Added — G.2, G.4–G.7, G.11–G.19 umgesetzt (Session 003, Teil 7)
+
+Auf Weisung des Auftraggebers zurückgeholt und noch in dieser Sitzung
+umgesetzt, statt wie zunächst entschieden als Issues zurückgestellt. Nur
+die Capability-Modell-Folgearbeit zu G.10 bleibt Backlog-Issue. Vor der
+Umsetzung Verifikation per Websuche nachgeholt — dabei zwei eigene
+Annahmefehler aus Teil 6 gefunden und korrigiert (`settings.php`-
+Elternkategorie, Lock-API-Signatur).
+
+- **`enrol_adele` 0.1.8:** `classes/observer.php` (G.4/G.11: `timeend`/
+  `timestart`/`e.status`), `classes/local/instance_manager.php` (G.6: Lock
+  in `ensure_instance()`), `classes/local/reconciler.php` (G.5: erweiterter
+  `reconcile_all()` mit Recordset/Waisen-Bereinigung/Duplikat-
+  Konsolidierung; G.14: Rollen-Sync), `settings.php` (Korrektur der
+  Elternkategorie aus Teil 6).
+- **`local_adele` 0.4.10:** `classes/learning_paths.php` (G.12:
+  Transaktion), `lib.php` (G.15: Zugriffsprüfung), `classes/asset_handler.php`
+  (G.16: Validierung + Datei-Leck-Bugfix), `db/install.xml`+`db/upgrade.php`
+  (G.18: Unique-Index), `db/install.php` (G.19: Moodle-Rollen-APIs), neu:
+  `Makefile` (G.7).
+- **`mod_adele` 0.1.12:** `classes/observer.php` (G.4/G.11), `version.php`
+  (G.2 Teilumsetzung: Abhängigkeit auf `enrol_adele` ergänzt), `view.php`
+  (G.13: klare Meldung bei gelöschtem Lernpfad; G.17: Escaping), Sprach-
+  dateien, neu: `Makefile` (G.7).
+- `php -l` über alle drei vollständigen Plugin-Bäume: sauber. `install.xml`
+  als wohlgeformtes XML geprüft. Weiterhin keine Moodle-Instanz verfügbar
+  für PHPUnit/Behat oder echte Upgrade-/Lock-/Rollen-API-Tests.
+- **Ab dieser Auslieferung: Patch-ZIPs** (nur geänderte/neue Dateien) statt
+  vollständiger Plugin-Ordner, wie im Sessionstart-Prompt gefordert.
+
+## [0.1.7] — 2026-07-24
+
+### Added — C.2/C.3 umgesetzt, Runde 3 der Review-Verifikation (Session 003, Teil 6)
+
+- **C.2** `manage.php`: Verwaltungsseite nach Pflichtenheft Abschnitt 6.
+  Listet alle Lernpfade mit ADELE-Instanzen (inkl. „verwaist"-Markierung
+  für Instanzen ohne zugehörigen Lernpfad-Datensatz), Spalten für
+  Zielkurse/aktive/suspendierte Einschreibungen, Aktionen „Neu
+  berechnen"/„Hart löschen" (Letztere mit Bestätigungsdialog). Ab 200
+  betroffenen Nutzer/innen läuft die Aktion als Ad-hoc-Task statt
+  synchron. Registriert unter Website-Administration → Plugins →
+  Einschreibungsmethoden → Lernpfad-Einschreibung (`enrol/adele:config`).
+- **C.3** Drei neue Events: `learning_path_reconciled`,
+  `learning_path_purged`, `user_access_revoked` — ausgelöst aus
+  `reconciler::reconcile_learning_path()`/`purge_learning_path()` sowie
+  aus `observer::user_enrolment_deleted()`, wenn Regelwerk A-4
+  tatsächlich greift.
+- Zwei neue Ad-hoc-Task-Klassen für den Schwellwert-Fall.
+- Sprachstrings (en/de) ergänzt, alphabetisch sortiert geprüft.
+- `php -l` über das gesamte Plugin: sauber. **Nicht** gegen eine echte
+  Moodle-Instanz getestet (keine in dieser Umgebung verfügbar) — siehe
+  `docs/verification-live-testing-guide.md` für die dafür nötigen
+  manuellen Schritte, insbesondere ob `manage.php` korrekt im Admin-Baum
+  erscheint (Elternkategorie `enrolsettingsadele` aus Moodle-Konvention
+  abgeleitet, nicht an einer Instanz bestätigt).
+- **Review-Verifikation Runde 3:** Die verbliebenen elf Punkte aus Runde 2
+  (P1-8 bis Abschnitt 7) statisch verifiziert — neun vollständig bestätigt
+  (G.20–G.23, G.25), zwei brauchen echte Live-Testung (P1-9-Ausmaß,
+  Abschnitt-9-Build-Funktionsfähigkeit) — Testanleitung dafür in
+  `docs/verification-live-testing-guide.md`.
+
+## [Unreleased documentation changes]
+
+### Added — Phase G, externes Review abgeglichen, G-Q1a umgesetzt (Session 003, Teil 1)
+
+- `docs/arbeitsplan.md`: Neue Phase G dokumentiert den Abgleich eines
+  externen Code-Reviews (ChatGPT) gegen die tatsächliche Codebase aller
+  drei Plugins. Sieben Befunde stichprobenartig verifiziert (sechs
+  bestätigt, einer — P0-4/Suspendierung — als teilweise bereits bewusst
+  entschiedenes Verhalten präzisiert statt unbesehen als Bug übernommen).
+  Neue Punkte G.1–G.7 sowie Entscheidungsfrage G-Q1
+  (Abhängigkeitsarchitektur `local_adele`/`enrol_adele`/`mod_adele`,
+  Auftraggeber-Vorschlag gegen tatsächliche Codekopplung abgewogen).
+- **G-Q1a entschieden und umgesetzt:** L-Q-08 aufgehoben. `docs/lastenheft.md`
+  und `docs/pflichtenheft.md` entsprechend nachgezogen (Abschnitt 1.4,
+  E-11-Nachtrag, Codebeispiel Abschnitt 7.3, Prüfkriterium 6).
+- Kein Codeunterschied **in `enrol_adele` selbst** — die Entscheidung
+  betrifft ausschließlich Aufrufer in `local_adele`/`mod_adele` (siehe
+  „Verwandte Änderungen" unten). `enrol_adele`s eigener Reconciler war
+  bereits korrekt und brauchte keine Anpassung.
+
+### Verwandte Änderungen in anderen Repositories (G-Q1a)
+
+- **`local_adele` 0.4.8:** `classes/enrol_state.php` um
+  `warn_enrol_adele_missing()` ergänzt; `request_reconcile()`/
+  `request_purge()` rufen sie statt eines stillen No-op auf.
+  `classes/relation_update.php` (`enrol_user_into_node()`) und
+  `classes/node_completion.php` (`enrol_child_courses()`): `enrol_manual`-
+  Rückfallblöcke entfernt, `first_enrolled`/Boundary-Scheduling/
+  Gruppenzuweisung bleiben unverändert.
+- **`mod_adele` 0.1.11:** `classes/observer.php`
+  (`sync_host_access_for_node_enrolment()`, `subscribe_user_course()`):
+  dieselbe Härtung; dabei einen veralteten Docblock-Kommentar korrigiert
+  (E-16 hatte die Sweep-Methoden bereits umgeroutet, ohne den Kommentar
+  nachzuziehen).
+- Beide mit `php -l` (PHP 8.3) einzeln und im Volllauf über das gesamte
+  jeweilige Plugin geprüft: sauber. `moodle-cs`/PHPUnit konnten in dieser
+  Umgebung nicht ausgeführt werden (keine Moodle-Instanz, kein `phpcs` mit
+  Moodle-Standard installiert) — manuelle Stilprüfung (Zeilenlänge,
+  Namenskonventionen) an den geänderten Stellen durchgeführt.
+
+### Added — G.8–G.10 umgesetzt (Session 003, Teil 4)
+
+- Kein Codeunterschied **in `enrol_adele` selbst**. Betrifft ausschließlich
+  `local_adele` (siehe „Verwandte Änderungen" unten). Doku:
+  `docs/arbeitsplan.md`, neuer Abschnitt „G.8–G.10 umgesetzt".
+
+### Verwandte Änderungen in anderen Repositories (G.8–G.10)
+
+- **`local_adele` 0.4.9:** Alle 25 `classes/external/*.php`-Klassen rufen
+  jetzt `validate_parameters()` und `validate_context()` (G.8). Sieben
+  fälschlich als `read` deklarierte schreibende Services in
+  `db/services.php` auf `write` korrigiert (G.9); Capability-Deklarationen
+  dort angepasst, wo eine einzelne speziellere Capability real geprüft
+  wird (G.10, Teilumsetzung — `local/adele:edit`s Archetyp bewusst nicht
+  verändert, Begründung im Arbeitsplan). Beim vollständigen Lesen aller 25
+  Klassen drei echte IDOR-artige Bugs gefunden und behoben:
+  `update_lp_animations.php` (G.3), `update_user_path_relation.php`
+  (fehlende Eigentumsprüfung auf `lpuserpathid`) und `get_learningpath.php`
+  (eine Berechtigungsprüfung, die nie greifen konnte, weil `local/adele
+  :edit` an jede/n angemeldete/n Nutzer/in vergeben ist — jede/r konnte
+  jeden Lernpfad per ID lesen).
+- `php -l` über das gesamte Plugin nach allen Änderungen: sauber.
+
 ## [0.1.6] — 2026-07-23
 
 ### Added

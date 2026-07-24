@@ -155,4 +155,98 @@ class enrol_adele_plugin extends enrol_plugin {
         \enrol_adele\local\reconciler::reconcile_all($trace);
         return 0;
     }
+
+    /**
+     * Skip restoring ADELE enrol instances from a course backup (C.4,
+     * requirement A-13) — except when restoring into the SAME course the
+     * backup was taken from, where an immediate reconcile is triggered
+     * instead of a hard skip (Session 003, Teil 19).
+     *
+     * Every instance is derived state: it exists only because a learning
+     * path currently grants access, and is owned entirely by the
+     * reconciler (decision A-9 — this plugin keeps no table of its own).
+     * Restoring a stale instance from a backup — into a duplicated course
+     * or a different course — would reintroduce exactly the "enrolment
+     * without provenance" problem enrol_adele exists to solve, and Moodle's
+     * own fallback for non-restorable enrolments (converting them to
+     * enrol_manual) would be worse still. Requirement A-13 explicitly only
+     * covers that case ("Kurs-Duplikat und Restore in neuen Kurs") — skip
+     * remains unconditional there.
+     *
+     * Verified against enrol_programs (a real-world plugin with the same
+     * can_add_instance()=false / lazily-managed-instances shape as this
+     * one), which uses the identical unconditional-skip pattern as the
+     * baseline this method still falls back to.
+     *
+     * Same-course exception (Teil 19): restoring a course's own backup back
+     * into itself (e.g. disaster recovery / undoing a mistake) is a
+     * different situation — the instance genuinely belongs there, and
+     * waiting for the next scheduled reconcile (up to a day, F-6/L-Q-09)
+     * to restore access is worse than necessary when it can be triggered
+     * immediately instead. Detected via restore_task::get_target() —
+     * verified against real Moodle core code (course/classes/customfield/
+     * course_handler.php::restore_instance_data_from_backup(), which uses
+     * the identical $task->get_target() !== backup::TARGET_CURRENT_ADDING
+     * check for the same "am I restoring into the course I already own
+     * this data for" question) after the previous, unverified attempt at
+     * this exact API was deliberately left out.
+     *
+     * Deliberately does NOT try to reconstruct the backed-up instance's
+     * raw settings (roleid, status, custom fields) — that would mean
+     * re-implementing generic enrol-instance restore logic this plugin has
+     * no need for. reconcile_learning_path() derives the correct instance
+     * and enrolments from the CURRENT learning path state instead, exactly
+     * as it always does — the backup's own copy of that data is never the
+     * authority here, current state always is. If this immediate call runs
+     * before some other part of the same restore has finished (e.g. a
+     * mod_adele activity in the same course, restored in a different step),
+     * the outcome is at worst identical to skipping - the next scheduled
+     * reconcile still corrects it, per the self-healing guarantee this
+     * plugin already relies on everywhere else.
+     *
+     * @param restore_enrolments_structure_step $step Restore step.
+     * @param stdClass $data Instance data from the backup file.
+     * @param stdClass $course The (possibly new) course being restored into.
+     * @param int $oldid The instance id in the original, backed-up course.
+     * @return void
+     */
+    public function restore_instance(restore_enrolments_structure_step $step, stdClass $data, $course, $oldid): void {
+        $target = $step->get_task()->get_target();
+        $issamecourse = ($target === \backup::TARGET_CURRENT_ADDING || $target === \backup::TARGET_CURRENT_DELETING);
+
+        $field = self::FIELD_LEARNINGPATHID;
+        if (
+            $issamecourse
+            && isset($data->$field)
+            && class_exists('\enrol_adele\local\reconciler')
+        ) {
+            \enrol_adele\local\reconciler::reconcile_learning_path((int) $data->$field);
+        }
+    }
+
+    /**
+     * Skip restoring individual ADELE user enrolments from a course backup
+     * (C.4, requirement A-13).
+     *
+     * Never reached in practice, since restore_instance() above never
+     * creates an instance for a restored enrolment to attach to — kept as
+     * an explicit no-op regardless, matching the specification and making
+     * the intent explicit rather than relying on that implicit consequence.
+     *
+     * @param restore_enrolments_structure_step $step Restore step.
+     * @param stdClass $data User enrolment data from the backup file.
+     * @param stdClass $instance The (already restored-or-skipped) enrol instance.
+     * @param int $userid The (already-mapped, new) user id.
+     * @param int $oldinstancestatus The user's enrolment status in the original course.
+     * @return void
+     */
+    public function restore_user_enrolment(
+        restore_enrolments_structure_step $step,
+        $data,
+        $instance,
+        $userid,
+        $oldinstancestatus
+    ): void {
+        return;
+    }
 }

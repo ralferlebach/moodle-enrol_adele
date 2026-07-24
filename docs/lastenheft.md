@@ -111,7 +111,7 @@ Hostkurs-Einschreibungen bleiben ausdrücklich `enrol_manual` (Entscheidung F-7)
 | **L-Q-05** | GPL v3 oder später. |
 | **L-Q-06** | Sprachdateien mindestens `en` und `de`. |
 | **L-Q-07** | Kein Datenverlust: Deaktivierung nimmt nur den Zugang; auch die harte Löschung entfernt keine Bewertungs- oder Aktivitätsdaten aus der Datenbank (Moodle-Standardverhalten von `unenrol_user()`). |
-| **L-Q-08** | `local_adele` und `mod_adele` bleiben ohne installiertes `enrol_adele` voll funktionsfähig (optionale Kopplung über `enrol_get_plugin('adele')` mit Null-Prüfung). |
+| ~~**L-Q-08**~~ | ~~`local_adele` und `mod_adele` bleiben ohne installiertes `enrol_adele` voll funktionsfähig (optionale Kopplung über `enrol_get_plugin('adele')` mit Null-Prüfung).~~ **Aufgehoben (Session 003, Entscheidung G-Q1a):** Kein `enrol_manual`-Rückfallpfad mehr für ADELE-verursachte Ziel- oder Host-Kurs-Einschreibungen. Fehlt oder ruht `enrol_adele`, findet gar keine Einschreibung mehr statt; `local_adele\enrol_state::warn_enrol_adele_missing()` macht das über `debugging()` sichtbar, statt es wie zuvor stillschweigend über `enrol_manual` zu kompensieren. Siehe Arbeitsplan, Phase G, G-Q1. |
 | **L-Q-09** | Alle Vorgänge sind idempotent; die Reconciliation ist selbstheilend und jederzeit wiederholbar. |
 
 ---

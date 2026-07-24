@@ -117,27 +117,61 @@ class instance_manager {
             return reset($existing);
         }
 
-        $course = $DB->get_record('course', ['id' => $courseid]);
-        if (!$course || $course->id == SITEID) {
+        // Fix G.6 (Session 003): without a lock, two near-simultaneous
+        // events for the same (learning path, course, kind) could both pass
+        // the existence check above and each create an instance. Verified
+        // API via web search against Moodle developer docs: the factory is
+        // obtained through \core\lock\lock_config::get_lock_factory(), not
+        // a lock_factory::instance() (that method does not exist).
+        $lockfactory = \core\lock\lock_config::get_lock_factory('enrol_adele_instance');
+        $resource = "lp{$learningpathid}_course{$courseid}_kind{$kind}";
+        $lock = $lockfactory->get_lock($resource, 5);
+        if (!$lock) {
+            // Could not acquire the lock within the timeout — fail closed
+            // rather than risk a duplicate; the next reconcile pass will
+            // retry (all operations are idempotent, L-Q-09).
             return null;
         }
 
-        $plugin = enrol_get_plugin('adele');
-        if (!$plugin) {
-            return null;
+        try {
+            // Re-check inside the lock: another process may have created
+            // the instance while we were waiting for it.
+            $existing = $DB->get_records(
+                'enrol',
+                ['enrol' => 'adele', 'courseid' => $courseid, 'customint1' => $learningpathid, 'customint2' => $kind],
+                'id ASC',
+                '*',
+                0,
+                1
+            );
+            if ($existing) {
+                return reset($existing);
+            }
+
+            $course = $DB->get_record('course', ['id' => $courseid]);
+            if (!$course || $course->id == SITEID) {
+                return null;
+            }
+
+            $plugin = enrol_get_plugin('adele');
+            if (!$plugin) {
+                return null;
+            }
+
+            $lpname = $DB->get_field('local_adele_learning_paths', 'name', ['id' => $learningpathid]);
+            $namestring = $kind === self::KIND_HOST ? 'instancenamehost' : 'instancename';
+            $instanceid = $plugin->add_instance($course, [
+                'status' => ENROL_INSTANCE_ENABLED,
+                'roleid' => self::get_role_id(),
+                'customint1' => $learningpathid,
+                'customint2' => $kind,
+                'name' => get_string($namestring, 'enrol_adele', $lpname ?: $learningpathid),
+            ]);
+
+            return $DB->get_record('enrol', ['id' => $instanceid]);
+        } finally {
+            $lock->release();
         }
-
-        $lpname = $DB->get_field('local_adele_learning_paths', 'name', ['id' => $learningpathid]);
-        $namestring = $kind === self::KIND_HOST ? 'instancenamehost' : 'instancename';
-        $instanceid = $plugin->add_instance($course, [
-            'status' => ENROL_INSTANCE_ENABLED,
-            'roleid' => self::get_role_id(),
-            'customint1' => $learningpathid,
-            'customint2' => $kind,
-            'name' => get_string($namestring, 'enrol_adele', $lpname ?: $learningpathid),
-        ]);
-
-        return $DB->get_record('enrol', ['id' => $instanceid]);
     }
 
     /**
