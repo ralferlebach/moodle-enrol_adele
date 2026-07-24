@@ -48,3 +48,23 @@ if ($ADMIN->fulltree) {
         );
     }
 }
+
+// Management page (C.2, specification section 6): added under the
+// top-level 'enrolments' category, not under this plugin's own
+// 'enrolsettingsadele' settings page. Verified via web search against
+// Moodle core itself (admin/settings/plugins.php adds its own
+// 'enroltestsettings' external page the same way: $ADMIN->add('enrolments',
+// ...)) and a real-world precedent (moodle-tool_uploadenrolmentmethods).
+// admin_settingpage objects (like 'enrolsettingsadele') cannot hold child
+// pages — only admin_category can — so the original 'enrolsettingsadele'
+// parent would not have worked. Still not confirmed against a live
+// instance; see docs/verification-live-testing-guide.md.
+$ADMIN->add(
+    'enrolments',
+    new admin_externalpage(
+        'enrolsettingsadelemanage',
+        get_string('manage_heading', 'enrol_adele'),
+        new moodle_url('/enrol/adele/manage.php'),
+        'enrol/adele:config'
+    )
+);

@@ -155,4 +155,72 @@ class enrol_adele_plugin extends enrol_plugin {
         \enrol_adele\local\reconciler::reconcile_all($trace);
         return 0;
     }
+
+    /**
+     * Skip restoring ADELE enrol instances from a course backup (C.4,
+     * requirement A-13).
+     *
+     * Every instance is derived state: it exists only because a learning
+     * path currently grants access, and is owned entirely by the
+     * reconciler (decision A-9 — this plugin keeps no table of its own).
+     * Restoring a stale instance from a backup — into a duplicated course,
+     * a different course, or even the same course after some other change
+     * happened in between — would reintroduce exactly the "enrolment
+     * without provenance" problem enrol_adele exists to solve, and Moodle's
+     * own fallback for non-restorable enrolments (converting them to
+     * enrol_manual) would be worse still. The reconciler recreates
+     * whatever the current learning path state actually calls for on its
+     * own (nightly task at the latest, per decision F-6/L-Q-09 —
+     * idempotent and self-healing), without needing this data at all.
+     *
+     * Verified against enrol_programs (a real-world plugin with the same
+     * can_add_instance()=false / lazily-managed-instances shape as this
+     * one), which uses the identical unconditional-skip pattern. A
+     * same-course exception was in the original specification (docs/
+     * pflichtenheft.md, requirement A-13) but is deliberately NOT
+     * implemented here: detecting "restoring into the same course it came
+     * from" needs restore_controller/task API surface (backup::TARGET_*,
+     * original_course_id) that could not be verified with confidence in
+     * this environment (no live Moodle instance) — after two real
+     * regressions this session from acting on unverified Moodle API
+     * assumptions, guessing at a third felt like the wrong tradeoff against
+     * unconditional skip, which is safe in every case (worst case: a
+     * bounded gap until the next reconciliation catches up, exactly the
+     * self-healing behaviour the architecture already relies on).
+     *
+     * @param restore_enrolments_structure_step $step Restore step.
+     * @param stdClass $data Instance data from the backup file.
+     * @param stdClass $course The (possibly new) course being restored into.
+     * @param int $oldid The instance id in the original, backed-up course.
+     * @return void
+     */
+    public function restore_instance(restore_enrolments_structure_step $step, stdClass $data, $course, $oldid): void {
+        return;
+    }
+
+    /**
+     * Skip restoring individual ADELE user enrolments from a course backup
+     * (C.4, requirement A-13).
+     *
+     * Never reached in practice, since restore_instance() above never
+     * creates an instance for a restored enrolment to attach to — kept as
+     * an explicit no-op regardless, matching the specification and making
+     * the intent explicit rather than relying on that implicit consequence.
+     *
+     * @param restore_enrolments_structure_step $step Restore step.
+     * @param stdClass $data User enrolment data from the backup file.
+     * @param stdClass $instance The (already restored-or-skipped) enrol instance.
+     * @param int $userid The (already-mapped, new) user id.
+     * @param int $oldinstancestatus The user's enrolment status in the original course.
+     * @return void
+     */
+    public function restore_user_enrolment(
+        restore_enrolments_structure_step $step,
+        $data,
+        $instance,
+        $userid,
+        $oldinstancestatus
+    ): void {
+        return;
+    }
 }

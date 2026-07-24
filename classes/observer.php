@@ -93,6 +93,17 @@ class observer {
             // several host courses at once, each potentially having granted
             // host-course access.
             reconciler::purge_all_host_user($lpid, $userid);
+
+            // Specification 7.3: marks that rule A-4 actually fired for this
+            // user/path (not the routine per-node suspend/reactivate cycle,
+            // which is already visible via core user_enrolment_updated).
+            \enrol_adele\event\user_access_revoked::create([
+                'context' => \context_system::instance(),
+                'relateduserid' => $userid,
+                'other' => [
+                    'learningpathid' => $lpid,
+                ],
+            ])->trigger();
         }
     }
 
@@ -176,7 +187,11 @@ class observer {
     /**
      * Whether the user holds any non-ADELE enrolment in one of the given courses.
      *
-     * Suspended enrolments count (decision F-4/A-8).
+     * Suspended enrolments count (decision F-4/A-8). Expired enrolments
+     * (timeend passed), not-yet-started enrolments (timestart in the
+     * future) and enrolments via a disabled enrol instance do NOT count
+     * (fix G.4, Session 003 — previously unchecked; F-4/A-8 only ever
+     * covered suspension, not expiry or a disabled method).
      *
      * @param int $userid The user id.
      * @param int[] $courseids Course ids to check.
@@ -189,12 +204,21 @@ class observer {
             return false;
         }
         [$insql, $inparams] = $DB->get_in_or_equal(array_unique($courseids), SQL_PARAMS_NAMED);
+        $now = time();
         $sql = "SELECT 1
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON e.id = ue.enrolid
                  WHERE ue.userid = :userid
                        AND e.enrol <> 'adele'
+                       AND e.status = :enabled
+                       AND (ue.timestart = 0 OR ue.timestart <= :now1)
+                       AND (ue.timeend = 0 OR ue.timeend > :now2)
                        AND e.courseid {$insql}";
-        return $DB->record_exists_sql($sql, ['userid' => $userid] + $inparams);
+        return $DB->record_exists_sql($sql, [
+            'userid' => $userid,
+            'enabled' => ENROL_INSTANCE_ENABLED,
+            'now1' => $now,
+            'now2' => $now,
+        ] + $inparams);
     }
 }

@@ -69,12 +69,22 @@ Reconciliation.
 | `enrol_adele` | Technische Ausführung: Instanzen, `user_enrolments`, Reconciliation, Observer für Hostkurs-Austragungen, Verwaltungsseite. Trifft keine fachliche Entscheidung. |
 | `mod_adele` | Anzeige und Eintrags-Auslöser (Optionen 1/2/3). Schreibt weiterhin per `enrol_manual` in den **Hostkurs** ein (F-7). Fasst Zielkurse nie an. |
 
-### 1.4 Abhängigkeitsrichtung (unverändert)
+### 1.4 Abhängigkeitsrichtung
 
 `enrol_adele` deklariert `local_adele` in `version.php`. Die Gegenrichtung
-bleibt undeklariert: `local_adele` ruft ausschließlich über
-`enrol_get_plugin('adele')` mit Null-Prüfung auf (L-Q-08). Ohne installiertes
-`enrol_adele` verhält sich der Bestand wie bisher.
+bleibt undeklariert (`local_adele` ruft ausschließlich über
+`local_adele\enrol_state`/`enrol_get_plugin('adele')` mit Null-Prüfung auf) —
+das ist weiterhin richtig so, siehe Arbeitsplan G-Q1: `local_adele` erfordert
+`enrol_adele` würde, kombiniert mit `enrol_adele`s echter Codeabhängigkeit auf
+`local_adele\enrol_state`, eine neue Zirkularität erzeugen.
+
+**Geändert (Session 003, Entscheidung G-Q1a, hebt L-Q-08 auf):** Ohne
+installiertes/aktives `enrol_adele` verhält sich der Bestand **nicht mehr**
+wie zuvor. Es findet keine Einschreibung über `enrol_manual` mehr statt;
+`local_adele\enrol_state::warn_enrol_adele_missing()` meldet das klar per
+`debugging()`. `local_adele`/`mod_adele` laufen weiterhin fehlerfrei (kein
+Fatal Error für Endnutzer/innen), aber ohne dass ADELE-Einschreibungen
+entstehen, solange `enrol_adele` fehlt.
 
 ---
 
@@ -198,14 +208,20 @@ Messaging-Subsystem aus. Schlägt die Zustellung fehl (typischerweise: kein
 konfigurierter Nachrichten-Prozessor auf einer Demo-/Testinstanz), erscheint
 genau dieser Fehler.
 
-**Betroffene Pfade in diesem Projekt:** Ausschließlich der
-`enrol_manual`-Rückfallpfad, den `local_adele` (`node_completion.php`,
-`relation_update.php`) und `mod_adele` (`subscribe_user_course()`) bewusst
-beibehalten, wenn `enrol_adele` fehlt oder inaktiv ist (L-Q-08) — sowie
-jede manuelle Einschreibung, die eine Lehrkraft selbst über die
-Teilnehmer/innen-Seite vornimmt. Die reguläre `enrol_adele`-Einschreibung
-selbst kennt kein Willkommensnachricht-Feature und kann diesen Fehler nicht
-auslösen.
+**Betroffene Pfade in diesem Projekt (historisch, Stand zum Zeitpunkt der
+Analyse):** Ausschließlich der `enrol_manual`-Rückfallpfad, den `local_adele`
+(`node_completion.php`, `relation_update.php`) und `mod_adele`
+(`subscribe_user_course()`) bewusst beibehielten, wenn `enrol_adele` fehlte
+oder inaktiv war (L-Q-08) — sowie jede manuelle Einschreibung, die eine
+Lehrkraft selbst über die Teilnehmer/innen-Seite vornimmt. Die reguläre
+`enrol_adele`-Einschreibung selbst kennt kein Willkommensnachricht-Feature
+und kann diesen Fehler nicht auslösen.
+
+**Nachtrag Session 003 (G-Q1a):** L-Q-08 wurde aufgehoben; der genannte
+`enrol_manual`-Rückfallpfad existiert seither nicht mehr im Code. Diese
+konkrete Fehlerquelle kann ab `local_adele` 0.4.8/`mod_adele` 0.1.11 nicht
+mehr über diesen Pfad auftreten — weiterhin möglich bleibt sie nur über eine
+manuelle Einschreibung durch eine Lehrkraft selbst.
 
 **Kein Plugin-Bug, daher kein Codefix.** Behebbar nur auf Seiten der
 Moodle-Konfiguration: entweder „Willkommensnachricht senden" für die
@@ -547,9 +563,12 @@ enrol_adele\reconciler::reconcile_all(progress_trace $trace): void;
 enrol_adele\reconciler::purge_user(int $lpid, int $userid): void;
 enrol_adele\reconciler::purge_learning_path(int $lpid): void;
 
-// Aufrufmuster in local_adele (optionale Kopplung, L-Q-08):
-if ($plugin = enrol_get_plugin('adele')) {
-    \enrol_adele\reconciler::reconcile_user($lpid, $userid);
+// Aufrufmuster in local_adele (Session 003, G-Q1a — hebt L-Q-08 auf):
+// kein enrol_manual-Rückfallpfad mehr; klare Warnung statt stillem No-op.
+if (\local_adele\enrol_state::adele_enrol_active()) {
+    \enrol_adele\local\reconciler::reconcile_user($lpid, $userid);
+} else {
+    \local_adele\enrol_state::warn_enrol_adele_missing();
 }
 ```
 
@@ -606,7 +625,11 @@ Die Einzeloperationen sind bereits durch die Kern-Events
    restlos ab und die nächste Reconciliation schreibt **nicht** wieder ein.
 5. **A-13:** Kurs-Duplikat und Restore in neuen Kurs enthalten weder
    ADELE-Instanzen noch daraus konvertierte `manual`-Einschreibungen.
-6. **L-Q-08:** Deinstallation/Deaktivierung von `enrol_adele` lässt
-   `local_adele`/`mod_adele` fehlerfrei weiterlaufen.
+6. ~~**L-Q-08**~~ **G-Q1a (Session 003, ersetzt L-Q-08):** Deinstallation/
+   Deaktivierung von `enrol_adele` lässt `local_adele`/`mod_adele` weiterhin
+   fehlerfrei weiterlaufen (kein Fatal Error) — erzeugt aber keine neuen
+   ADELE-Einschreibungen mehr und meldet dies klar per `debugging()`
+   (`enrol_state::warn_enrol_adele_missing()`), statt es wie zuvor
+   stillschweigend über `enrol_manual` zu kompensieren.
 7. **L-Q-09:** Jede Operation doppelt ausgeführt = identisches Ergebnis.
 8. **L-Q-03:** CI grün auf allen Matrizen, Code-Checker null Warnungen.
