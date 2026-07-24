@@ -57,24 +57,22 @@ class observer {
             return;
         }
         $dbman = $DB->get_manager();
-        if (!$dbman->table_exists('adele') || !$dbman->table_exists('local_adele_path_user')) {
+        if (!$dbman->table_exists('local_adele_host_courses') || !$dbman->table_exists('local_adele_path_user')) {
             return;
         }
 
         $userid = (int) $event->relateduserid;
         $courseid = (int) $event->courseid;
 
-        // Learning paths embedded in the course the user just left.
-        $embeddings = $DB->get_records('adele', ['course' => $courseid], '', 'id, learningpathid');
-        if (!$embeddings) {
+        // Learning paths embedded in the course the user just left. Fix G.2
+        // full solution (Session 003): reads local_adele's own host-course
+        // index instead of mod_adele's {adele} table directly.
+        $lpids = \local_adele\enrol_state::get_learningpaths_embedded_in_course($courseid);
+        if (!$lpids) {
             return;
         }
-        $lpids = [];
-        foreach ($embeddings as $embedding) {
-            $lpids[(int) $embedding->learningpathid] = true;
-        }
 
-        foreach (array_keys($lpids) as $lpid) {
+        foreach ($lpids as $lpid) {
             if (self::is_user_carried($lpid, $userid)) {
                 continue;
             }
@@ -124,25 +122,23 @@ class observer {
     public static function is_user_carried(int $lpid, int $userid): bool {
         global $DB;
 
-        $embeddings = $DB->get_records(
-            'adele',
-            ['learningpathid' => $lpid],
-            '',
-            'id, course, participantslist'
-        );
+        // Fix G.2 full solution (Session 003): reads local_adele's own
+        // host-course index instead of mod_adele's {adele} table and
+        // participantslist string format directly — this class no longer
+        // has any knowledge of either.
+        $embeddings = \local_adele\enrol_state::get_host_embeddings($lpid);
 
         $hasoption2 = false;
         $hasoption3 = false;
         foreach ($embeddings as $embedding) {
-            $options = array_map('trim', explode(',', (string) $embedding->participantslist));
             if (
-                in_array('1', $options)
-                && self::has_foreign_enrolment($userid, [(int) $embedding->course])
+                $embedding['option1']
+                && self::has_foreign_enrolment($userid, [$embedding['courseid']])
             ) {
                 return true;
             }
-            $hasoption2 = $hasoption2 || in_array('2', $options);
-            $hasoption3 = $hasoption3 || in_array('3', $options);
+            $hasoption2 = $hasoption2 || $embedding['option2'];
+            $hasoption3 = $hasoption3 || $embedding['option3'];
         }
         if (!$hasoption2 && !$hasoption3) {
             return false;

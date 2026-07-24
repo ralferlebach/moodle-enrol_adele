@@ -5,6 +5,28 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.10] — 2026-07-24
+
+### Added — C.5, G.2 und G.13 vollständig umgesetzt (Session 003, Teil 12)
+
+- **C.5:** `tests/behat/manage.feature` (drei Szenarien) und
+  `tests/behat/behat_enrol_adele.php` (eigener Given-Step, da
+  `enrol_adele` keine manuelle Instanz-Erzeugung hat).
+- **G.2 (vollständig):** `classes/observer.php` liest nicht mehr direkt
+  aus `mod_adele`s `{adele}`-Tabelle — neue `local_adele`-Indextabelle
+  `local_adele_host_courses` stattdessen, über
+  `enrol_state::get_host_embeddings()`/
+  `get_learningpaths_embedded_in_course()`. Abhängigkeit auf
+  `local_adele` auf ≥ 2026072404 angehoben.
+- **G.13 (vollständig, `local_adele`):** `delete_learning_path()`
+  blockiert die Löschung jetzt, wenn noch `mod_adele`-Aktivitäten den
+  Lernpfad einbetten.
+- **G.10:** bewusst nicht umgesetzt — bei der Umsetzung bestätigte sich,
+  dass eine neue System-Capability entweder wirkungslos wäre oder
+  bestehende pfadspezifische Editor-Zuweisungen brechen könnte. Offene
+  Rückfrage an den Auftraggeber, siehe `docs/arbeitsplan.md`.
+- `php -l` über alle drei vollständigen Plugin-Bäume: sauber.
+
 ## [0.1.9] — 2026-07-24
 
 ### Added — C.4 Restore-Hooks umgesetzt (Session 003, Teil 10)

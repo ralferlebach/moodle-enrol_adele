@@ -527,6 +527,210 @@ Patch-ZIP (nur geänderte Dateien): `enrol_adele` 0.1.9 (2026072308) —
 
 ---
 
+## Teil 11 — CI-Workflows korrigiert: falsche Bezugsquellen gefunden
+
+### 1. Auftrag
+
+Auftraggeber meldet, dass die GitHub-Actions-CI weiterhin am selben Fehler
+scheitert, jetzt auch im `enrol_adele`-Repo selbst. Bitte in allen drei
+Plugins eine Backupkopie der CI-YAML-Dateien anlegen, dann folgende
+Git-Repos/Branches als Bezugsquelle hinterlegen:
+`ralferlebach/moodle-local_adele`, `ralferlebach/moodle-mod_adele`,
+`ralferlebach/moodle-enrol_adele`, jeweils Branch `development`.
+
+### 2. Befund — der eigentliche Grund, warum der `install.php`-Fix nie ankam
+
+Beim Vergleich der drei `.github/workflows/moodle-plugin-ci.yml` gegen die
+genannten Quellen zeigte sich: keine der drei CI-Konfigurationen verwies
+korrekt auf `local_adele`.
+
+- `enrol_adele`: `ralferlebach/moodle_local_adele` (Unterstrich statt
+  Bindestrich — vermutlich ein anderes/nicht existentes Repo).
+- `local_adele`: seine `mod_adele`-Abhängigkeit zeigte auf
+  `Wunderbyte-GmbH/moodle-mod_adele` @ `master` — falsche Organisation
+  **und** falscher Branch, der Original-Hersteller-Fork statt Ralfs
+  eigenem, aktiv entwickeltem Fork.
+- `mod_adele`: dieselbe Unterstrich/Bindestrich-Verwechslung bei
+  `local_adele`; zusätzlich fehlte jeder Verweis auf `enrol_adele`
+  komplett, obwohl seit G.2 (Teil 7) eine echte Abhängigkeit besteht.
+
+Das erklärt vermutlich die gesamte Fehlerserie der letzten Teile: Die
+CI-Läufe haben nie den tatsächlich reparierten `local_adele`-Stand
+gezogen, unabhängig davon, wie oft der Fix im richtigen Repo landete.
+
+### 3. Fix
+
+Backupkopien aller drei `moodle-plugin-ci.yml` unter
+`docs/ci-backups/moodle-plugin-ci.yml.20260724-session003-teil11.bak`
+(außerhalb von `.github/workflows/`, damit GitHub Actions sie nicht als
+eigenen Workflow entdeckt). Alle `add-plugin`-Zeilen auf die drei
+genannten Repos/Branches korrigiert.
+`Wunderbyte-GmbH/moodle-local_wunderbyte_table` blieb unangetastet — eine
+echte Drittabhängigkeit außerhalb des ADELE-Ökosystems.
+
+### 4. Verifikation
+
+Alle drei Dateien als gültiges YAML geprüft (`yaml.safe_load`). Kein
+Versionsbump — reine CI-Infrastruktur, keine funktionale Änderung.
+
+### 5. Ausgeliefert
+
+Patch-ZIPs (nur geänderte/neue Dateien), alle drei Plugins:
+`.github/workflows/moodle-plugin-ci.yml` sowie das jeweilige
+`docs/ci-backups/...bak`.
+
+### 6. Offene Punkte
+
+- Der nächste CI-Lauf nach dem Push dieser Korrektur ist der erste, der
+  tatsächlich den reparierten `local_adele`-Stand testet.
+- Alle übrigen offenen Punkte aus Teil 7–10 unverändert.
+
+---
+
+## Teil 12 — C (fertiggestellt), G.2 und G.13 vollständig, G.10 bleibt offen
+
+### 1. Auftrag
+
+„Weiter mit C (fertigstellen) und dann die ganzen G-issues!" — C.5
+(Behat) abschließen, dann G.2 und G.13 vollständig umsetzen (statt der
+Teillösungen aus Teil 7), sowie G.10.
+
+### 2. C.5 — Behat-Grundlauf
+
+`tests/behat/manage.feature`: drei Szenarien (leerer Zustand, Lernpfad mit
+Instanz gelistet, „Neu berechnen" auslösen). Eigener Given-Step
+(`behat_enrol_adele.php`), da `enrol_adele` keine manuelle
+Instanz-Erzeugung kennt (`can_add_instance()` ist immer `false`) — plant
+Lernpfad und Instanz direkt, nach demselben Muster wie
+`tests/reconciler_test.php::plant_state()` (PHPUnit), nur aus einer
+`.feature`-Datei erreichbar. `@javascript` bewusst nicht gesetzt — reine
+Formular-POST-Navigation, keine echte JS-Interaktion (Stolperfalle aus
+`sessionstart.txt` beachtet).
+
+### 3. G.2 — vollständige Lösung
+
+Vor der Umsetzung geprüft: die Schichtenverletzung besteht ausschließlich
+darin, dass `enrol_adele` direkt aus `mod_adele`s `{adele}`-Tabelle liest.
+Lösung: neue, von `local_adele` geführte Indextabelle
+`local_adele_host_courses`, von `mod_adele`s eigenen Lifecycle-Hooks
+(`adele_add_instance()`/`_update_instance()`/`_delete_instance()`)
+aktuell gehalten. `enrol_adele` liest ausschließlich noch über
+`local_adele\enrol_state::get_host_embeddings()`/
+`get_learningpaths_embedded_in_course()`.
+
+**Eigener Fehler beim Refactor gefunden und korrigiert:** Die neue
+Indextabelle bildete im ersten Entwurf nur die Optionen 2/3 ab
+(Host-Zugang aus Node-Kurs-Mitgliedschaft) — Option 1 (Host-Kurs-
+Mitgliedschaft trägt selbst die Lernpfadmitgliedschaft) war dabei
+übersehen worden, obwohl `is_user_carried()` sie tatsächlich braucht.
+Beim Nachvollziehen der ursprünglichen Logik aufgefallen, vor dem
+Ausliefern um `participantoption1` ergänzt (Tabelle, Upgrade-Schritt,
+Backfill, `enrol_state`-Methoden, Verbraucherstelle in `observer.php`).
+
+Upgrade-Schritt 2026072403 mit Backfill aus `mod_adele`s
+Bestandseinbettungen, damit aktualisierte Installationen nicht mit einem
+leeren Index starten. Abhängigkeitsversionen entsprechend angehoben:
+`enrol_adele` und `mod_adele` verlangen jetzt `local_adele` ≥ 2026072404.
+
+### 4. G.13 — vollständige Lösung
+
+`delete_learning_path()` blockiert jetzt die Löschung, wenn noch
+`mod_adele`-Aktivitäten den Lernpfad einbetten (Option 1 aus dem
+Issue-Entwurf). Neuer Sprachstring, optionales `message`-Feld in der
+External-Function-Rückgabe (abwärtskompatibel).
+
+### 5. G.10 — bewusst nicht umgesetzt
+
+Beim tatsächlichen Versuch, es umzusetzen, bestätigte sich die bereits in
+Runde 1 geäußerte Sorge konkret statt nur hypothetisch:
+`require_lp_editor_access()` prüft eine **pfadspezifische** Mitgliedschaft
+in `local_adele_lp_editors`, nicht nur Moodle-Archetypen. Eine neue
+System-Capability wäre entweder wirkungslos (deckungsgleich mit der
+bereits vorhandenen `canmanage`-Ausnahme) oder würde — enger gesetzt —
+Studierende aussperren, die heute legitim als Editor/in eines einzelnen
+Pfads eingetragen sind. Vollständige Herleitung und die konkrete
+Rückfrage an den Auftraggeber in `docs/arbeitsplan.md` und der
+Chat-Antwort.
+
+### 6. Verifikation
+
+`php -l` über alle drei vollständigen Plugin-Bäume nach jeder Änderung:
+sauber. `install.xml` als wohlgeformtes XML geprüft. Sprachdateien
+programmatisch auf alphabetische Sortierung geprüft. Weiterhin keine
+Moodle-Instanz verfügbar — insbesondere der neue Upgrade-Schritt mit
+Backfill und die Behat-Szenarien sind ungetestet gegen eine echte
+Installation.
+
+### 7. Ausgeliefert
+
+Patch-ZIPs (nur geänderte/neue Dateien):
+- `enrol_adele` 0.1.10 (2026072309)
+- `local_adele` 0.4.11 (2026072404)
+- `mod_adele` 0.1.13 (2026072402)
+
+### 8. Offene Punkte
+
+- **G.10:** Entscheidung des Auftraggebers steht aus (siehe Punkt 5).
+- Neuer Upgrade-Schritt (G.2, Backfill) und alle Behat-Szenarien (C.5)
+  ungetestet gegen eine echte Instanz — höchste Priorität für den
+  nächsten CI-/manuellen Testlauf.
+- Damit ist **Phase C vollständig** und **13 von 14 zurückgeholten
+  G-Punkten vollständig umgesetzt** (G.10 ausgenommen, s. o.).
+
+---
+
+## Teil 13 — phpcs-Funde und echte PHPUnit-Regression aus G.2 behoben
+
+### 1. Auftrag
+
+Dritter CI-Lauf: zwei phpcs-Funde in `behat_enrol_adele.php` (nutzloser
+Alias-Import, Zeilenlänge) sowie zwei tatsächlich fehlgeschlagene
+PHPUnit-Tests in `reconciler_test.php` — beide bereits vor dieser
+Sitzung vorhanden, jetzt rot durch den G.2-Umbau. Bitte fixen, ohne
+Versionsbump.
+
+### 2. phpcs-Funde
+
+`use Behat\Behat\Context\Step\Given as Given;` → nutzloser Alias entfernt.
+Die `@Given`-Docblock-Annotation überschritt das 132-Zeichen-Limit —
+gekürzt durch kürzere Capture-Group-Namen (`course`/`user` statt
+`course_shortname`/`username`); Behat bindet Capture-Groups positionell
+an die Methodenparameter, der Name der Gruppe selbst ist funktional
+irrelevant.
+
+### 3. Echte Regression — von G.2 verursacht, nicht neu eingeführt
+
+`reconciler_test.php` hatte an zwei Stellen (`test_host_course_removal_
+rules()`, `test_leaving_learning_path_purges_every_host_course()`) direkt
+in `{adele}` (mod_adele) geschrieben, um eine Host-Kurs-Einbettung zu
+simulieren — genau der Kurzschluss, den G.2 in der Produktion beseitigt
+hat. Da `enrol_adele` seit G.2 ausschließlich `local_adele_host_courses`
+liest, sah dieser Fixture-Aufbau plötzlich leer aus. Behoben: beide
+Fixtures rufen nach dem `{adele}`-Insert jetzt zusätzlich
+`local_adele\enrol_state::sync_host_course_index()` auf — genau das, was
+`mod_adele`s eigener Lifecycle-Hook in der Produktion jetzt auch tut.
+
+### 4. Verifikation
+
+`php -l` auf beiden geänderten Dateien und im Volllauf über das gesamte
+Plugin: sauber. Zeilenlängen-Check (`awk`) bestätigt: keine Zeile über
+132 Zeichen mehr. Version unverändert (0.1.10/2026072309), wie gefordert.
+
+### 5. Ausgeliefert
+
+Patch-ZIP (nur geänderte Dateien): `enrol_adele`,
+`tests/behat/behat_enrol_adele.php`, `tests/reconciler_test.php`,
+dieses Protokoll.
+
+### 6. Offene Punkte
+
+- Weiterhin keine eigene Bestätigung möglich, dass die beiden Tests jetzt
+  tatsächlich grün laufen — beruht auf der Analyse des Fixture-Codes, kein
+  eigener Testlauf.
+- Alle übrigen offenen Punkte aus Teil 12 unverändert.
+
+---
+
 ## Teil 2 — Sessionstartprompt erneut geprüft, Risikoabwägung Codezirkel
 
 ### 1. Sessionstartprompt — auch unter `db/prompt-templates` nicht vorhanden

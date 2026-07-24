@@ -1,6 +1,6 @@
 # Arbeitsplan ADELE-Einschreibearchitektur
 
-**Stand:** 2026-07-24, fortgeschrieben bis Session 003, Teil 7
+**Stand:** 2026-07-24, fortgeschrieben bis Session 003, Teil 12
 **Referenz:** [Lastenheft 2.0](lastenheft.md), [Pflichtenheft 2.0](pflichtenheft.md)
 
 Drei Repositories, drei Arbeitsbranches:
@@ -47,7 +47,7 @@ Alles ohne Aufrufer; testbar rein über PHPUnit.
 | C.2 | Verwaltungsseite `manage.php` nach Pflichtenheft Abschnitt 6 (inkl. „verwaist"-Markierung, Ad-hoc-Task ab Schwellwert, Bestätigungsdialog) | B.3, B.4 · **Status: erledigt (0.1.7, Session 003 Teil 6) — Erstversion, noch nicht gegen echte Moodle-Instanz getestet, siehe `docs/verification-live-testing-guide.md`** |
 | C.3 | Eigene Events (`learning_path_reconciled`, `learning_path_purged`, `user_access_revoked`) | C.1, C.2 · **Status: erledigt (0.1.7, Session 003 Teil 6)** |
 | C.4 | Restore-Hooks: `restore_instance()` (Skip-Strategie mit Same-Course-Ausnahme), `restore_user_enrolment()` (No-op) + Backup/Restore-Test (Prüfkriterium 5) | B.1 · **Status: erledigt (0.1.9, Session 003 Teil 10) — Same-Course-Ausnahme bewusst nicht umgesetzt (siehe Codekommentar), reiner Skip statt; kein automatisierter Backup/Restore-Test, manuelle Testanleitung stattdessen in `docs/verification-live-testing-guide.md`** |
-| C.5 | Behat-Grundlauf für die Verwaltungsseite | C.2 · **Status: offen** |
+| C.5 | Behat-Grundlauf für die Verwaltungsseite | C.2 · **Status: erledigt (0.1.10, Session 003 Teil 12) — drei Szenarien (leerer Zustand, Lernpfad gelistet, Neu-berechnen-Aktion), ungetestet gegen echte Instanz** |
 
 ## Phase D — 0.4.0: Umstellung der Aufrufer
 
@@ -488,6 +488,58 @@ vor `change_field_notnull()`), aber ungetestet gegen echte Bestandsdaten.
 Patch-ZIPs** (nur geänderte/neue Dateien), nicht mehr als vollständige
 Plugin-Ordner, wie im Sessionstart-Prompt unter „Modus zur Delivery"
 gefordert und in den vorigen Teilen dieser Sitzung versäumt.
+
+### G.2 und G.13 vollständig umgesetzt, G.10 bleibt offen (Session 003, Teil 12)
+
+Auf Weisung des Auftraggebers die bislang nur teilweise umgesetzten Punkte
+zu Ende gebracht.
+
+**G.2 (vollständig):** Die eigentliche Schichtenverletzung behoben. Neue
+Indextabelle `local_adele_host_courses` in `local_adele` (Upgrade-Schritt
+2026072403 mit Backfill aus `mod_adele`s Bestandsdaten). `mod_adele`s
+Lifecycle-Hooks (`adele_add_instance()`/`_update_instance()`/
+`_delete_instance()`) halten sie über neue `enrol_state`-Methoden
+(`sync_host_course_index()`, `remove_host_course_index()`) aktuell.
+`enrol_adele/classes/observer.php` liest jetzt ausschließlich über
+`enrol_state::get_host_embeddings()`/`get_learningpaths_embedded_in_course()`
+— keine direkte Kenntnis von `mod_adele`s `{adele}`-Tabelle oder dem
+`participantslist`-Format mehr. Eigener Fehler beim Refactor gefunden und
+korrigiert: die Options-1-Prüfung (Host-Kurs-Mitgliedschaft trägt
+Lernpfadmitgliedschaft) war zunächst versehentlich entfallen, da die neue
+Indextabelle im ersten Entwurf nur die Options 2/3 (Host-Zugang aus
+Node-Kurs-Mitgliedschaft) abbildete — Tabelle um `participantoption1`
+ergänzt, bevor ausgeliefert.
+
+Abhängigkeitsversionen entsprechend angehoben: `enrol_adele` und
+`mod_adele` verlangen jetzt `local_adele` ≥ 2026072404 (vorher 2026072301)
+— beide rufen seit diesem Fix neue `enrol_state`-Methoden auf, die in
+älteren `local_adele`-Versionen nicht existieren.
+
+**G.13 (vollständig):** `delete_learning_path()` blockiert die Löschung
+jetzt, wenn noch `mod_adele`-Aktivitäten den Lernpfad einbetten (Option 1
+aus dem Issue-Entwurf — die einfachste, sicherste der drei erwogenen
+Optionen). Neue Sprachstring `cannotdeleteembedded` (en/de), optionales
+`message`-Feld in `delete_learningpath.php`s Rückgabestruktur (abwärts-
+kompatibel, `VALUE_OPTIONAL`).
+
+**G.10 — bewusst weiterhin nicht umgesetzt.** Bei dem Versuch, es
+tatsächlich umzusetzen, bestätigte sich die bereits in Runde 1
+geäußerte Sorge als konkretes, nicht nur hypothetisches Problem:
+`require_lp_editor_access()` prüft eine **pfadspezifische** Mitgliedschaft
+in `local_adele_lp_editors`, nicht nur Moodle-Archetypen. Eine neue
+System-Capability für „Editoren verwalten" wäre entweder wirkungslos
+(deckungsgleich mit der bereits vorhandenen `local/adele:canmanage`-
+Ausnahme in `require_lp_editor_access()`) oder — als eigenständige,
+engere Bedingung gesetzt — würde Studierende aussperren, die heute
+legitim als Editor/in eines einzelnen Pfads eingetragen sind, ohne
+Kursrolle. Das ist keine graduelle Verbesserung, sondern bräuchte eine
+echte Entscheidung: Soll das bestehende pfadspezifische ACL-Modell
+(`local_adele_lp_editors`) durch ein capability-basiertes ersetzt werden
+(größerer Umbau, potenziell rückwärtsinkompatibel für bestehende
+Editor-Zuweisungen), oder bleibt es bestehen und die Capability-Frage
+bezieht sich nur auf die Fälle, die *nicht* pfadspezifisch sind (z. B.
+`local/adele:createpath` für neue Pfade)? **Offene Rückfrage an den
+Auftraggeber**, siehe Antwort im Chat.
 
 ## Definition of Done (je Phase)
 
