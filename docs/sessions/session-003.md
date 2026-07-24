@@ -731,6 +731,160 @@ dieses Protokoll.
 
 ---
 
+## Teil 14 — Behat-Navigation, G-Q1a-Testregression, zwei echte Altbugs behoben
+
+### 1. Auftrag
+
+Vierter CI-Lauf, diesmal mit echtem Behat (Chrome/Selenium) und einem
+vollständigeren PHPUnit-Lauf über `local_adele` (274 Tests) und
+`mod_adele`. Vier unterschiedliche Fundorte:
+
+1. `enrol_adele`-Behat: alle drei `manage.feature`-Szenarien scheitern an
+   „Link ... not found" beim Navigationsschritt.
+2. `local_adele`-Behat: 6 Szenarien scheitern in
+   `behat_navigation->i_am_on_course_homepage()`.
+3. `local_adele`-PHPUnit: „Unexpected debugging() call" sowie zahlreiche
+   „Short name is already used for another course (tc_1)"-Fehler.
+4. `mod_adele`-PHPUnit: „Duplicate value '597000' found in column 'id'"
+   in `host_enrolment_priority_test`.
+
+### 2. enrol_adele-Behat — Navigationsschritt ausgetauscht
+
+Erste Vermutung (Capability-Kontext-Mismatch: `enrol/adele:config` ist auf
+`CONTEXT_COURSE` deklariert, die Admin-Seite prüft aber auf
+`CONTEXT_SYSTEM`) per Recherche verworfen — das `contextlevel`-Feld in
+`db/access.php` ist laut einem Moodle-Core-Entwickler-Forumsbeitrag reine
+Metadaten und schränkt `has_capability()` nicht ein. Die tatsächliche
+Ursache (vermutlich Indexierung der Admin-Such-Seite, auf der der
+Navigationsschritt faktisch basiert — der Log zeigt den Browser auf
+`/admin/search.php` landen) konnte ich nicht mit ausreichender Sicherheit
+verifizieren. Stattdessen auf den offiziell in der MoodleDocs-
+Behat-Dokumentation belegten, robusteren Schritt `Given I am on
+"enrol/adele/manage.php"` umgestellt — umgeht die gesamte
+Navigations-/Such-Unsicherheit und prüft direkt die Seite selbst, die C.5
+eigentlich verifizieren soll.
+
+### 3. local_adele-PHPUnit — echte G-Q1a-Regression
+
+„Unexpected debugging() call" bestätigt als direkte Folge von G-Q1a
+(Teil 1): `local_adele`s eigene CI installiert `enrol_adele` bisher nicht
+mit, daher ist es in `local_adele`s Testumgebung tatsächlich abwesend —
+korrekt im Sinne der Architektur (kein harter Abhängigkeit, Entscheidung
+G-Q1a), aber jeder Reconcile-Versuch löst seitdem `warn_enrol_adele_
+missing()` aus, was `advanced_testcase` als unerwarteten Fehler wertet.
+Behoben durch Ergänzung von `ralferlebach/moodle-enrol_adele` in
+`local_adele`s eigener CI (`extra_plugin_runners`, beide Jobs) — die
+Testumgebung entspricht damit dem realistischen „vollständig ausgerolltes
+Ökosystem"-Fall, ohne dass einzelne Tests angefasst werden müssen.
+
+### 4. local_adele-PHPUnit — echter Altbug in `enrollment.php`
+
+`buildsqlquerypath()`s JOIN lieferte doppelte `lp.id`-Werte, wenn derselbe
+Lernpfad über mehrere `mod_adele`-Aktivitäten in denselben Kurs eingebettet
+ist — genau der Fall, den `host_enrolment_priority_test` („Most generous
+embedding wins") prüft. `get_records_sql()` nutzt die erste Spalte als
+Array-Schlüssel und meldet bei Duplikaten eine `debugging()`-Warnung.
+Vorbestehender Bug, nicht durch diese Sitzung verursacht — durch diesen
+Test erstmals sichtbar gemacht. Behoben mit `SELECT DISTINCT`.
+
+### 5. local_adele-PHPUnit — Kurs-Shortname-Kollision
+
+„Short name is already used for another course (tc_1)": ein bekanntes
+Moodle-PHPUnit-Problem. `adele_learningpath_testcase.php` (gemeinsame
+Basisklasse mehrerer Testklassen) erzeugte Testkurse ohne expliziten
+`shortname` — Moodles Generator vergibt dann automatisch „tc_N" aus einem
+internen Zähler, der bei prozessisoliertem PHPUnit-Lauf (ein PHP-Prozess
+je Testmethode) **nicht** prozessübergreifend geteilt wird und dadurch in
+mehreren Prozessen unabhängig bei 1 startet — Kollision in der geteilten
+Testdatenbank. Behoben mit einem garantiert eindeutigen `shortname`
+(`uniqid()`-Präfix) je Testkurs. Betrifft vermutlich einen Großteil der
+124 gemeldeten PHPUnit-Fehler, da mehrere Testklassen dieselbe Basisklasse
+verwenden — mit einer einzigen Änderung potenziell breit wirksam.
+
+### 6. Nicht behoben — lokal_adele-Behat (Punkt 2)
+
+`i_am_on_course_homepage()` scheitert in 6 Szenarien, aber der Log-Auszug
+zeigt nur das Ende des Stack-Trace, nicht die eigentliche Fehlermeldung
+am Anfang. Ohne diese kann ich nicht sicher sagen, ob es sich um dieselbe
+Shortname-Kollision (dann durch Punkt 5 möglicherweise mit erledigt) oder
+um etwas anderes handelt — nicht blind gefixt, um nicht ins Blaue zu
+raten. Bei Bedarf bitte den vollständigen Fehlertext nachreichen.
+
+### 7. Verifikation
+
+`php -l` auf allen geänderten Dateien und im Volllauf über beide
+vollständigen Plugin-Bäume: sauber. CI-YAML erneut als gültiges YAML
+geprüft.
+
+### 8. Ausgeliefert
+
+- `local_adele` **0.4.12** (2026072405, Versionsbump — echter
+  Funktionsbugfix in `enrollment.php`): `classes/enrollment.php`,
+  `tests/adele_learningpath_testcase.php`,
+  `.github/workflows/moodle-plugin-ci.yml`, `version.php`.
+- `enrol_adele` **0.1.10 unverändert** (nur Testcode/Doku):
+  `tests/behat/manage.feature`, `docs/sessions/session-003.md`.
+
+### 9. Offene Punkte
+
+- Punkt 6 (lokal_adele-Behat-Fehler) — vollständige Fehlermeldung
+  ausständig.
+- Weiterhin keine eigene Bestätigung möglich, dass die Fixes tatsächlich
+  grün laufen — beruht auf Log- und Code-Analyse, kein eigener Testlauf.
+- Alle übrigen offenen Punkte aus Teil 12/13 unverändert.
+
+---
+
+## Teil 15 — D.8: formale Bewertung der acht Prüfkriterien
+
+### 1. Auftrag
+
+„Dann weitermachen und die nächsten Arbeitsschritte abliefern." Nach dem
+aktuellen Arbeitsplan-Stand (Phase A–G erledigt bis auf die offene
+G-Q1-Rückfrage zu G.10, Phase C vollständig) ist der nächste dort selbst
+vorgemerkte Schritt D.8: die formale Bewertung der acht Prüfkriterien aus
+Pflichtenheft Abschnitt 9, bislang zurückgestellt, weil sie an C.2/C.4
+hing — beide inzwischen erledigt.
+
+### 2. Vorgehen
+
+Jedes der acht Kriterien einzeln gegen den aktuellen Code nachvollzogen,
+nicht nur aus der Umsetzungserinnerung heraus übernommen — u. a.
+`reconciler::reconcile_user()` (Kriterium 1) und `is_user_carried()`
+(Kriterium 3) nach dem G.2-Refactor erneut vollständig gelesen, da genau
+dort in Teil 12 bereits einmal eine echte Regression (fehlende
+Options-1-Prüfung) gefunden wurde. Vollständige Tabelle mit
+Fundstellen in `arbeitsplan.md`, Abschnitt D.8.
+
+### 3. Ergebnis
+
+Sieben von acht Kriterien im Code bestätigt und in sich konsistent.
+Kriterium 8 (CI durchgängig grün auf allen Matrizen) ist der einzige
+Punkt, der ehrlich als „in Arbeit" gilt — folgerichtig angesichts der
+laufenden CI-Rückmeldeschleife seit Teil 8. Kein Hinweis auf ein
+grundsätzliches Problem, nur noch nicht abgeschlossen.
+
+### 4. Verifikation
+
+Reine Code-Analyse, keine neuen Codeänderungen in diesem Teil — kein
+Versionsbump.
+
+### 5. Ausgeliefert
+
+Patch-ZIP (nur geänderte Dateien): `enrol_adele`,
+`docs/arbeitsplan.md`, dieses Protokoll.
+
+### 6. Offene Punkte
+
+- Kriterium 8 (L-Q-03) bleibt offen, bis die CI-Rückmeldeschleife
+  abgeschlossen ist.
+- G.10 (Capability-Modell) — Entscheidung des Auftraggebers weiterhin
+  ausständig.
+- Die 6 lokal_adele-Behat-Fehler aus Teil 14, Punkt 6 — vollständige
+  Fehlermeldung weiterhin ausständig.
+
+---
+
 ## Teil 2 — Sessionstartprompt erneut geprüft, Risikoabwägung Codezirkel
 
 ### 1. Sessionstartprompt — auch unter `db/prompt-templates` nicht vorhanden

@@ -1,6 +1,6 @@
 # Arbeitsplan ADELE-Einschreibearchitektur
 
-**Stand:** 2026-07-24, fortgeschrieben bis Session 003, Teil 12
+**Stand:** 2026-07-24, fortgeschrieben bis Session 003, Teil 15
 **Referenz:** [Lastenheft 2.0](lastenheft.md), [Pflichtenheft 2.0](pflichtenheft.md)
 
 Drei Repositories, drei Arbeitsbranches:
@@ -540,6 +540,30 @@ Editor-Zuweisungen), oder bleibt es bestehen und die Capability-Frage
 bezieht sich nur auf die Fälle, die *nicht* pfadspezifisch sind (z. B.
 `local/adele:createpath` für neue Pfade)? **Offene Rückfrage an den
 Auftraggeber**, siehe Antwort im Chat.
+
+### D.8 — Formale Bewertung der acht Prüfkriterien (Session 003, Teil 15)
+
+Bislang zurückgestellt, da an C.2/C.4 hängend — beide seit Teil 6/10
+erledigt. Jeder Punkt gegen den aktuellen Code erneut nachvollzogen
+(nicht nur auf Basis der Umsetzung selbst), Ergebnis ehrlich zwischen
+„im Code bestätigt" und „braucht echte Instanz/CI" unterschieden.
+
+| # | Kriterium | Code-Befund | Status |
+|---|---|---|---|
+| 1 | A-1/A-2/A-6: Öffnen schreibt ein, Schließen bei parallel offenem Zweig lässt aktiv, vollständiges Schließen suspendiert, Wiederöffnen reaktiviert **dieselbe** `user_enrolment` | `reconciler::reconcile_user()` verifiziert: `update_user_enrol()` auf die bestehende Zeile bei Reaktivierung, `enrol_user()` (neuer Datensatz) nur wenn keine Zeile existiert | **Code bestätigt.** Deckt sich mit bestehenden `reconciler_test.php`-Tests. |
+| 2 | A-3: Löschen entfernt alle eigenen Instanzen samt Einschreibungen; zweiter Lernpfad auf demselben Kurs und parallele `manual`-Einschreibung bleiben unberührt | `purge_learning_path()` verifiziert: Abfrage strikt auf `enrol='adele' AND customint1=$learningpathid` begrenzt — andere `customint1`-Werte und `enrol='manual'` werden nie angefasst | **Code bestätigt.** |
+| 3 | A-4: Zwei Option-1-Hostkurse — erste Austragung folgenlos, zweite löscht; Option-2/3-getragene Nutzer: Hostkurs-Austragung folgenlos; Suspendierung im Hostkurs folgenlos (A-8) | `is_user_carried()` nach dem G.2-Refactor erneut vollständig durchgelesen: Options 1/2/3 alle korrekt geprüft (Options-1-Prüfung war die in Teil 12 selbst gefundene und behobene Lücke); Suspendierung zählt weiterhin bewusst als tragend (F-4/A-8, G.4 hat nur `timeend`/`e.status` ergänzt, nicht Suspendierung) | **Code bestätigt**, inklusive der in dieser Sitzung selbst gefundenen und behobenen Regression. |
+| 4 | A-5: Verwaltungsseite listet inkl. verwaister, „Neu berechnen" repariert, „Hart löschen" räumt restlos ab und bleibt so | `manage.php`, `reconcile_learning_path()`, `purge_learning_path()` — Code vorhanden und in sich konsistent | **Code vorhanden, nicht gegen echte Instanz bestätigt** — siehe `docs/verification-live-testing-guide.md`. Das ist der Punkt, an dem die laufende CI-Rückmeldung des Auftraggebers gerade ansetzt. |
+| 5 | A-13: Kurs-Duplikat/Restore enthält weder ADELE-Instanzen noch daraus konvertierte `manual`-Einschreibungen | `restore_instance()`/`restore_user_enrolment()` als bedingungsloser Skip (C.4) — bestätigt kein `manual`-Konvertierungspfad, da Moodle diesen nur nutzt, wenn der Hook selbst keine Entscheidung trifft, nicht wenn er aktiv skippt | **Code bestätigt** für den Kernfall. Die im Pflichtenheft vorgesehene Same-Course-Ausnahme fehlt weiterhin (bewusst, siehe C.4). Kein automatisierter Backup/Restore-Test — Testanleitung C liegt bereit. |
+| 6 | G-Q1a (ersetzt L-Q-08): Deinstallation/Deaktivierung von `enrol_adele` — kein Fatal Error, keine neuen Einschreibungen, klare `debugging()`-Meldung | `warn_enrol_adele_missing()` und alle Aufrufer verifiziert (Teil 1) | **Code bestätigt.** Durch die reale CI-Rückmeldung in Teil 14 (lokal_adeles PHPUnit-Suite lief tatsächlich ohne `enrol_adele`) sogar indirekt bestätigt — die Meldung erschien exakt wie vorgesehen. |
+| 7 | L-Q-09: Jede Operation doppelt ausgeführt = identisches Ergebnis | Alle in dieser Sitzung neu hinzugekommenen Operationen einzeln auf Idempotenz durchdacht: `sync_host_course_index()` (Update über `adeleinstanceid`-Unique-Key), `remove_host_course_index()`/`remove_orphaned_instances()`/`consolidate_duplicate_instances()`/`sync_instance_roles()` (jeweils zweiter Lauf findet nichts mehr zu tun) | **Code bestätigt für die Kernoperationen**, nicht durch einen eigenen Doppellauf-Test verifiziert. |
+| 8 | L-Q-03: CI grün auf allen Matrizen, Code-Checker null Warnungen | Laufende Rückmeldung seit Teil 8: mehrere echte Regressionen und Konfigurationsfehler gefunden und behoben (Teil 8–14) | **Noch nicht erreicht.** Das ist der aktuell einzige Punkt, der ehrlich als „in Arbeit" statt „erledigt" gilt — die laufende CI-Rückmeldeschleife mit dem Auftraggeber ist genau der Weg dahin. |
+
+**Gesamtbild:** Sieben von acht Kriterien sind im Code nachvollzogen und
+in sich konsistent; das achte (CI durchgängig grün) ist der einzige, der
+naturgemäß erst nach Abschluss der laufenden CI-Rückmeldeschleife
+tatsächlich erfüllt sein kann — kein Hinweis auf ein grundsätzliches
+Problem, sondern schlicht noch nicht abgeschlossen.
 
 ## Definition of Done (je Phase)
 
