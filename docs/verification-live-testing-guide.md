@@ -243,12 +243,17 @@ werden:
 
 ## Testanleitung C — C.4: Restore-Hooks (Prüfkriterium 5)
 
-Kein automatisierter Backup/Restore-Test in dieser Session geschrieben —
-Moodles Backup/Restore-Testinfrastruktur ist ohne Live-Instanz nicht
-verlässlich blind zu verifizieren, und nach den zwei echten Regressionen
-dieser Sitzung (`assign_capability()`-Reihenfolge, phpcs-Docblock) wollte
-ich hier nicht dieselbe Art Fehler ein drittes Mal riskieren, ohne es
-zeigen zu können. Stattdessen manuell zu prüfen:
+Der Neu-Kurs-Fall (Requirement A-13: Restore in einen neuen Kurs enthält
+weder ADELE-Instanz noch konvertierte `manual`-Einschreibung) wird seit
+Session 003 Teil 17 automatisiert getestet
+(`enrol_adele/tests/backup_restore_test.php`). Manuell zu prüfen bleibt
+nur noch der **Same-Course-Fall** (Session 003 Teil 19,
+`restore_instance()`s Ausnahme für `backup::TARGET_CURRENT_ADDING`/
+`TARGET_CURRENT_DELETING`) — Moodles genaues Verhalten gegenüber bereits
+bestehenden Instanzen beim Wiederherstellen „in diesen Kurs" (ADDING-Modus)
+war ohne Live-Instanz nicht sicher genug verifizierbar, um dafür ebenfalls
+einen automatisierten Test zu schreiben, ohne erneut Gefahr zu laufen,
+eine falsche Annahme zu testen statt das tatsächliche Verhalten.
 
 ### Vorbereitung
 
@@ -259,33 +264,33 @@ zeigen zu können. Stattdessen manuell zu prüfen:
 
 ### Testschritte
 
-1. **Kurs duplizieren** (Kurs → Weitere → Kurs wiederverwenden →
-   Duplizieren, oder Sicherung in einen neuen Kurs wiederherstellen).
-2. Im neuen/duplizierten Kurs unter „Teilnehmer/innen → Einschreibemethoden“
-   prüfen, ob eine ADELE-Instanz vorhanden ist.
-3. **Dieselbe Sicherung in denselben Ausgangskurs zurückspielen**
+1. **Dieselbe Sicherung in denselben Ausgangskurs zurückspielen**
    (Kurs → Weitere → Kurs wiederverwenden → Wiederherstellen → „In diesen
-   Kurs“).
-4. Prüfen, ob die ADELE-Einschreibungen im Ausgangskurs danach noch
-   korrekt sind (weder verdoppelt noch verschwunden).
-5. Den nächtlichen Reconcile-Task manuell auslösen und erneut prüfen.
+   Kurs“ — das entspricht `TARGET_CURRENT_ADDING`).
+2. Direkt im Anschluss (ohne auf den nächtlichen Task zu warten) prüfen,
+   ob die ADELE-Einschreibungen im Kurs korrekt sind (weder verdoppelt
+   noch verschwunden).
+3. Zur Kontrolle zusätzlich den nächtlichen Reconcile-Task manuell
+   auslösen und erneut prüfen — das Ergebnis sollte identisch bleiben.
 
 ### Ist-Verhalten (Hypothese, zu bestätigen)
 
-Schritt 2: keine ADELE-Instanz im neuen Kurs (Skip griff). Schritt 4: der
-Ausgangskurs könnte kurzzeitig ohne ADELE-Instanz dastehen (da auch dort
-übersprungen wird), bis Schritt 5 sie über die normale Reconciliation
-wiederherstellt.
+Schritt 2: `restore_instance()` erkennt `TARGET_CURRENT_ADDING`, stößt
+sofort `reconciler::reconcile_learning_path()` an — der Kurs sollte direkt
+nach dem Restore korrekt dastehen, nicht erst nach dem nächtlichen Task.
 
 ### Soll-Verhalten
 
-Schritt 2: keine ADELE-Instanz im neuen Kurs — bestätigt Requirement A-13.
-Schritt 4/5: nach dem nächsten Reconcile-Lauf ist der Zustand im
-Ausgangskurs korrekt, unabhängig davon, ob der Restore-Schritt selbst
-etwas wiederhergestellt hat oder nicht (Selbstheilung, F-6/L-Q-09).
+Schritt 2/3: identisches, korrektes Ergebnis in beiden Fällen — der
+Unterschied zur vorherigen (Teil 10) reinen Skip-Strategie ist nur die
+**Geschwindigkeit**, mit der der korrekte Zustand erreicht wird, nicht das
+Endergebnis (Selbstheilung, F-6/L-Q-09, gilt weiterhin als Sicherheitsnetz
+für beide Fälle).
 
 ### Bei Abweichung
 
-Falls Schritt 2 doch eine ADELE-Instanz zeigt: `restore_instance()`
-wurde nicht aufgerufen oder greift nicht — Stacktrace/Fehlermeldung
-sichern und melden, nicht selbst versuchen zu reparieren.
+Falls Schritt 2 eine sichtbare Lücke zeigt, die erst durch Schritt 3
+behoben wird: die `get_target()`-Erkennung greift nicht wie erwartet
+(z. B. falscher Konstantenwert, oder `TARGET_CURRENT_ADDING`/`_DELETING`
+sind nicht die einzigen relevanten Same-Course-Targets) — Stacktrace/
+Fehlermeldung sichern und melden, nicht selbst versuchen zu reparieren.

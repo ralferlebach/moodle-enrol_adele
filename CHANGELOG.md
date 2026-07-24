@@ -5,6 +5,41 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.11] — 2026-07-24
+
+### Added — C.4 vollständig: Same-Course-Ausnahme (Session 003, Teil 19)
+
+- `restore_instance()` erkennt jetzt `backup::TARGET_CURRENT_ADDING`/
+  `TARGET_CURRENT_DELETING` (Restore in denselben Kurs) über
+  `restore_task::get_target()` und löst dann sofort
+  `reconciler::reconcile_learning_path()` aus, statt bedingungslos zu
+  skippen — gegen echten Moodle-Core-Code verifiziert
+  (`course/classes/customfield/course_handler.php::
+  restore_instance_data_from_backup()`, identisches Muster). Für den
+  Neu-Kurs-Fall (Requirement A-13) bleibt es beim Skip.
+- Bewusst **kein** automatisierter Test für den Same-Course-Fall — Moodles
+  Restore-„Adding"-Verhalten gegenüber Bestandsdaten war ohne Live-Instanz
+  nicht sicher genug verifizierbar; Testanleitung C entsprechend erweitert.
+- `local_adele`: 3 phpcs-Warnungen behoben (Inline-Kommentare mussten mit
+  Großbuchstaben beginnen) in `lib.php`, `update_user_path_relation.php`,
+  `update_lp_animations.php`.
+- `php -l`: sauber.
+
+## [Unreleased documentation changes]
+
+### Added — automatisierter Backup/Restore-Test (Session 003, Teil 17)
+
+- `tests/backup_restore_test.php`: prüft Requirement A-13 direkt — nach
+  Restore in einen neuen Kurs existiert weder eine ADELE-Instanz noch eine
+  daraus konvertierte `manual`-Einschreibung; der Quellkurs bleibt durch
+  die Sicherung selbst unverändert. Eng an `mod_adele`s eigenem, in der CI
+  bereits grün laufendem `backup_restore_test.php` orientiert (gleiche
+  Backup-/Restore-Controller-Aufrufe), um nicht erneut auf ungeprüfte
+  Moodle-API-Annahmen angewiesen zu sein — um die tatsächliche
+  Restore-Ausführung (`execute_precheck()`/`execute_plan()`) erweitert,
+  die die Vorlage selbst nicht abdeckt.
+- `php -l`: sauber. Kein Versionsbump (reiner Testcode).
+
 ## [0.1.10] — 2026-07-24
 
 ### Added — C.5, G.2 und G.13 vollständig umgesetzt (Session 003, Teil 12)

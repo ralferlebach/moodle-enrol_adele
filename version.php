@@ -25,11 +25,11 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
-$plugin->release = '0.1.10';
+$plugin->release = '0.2.0';
 $plugin->version = 2026072309;
 $plugin->requires = 2022112800;
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->supported = [401, 501];
+$plugin->supported = [401, 502];
 // Fix G.2 full solution (Session 003): raised from 2026072301 because
 // observer.php now calls enrol_state::get_host_embeddings()/
 // get_learningpaths_embedded_in_course(), which only exist from this

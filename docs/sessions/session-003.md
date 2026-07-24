@@ -988,6 +988,304 @@ sauber.
 
 ---
 
+## Teil 17 — Automatisierter Backup/Restore-Test (C.4)
+
+### 1. Auftrag
+
+Nach der Status-Übersicht in Teil 16: „Dann jetzt: Automatisierter
+Backup/Restore-Test" — der einzige noch offene Teilpunkt von C.4/
+Prüfkriterium 5.
+
+### 2. Vorgehen
+
+`mod_adele`s eigener `tests/backup_restore_test.php` — laut letztem
+CI-Lauf bereits grün — als Vorlage verwendet, statt die Backup-/Restore-
+Controller-Aufrufe aus Dokumentation zusammenzusetzen. Das ist nach den
+mehreren unverifizierten Moodle-API-Annahmen dieser Sitzung (Teil 8, 16)
+die sicherste verfügbare Referenz: bewiesen funktionsfähig in genau dieser
+Umgebung (Moodle 4.5.12, PHP 8.1, PostgreSQL).
+
+Über die Vorlage hinaus ergänzt: `mod_adele`s Test konstruiert den
+`restore_controller` nur, führt ihn aber nie aus. Da C.4 speziell
+`restore_instance()`/`restore_user_enrolment()` als Skip-Verhalten prüfen
+soll, war eine tatsächliche Ausführung nötig — `execute_precheck()`/
+`execute_plan()` zusätzlich per Websuche gegen ein reales, funktionierendes
+Beispiel verifiziert, bevor ergänzt.
+
+### 3. Test
+
+`tests/backup_restore_test.php`, `test_restore_into_new_course_creates_no_
+adele_instance()`: legt eine echte ADELE-Instanz samt aktiver Einschreibung
+im Quellkurs an (`instance_manager::ensure_instance()`, bereits an anderer
+Stelle in dieser Sitzung erprobt), sichert den Kurs, stellt in einen **neuen**
+Kurs wieder her, und prüft direkt Requirement A-13:
+
+- keine ADELE-Instanz im wiederhergestellten Kurs,
+- keine daraus konvertierte `manual`-Einschreibung für denselben Nutzer,
+- der Quellkurs selbst bleibt durch die Sicherung unverändert (Instanz und
+  Einschreibung weiterhin vorhanden).
+
+### 4. Verifikation
+
+`php -l`: sauber. Kein Versionsbump (reiner Testcode).
+
+### 5. Ausgeliefert
+
+Patch-ZIP (nur geänderte/neue Dateien): `enrol_adele`,
+`tests/backup_restore_test.php`, `docs/arbeitsplan.md`, `CHANGELOG.md`,
+dieses Protokoll.
+
+### 6. Offene Punkte
+
+- Wie bei allen Tests dieser Sitzung: keine eigene Bestätigung möglich,
+  dass er tatsächlich grün läuft — beruht auf der bewiesenen Vorlage plus
+  verifizierter Erweiterung, nicht auf einem eigenen Testlauf.
+- Same-Course-Ausnahme (C.4) weiterhin bewusst nicht umgesetzt.
+- G.10 bleibt die einzige offene Rückfrage an den Auftraggeber.
+
+---
+
+## Teil 18 — Backup/Restore-Test: fehlender `convert()`-Schritt ergänzt
+
+### 1. Auftrag
+
+Sechster CI-Lauf: `lib_test`/`reconciler_test` laufen grün (bestätigt u. a.
+den `enrollment.php`-Fix und die Testfixtur-Korrektur aus Teil 13/14), der
+neue `backup_restore_test` scheitert mit
+`restore_controller_exception: error/cannot_precheck_wrong_status ($a: 200)`.
+
+### 2. Ursache und Fix
+
+Status 200 = `backup::STATUS_REQUIRE_CONV`. Der `restore_controller` startet
+in diesem Status und muss per `convert()` erst darüber hinaus gebracht
+werden, bevor `execute_precheck()` gültig ist — im ersten Entwurf dieses
+Tests übersehen. Gegen mehrere unabhängige, reale Beispiele verifiziert
+(Moodle.org-Forum, `tool_uploadcourse`, ein CLI-Restore-Skript), die alle
+denselben `get_status()`-abgesicherten `convert()`-Aufruf vor
+`execute_precheck()` verwenden. Ergänzt:
+```php
+if ($rc->get_status() == backup::STATUS_REQUIRE_CONV) {
+    $rc->convert();
+}
+```
+
+### 3. Verifikation
+
+`php -l`: sauber. Kein Versionsbump (reiner Testcode).
+
+### 4. Ausgeliefert
+
+Patch-ZIP (nur geänderte Datei): `enrol_adele`,
+`tests/backup_restore_test.php`, dieses Protokoll.
+
+### 5. Offene Punkte
+
+- Weiterhin keine eigene Bestätigung, dass der Test jetzt grün läuft.
+- G.10 bleibt die einzige offene Rückfrage an den Auftraggeber.
+
+---
+
+## Teil 19 — G.10 out-of-scope, C.4 fertiggestellt (Same-Course-Ausnahme), phpcs-Warnungen
+
+### 1. Auftrag
+
+„G10 ist als issue festgehalten und muss diskutiert werden. Das ist jetzt
+out-of-scope! Dann C4 abarbeiten." Dazu: `mod_adele`/`enrol_adele`-CI
+grün, `local_adele` mit 3 phpcs-Warnungen und mehreren Behat-Fehlschlägen
+(letztere als Log mitgeliefert, ohne expliziten Bearbeitungsauftrag).
+
+### 2. G.10 — formal aus dem Scope genommen
+
+`arbeitsplan.md` entsprechend nachgetragen: G.10 bleibt als Issue
+festgehalten, wird gesondert diskutiert, keine weitere Bearbeitung hier.
+
+### 3. phpcs-Warnungen behoben
+
+Drei Inline-Kommentare, die mit einem Bezeichner in Kleinschreibung
+begannen (`lp_images...`, `local/adele:view...`) — jeweils um ein
+einleitendes Wort ergänzt (`Filearea ...`, `Capability ...`), Bezeichner
+selbst unverändert gelassen.
+
+### 4. C.4 — Same-Course-Ausnahme umgesetzt
+
+Vor der Umsetzung erneut recherchiert, statt die in Teil 10 bewusst
+zurückgestellte Lücke ungeprüft zu schließen. Fund: echter,
+funktionierender Moodle-Core-Code
+(`course/classes/customfield/course_handler.php::
+restore_instance_data_from_backup()`) verwendet exakt das Muster
+`$task->get_target() !== backup::TARGET_CURRENT_ADDING` für dieselbe
+Frage („restauriere ich in den Kurs, dem diese Daten schon gehören?").
+Das bestätigt: `restore_task::get_target()` existiert und liefert die
+`backup::TARGET_*`-Konstante.
+
+`restore_instance()` erkennt jetzt `TARGET_CURRENT_ADDING`/
+`TARGET_CURRENT_DELETING` und löst in diesem Fall sofort
+`reconciler::reconcile_learning_path()` aus, statt bedingungslos zu
+skippen. Bewusst **keine** Rekonstruktion der rohen Backup-Daten (Rolle,
+Status, Custom-Felder) — das würde generische Enrol-Instanz-Restore-Logik
+nachbauen, die dieses Plugin nicht braucht. Stattdessen nutzt der Fix die
+bestehende, bewährte selbstheilende Architektur: die Reconciliation leitet
+den korrekten Zustand aus dem aktuellen Lernpfad-Zustand ab, genau wie
+immer — die Backup-Kopie der Daten ist nie die Autorität. Selbst wenn der
+sofortige Aufruf zu früh im Restore-Ablauf liegt (z. B. weil eine
+mod_adele-Aktivität im selben Kurs in einem anderen Schritt erst noch
+wiederhergestellt wird), ist das Ergebnis bestenfalls sofort korrekt und
+schlimmstenfalls identisch mit einem Skip — der nächste planmäßige
+Reconcile-Lauf korrigiert es ohnehin.
+
+**Bewusst kein automatisierter Test für diesen Fall:** Moodles genaues
+Verhalten beim Wiederherstellen „in diesen Kurs" (ADDING-Modus) gegenüber
+bereits bestehenden Instanzen war ohne Live-Instanz nicht sicher genug
+verifizierbar — nach dem `convert()`-Fund in Teil 18 wollte ich nicht
+noch eine ungeprüfte Annahme in einen automatisierten Test gießen.
+Testanleitung C entsprechend auf den Same-Course-Fall fokussiert
+umgeschrieben (der Neu-Kurs-Fall ist jetzt automatisiert abgedeckt).
+
+### 5. local_adele-Behat-Fehler — nicht bearbeitet, transparent begründet
+
+Der mitgelieferte Log zeigt 7 fehlgeschlagene Szenarien mit „element does
+not exist" für `[data-id='dndnode_2']` auf `mod/adele/view.php`-Seiten —
+der Knoten rendert überhaupt nicht, nicht nur gesperrt. Das ist vermutlich
+ein Vue3-Frontend-Rendering-Problem, zu dem mir die Quelle nicht vorliegt;
+eine Ferndiagnose ohne Browser-Konsole/tatsächliche API-Antwort wäre
+Raten. Nicht angefasst, um nicht denselben Fehler wie bei den
+Backup/Restore-Annahmen zu wiederholen — hier fehlt mir schlicht die
+Diagnosegrundlage.
+
+### 6. Verifikation
+
+`php -l` über beide vollständigen Plugin-Bäume: sauber.
+
+### 7. Ausgeliefert
+
+- `enrol_adele` **0.1.11** (2026072310, Versionsbump — Same-Course-
+  Ausnahme ist eine funktionale Ergänzung): `lib.php`, `version.php`,
+  `docs/verification-live-testing-guide.md`, `docs/arbeitsplan.md`,
+  `CHANGELOG.md`, dieses Protokoll.
+- `local_adele` (kein Versionsbump — reine Stilkorrektur): `lib.php`,
+  `classes/external/update_user_path_relation.php`,
+  `classes/external/update_lp_animations.php`.
+
+### 8. Offene Punkte
+
+- lokal_adele-Behat-Fehler (`dndnode_2` rendert nicht) — braucht mehr
+  Diagnoseinformation (Browser-Konsole, tatsächliche API-Antwort) oder
+  Zugriff auf den Vue3-Frontend-Code, den ich nicht habe.
+- Same-Course-Ausnahme ungetestet gegen eine echte Instanz — Testanleitung
+  C liegt bereit.
+- G.10 formal out-of-scope, wird gesondert diskutiert.
+
+---
+
+## Teil 20 — Backup/Restore-Test komplett neu aufgesetzt
+
+### 1. Auftrag
+
+Zweiter Fehlschlag in Folge in derselben Mechanik:
+`restore_controller_exception: unable_to_find_conversion_path`, ausgelöst
+durch den in Teil 18 selbst ergänzten `convert()`-Aufruf.
+
+### 2. Bewertung
+
+Zwei unterschiedliche, echte Fehler in derselben Kette
+(`backup_controller`/`restore_controller`-Statusmaschine) hintereinander,
+obwohl jeder einzelne Schritt vorher gegen reale Beispiele verifiziert
+wurde — das ist ein Muster, kein Zufall. Diese Statusmaschine offenbar
+schwerer aus einem synthetischen Backup im selben PHPUnit-Request heraus
+zu steuern, als die Recherche nahelegte.
+
+### 3. Neuer Ansatz
+
+Statt ein drittes Mal an derselben Mechanik nachzubessern: Testansatz
+gewechselt. `restore_instance()`/`restore_user_enrolment()` werden jetzt
+**direkt** mit gemockten `restore_enrolments_structure_step`/
+`restore_task`-Objekten aufgerufen (`getMockBuilder()->
+disableOriginalConstructor()->onlyMethods()->getMock()`, das etablierte
+PHPUnit-9-Muster für „ein paar Methoden einer ansonsten echten Klasse
+stubben, ohne deren volle Konstruktor-Anforderungen navigieren zu
+müssen"). Das testet exakt die Logik, die dieses Plugin selbst besitzt,
+ohne von Moodles Backup/Restore-Controller-Interna abhängig zu sein, die
+sich zweimal in Folge als fragiler erwiesen haben als erwartet.
+
+Vier Tests statt einem:
+- `test_restore_instance_skips_for_new_course()` — `TARGET_NEW_COURSE`
+  führt zu keiner Instanz (A-13).
+- `test_restore_instance_reconciles_for_same_course()` — `TARGET_CURRENT_
+  ADDING` löst sofort eine Reconciliation aus, die Instanz und
+  Einschreibung tatsächlich (wieder-)herstellt (Teil 19).
+- `test_restore_user_enrolment_is_a_noop()` — bleibt wirkungslos.
+- `test_backup_of_course_with_adele_instance_succeeds()` — reiner
+  Rauchtest, eng an `mod_adele`s bewiesener Vorlage (nur Sicherung, kein
+  Restore-Versuch — das war nie der fehlgeschlagene Teil).
+
+### 4. Verifikation
+
+`php -l`: sauber. Kein Versionsbump (reiner Testcode). **Restrisiko
+transparent benannt:** ob `restore_task`/`restore_enrolments_structure_
+step` in Moodle als `final` deklariert sind (was das Mocken verhindern
+würde), konnte ich nicht abschließend verifizieren — die Namenskonvention
+und die generelle Vererbungsstruktur der Backup/Restore-Klassenfamilie
+sprechen dagegen, aber das ist kein Beweis.
+
+### 5. Ausgeliefert
+
+Patch-ZIP (nur geänderte Datei): `enrol_adele`,
+`tests/backup_restore_test.php`, dieses Protokoll.
+
+### 6. Offene Punkte
+
+- Falls auch dieser Ansatz an einer Moodle-Interna scheitert (z. B.
+  `final class`), wäre der nächste, konservativste Schritt: den
+  automatisierten Test ganz fallen lassen und ausschließlich auf
+  Testanleitung C (manuell) setzen — das wäre kein Rückschritt bei der
+  eigentlichen C.4-Funktionalität, nur beim Automatisierungsgrad.
+- Alle übrigen offenen Punkte aus Teil 19 unverändert.
+
+---
+
+## Teil 21 — Mock-Fix: `getMockForAbstractClass()` statt `getMock()`
+
+### 1. Auftrag
+
+phpcs/PHPDoc/phpcpd: alle sauber. PHPUnit: PHP-Fatal-Error beim Aufbau des
+`restore_task`-Mocks — „contains 2 abstract methods and must therefore be
+declared abstract or implement the remaining methods (base_task::build,
+base_task::define_settings)".
+
+### 2. Ursache und Fix
+
+Genau das Restrisiko, das in Teil 20 benannt wurde, nur anders als
+befürchtet: nicht `final class`, sondern `restore_task` erbt von
+`base_task`, das weitere abstrakte Methoden deklariert
+(`build()`, `define_settings()`), die `restore_task` selbst nicht
+implementiert (das tun erst konkrete Unterklassen wie
+`restore_course_task`). `getMock()` implementiert nur die in
+`onlyMethods()` genannten Methoden automatisch — nicht die übrigen
+abstrakten. `getMockForAbstractClass()` tut das (laut PHPUnit-Doku: „All
+abstract methods of the given abstract class are mocked").
+
+Behoben: `restore_task`-Mock nutzt jetzt `getMockForAbstractClass()`
+(weiterhin mit `onlyMethods(['get_target'])` kombiniert, damit genau diese
+konkrete Methode kontrollierbar bleibt). `restore_enrolments_structure_
+step` bleibt bei `getMock()` — das ist eine konkrete Klasse.
+
+### 3. Verifikation
+
+`php -l`: sauber. Kein Versionsbump (reiner Testcode).
+
+### 4. Ausgeliefert
+
+Patch-ZIP (nur geänderte Datei): `enrol_adele`,
+`tests/backup_restore_test.php`, dieses Protokoll.
+
+### 5. Offene Punkte
+
+- Weiterhin keine eigene Bestätigung, dass der Test jetzt tatsächlich
+  läuft und grün ist.
+- G.10 formal out-of-scope, wird gesondert diskutiert.
+
+---
+
 ## Teil 2 — Sessionstartprompt erneut geprüft, Risikoabwägung Codezirkel
 
 ### 1. Sessionstartprompt — auch unter `db/prompt-templates` nicht vorhanden
