@@ -35,5 +35,6 @@ $plugin->supported = [401, 502];
 // enrol_state::get_host_embeddings() and
 // get_learningpaths_embedded_in_course(), which observer.php calls.
 $plugin->dependencies = [
-    'local_adele' => 2026072404,
+    'local_adele' => 2026072500,
+    'enrol_adele' => 2026072500,
 ];
