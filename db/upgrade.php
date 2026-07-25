@@ -18,6 +18,7 @@
  * Upgrade steps for enrol_adele.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -29,9 +30,8 @@
  * @return bool
  */
 function xmldb_enrol_adele_upgrade($oldversion) {
-    // This plugin ships no tables of its own (decision F-6, stateless
-    // reconciliation — see docs/pflichtenheft.md, section 1a/2.3). Nothing
-    // here ever adds a table; upgrade steps only ever touch configuration.
+    // This plugin ships no tables of its own (stateless reconciliation).
+    // Nothing here ever adds a table; upgrade steps only touch configuration.
 
     if ($oldversion < 2026072302) {
         // The install.php script now auto-enables the plugin on fresh installs (a real

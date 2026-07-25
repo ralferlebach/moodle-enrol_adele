@@ -18,6 +18,7 @@
  * A learning path's ADELE enrolments were recomputed on demand.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,14 +26,14 @@
 namespace enrol_adele\event;
 
 /**
- * Triggered by the "Recompute" action on the management page (C.2) or the
+ * Triggered by the "Recompute" action on the management page or the
  * equivalent ad-hoc task, per specification 7.3. Not triggered by the
  * ordinary per-user recompute hook (relation_update.php/node_completion.php)
  * or by the nightly safety-net task (reconcile_all()) - those are covered by
  * core \core\event\user_enrolment_* events; this event marks a deliberate,
  * whole-learning-path recomputation.
  *
- * enrol_adele keeps no table of its own (decision A-9/F-6), so this event
+ * enrol_adele keeps no table of its own, so this event
  * has no objecttable/objectid; the learning path id lives in `other`.
  *
  * @package     enrol_adele

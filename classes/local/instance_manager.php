@@ -27,7 +27,7 @@
  *   activity. Used only for subscription options 2/3 ("starting node" / "any
  *   node"), where mod_adele grants host-course membership as a CONSEQUENCE of
  *   the learner already holding a node-course enrolment, rather than the
- *   other way around (requirement following ticket #486, Session 002).
+ *   other way around.
  *   Reconciled from a caller-supplied boolean (see
  *   reconciler::reconcile_host_user()), because only mod_adele knows which
  *   courses count as "starting" or "any" node for a given embedding.
@@ -38,6 +38,7 @@
  * two distinct, independently manageable instances rather than a collision.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -117,19 +118,16 @@ class instance_manager {
             return reset($existing);
         }
 
-        // Fix G.6 (Session 003): without a lock, two near-simultaneous
-        // events for the same (learning path, course, kind) could both pass
-        // the existence check above and each create an instance. Verified
-        // API via web search against Moodle developer docs: the factory is
-        // obtained through \core\lock\lock_config::get_lock_factory(), not
-        // a lock_factory::instance() (that method does not exist).
+        // Without a lock, two near-simultaneous events for the same
+        // (learning path, course, kind) could both pass the existence check
+        // above and each create an instance.
         $lockfactory = \core\lock\lock_config::get_lock_factory('enrol_adele_instance');
         $resource = "lp{$learningpathid}_course{$courseid}_kind{$kind}";
         $lock = $lockfactory->get_lock($resource, 5);
         if (!$lock) {
             // Could not acquire the lock within the timeout — fail closed
             // rather than risk a duplicate; the next reconcile pass will
-            // retry (all operations are idempotent, L-Q-09).
+            // retry (all operations are idempotent).
             return null;
         }
 
@@ -177,17 +175,13 @@ class instance_manager {
     /**
      * The role assigned in both target and host courses.
      *
-     * enrol_adele/roleid is authoritative. A value in the legacy setting
-     * local_adele/enroll_as_setting is honoured as fallback (takeover per
-     * decision F-8); last resort is the student archetype.
+     * enrol_adele/roleid is authoritative; the last resort is the student
+     * archetype.
      *
      * @return int The role id.
      */
     public static function get_role_id(): int {
         $roleid = get_config('enrol_adele', 'roleid');
-        if (empty($roleid)) {
-            $roleid = get_config('local_adele', 'enroll_as_setting');
-        }
         if (empty($roleid)) {
             $student = get_archetype_roles('student');
             $student = reset($student);

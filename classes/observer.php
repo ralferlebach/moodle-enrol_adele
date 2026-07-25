@@ -15,9 +15,10 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Event observer implementing the host-course removal rules (requirement A-4).
+ * Event observer implementing the host-course removal rules.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,12 +28,12 @@ namespace enrol_adele;
 use enrol_adele\local\reconciler;
 
 /**
- * Event observer implementing the host-course removal rules (requirement A-4).
+ * Event observer implementing the host-course removal rules.
  *
  * When a user is unenrolled from a course that embeds a learning path, the
  * ADELE enrolments of that user are hard-removed — but only if no other
  * subscription option still carries them. Suspension in the host course is
- * deliberately NOT a removal (decision F-4) and has no observer.
+ * deliberately NOT a removal and has no observer.
  *
  * @package     enrol_adele
  * @copyright   2026 Ralf Erlebach
@@ -64,9 +65,9 @@ class observer {
         $userid = (int) $event->relateduserid;
         $courseid = (int) $event->courseid;
 
-        // Learning paths embedded in the course the user just left. Fix G.2
-        // full solution (Session 003): reads local_adele's own host-course
-        // index instead of mod_adele's {adele} table directly.
+        // Learning paths embedded in the course the user just left. Read via
+        // local_adele's own host-course index rather than mod_adele's {adele}
+        // table directly.
         $lpids = \local_adele\enrol_state::get_learningpaths_embedded_in_course($courseid);
         if (!$lpids) {
             return;
@@ -76,25 +77,23 @@ class observer {
             if (self::is_user_carried($lpid, $userid)) {
                 continue;
             }
-            // Decision R-1: remove the user path record entirely. Course-derived
-            // progress re-derives on re-subscription; the documented caveats
-            // (manual master overrides, first_enrolled for timed windows) are
-            // accepted — see specification 2.5.
+            // Remove the user path record entirely. Course-derived progress
+            // re-derives on re-subscription; the documented caveats (manual
+            // master overrides, first_enrolled for timed windows) are accepted.
             $DB->delete_records(
                 'local_adele_path_user',
                 ['learning_path_id' => $lpid, 'user_id' => $userid]
             );
             reconciler::purge_user($lpid, $userid);
-            // Requirement mod_adele #21: leaving the learning path must also
-            // clear every Fall-2/3 host-course enrolment it created, not just
-            // target-course ones — the learning path may be embedded in
-            // several host courses at once, each potentially having granted
-            // host-course access.
+            // Leaving the learning path must also clear every option-2/3
+            // host-course enrolment it created, not just target-course ones:
+            // the learning path may be embedded in several host courses at
+            // once, each potentially having granted host-course access.
             reconciler::purge_all_host_user($lpid, $userid);
 
-            // Specification 7.3: marks that rule A-4 actually fired for this
-            // user/path (not the routine per-node suspend/reactivate cycle,
-            // which is already visible via core user_enrolment_updated).
+            // Mark that whole-path removal actually fired for this user/path
+            // (not the routine per-node suspend/reactivate cycle, which is
+            // already visible via core user_enrolment_updated).
             \enrol_adele\event\user_access_revoked::create([
                 'context' => \context_system::instance(),
                 'relateduserid' => $userid,
@@ -109,11 +108,11 @@ class observer {
      * Whether any subscription option of any embedding still carries the user.
      *
      * Option 1 carries while the user is enrolled (any method, suspension
-     * counts — decision F-4/A-8) in an embedding course. Option 2 carries while
-     * the user is enrolled in a starting-node course, option 3 while enrolled
-     * in any node course. For options 2 and 3, enrolments created by ADELE's
-     * own instances do not count — otherwise access would keep itself alive
-     * circularly (specification, section 4).
+     * counts) in an embedding course. Option 2 carries while the user is
+     * enrolled in a starting-node course, option 3 while enrolled in any node
+     * course. For options 2 and 3, enrolments created by ADELE's own
+     * instances do not count — otherwise access would keep itself alive
+     * circularly.
      *
      * @param int $lpid The learning path id.
      * @param int $userid The user id.
@@ -122,10 +121,9 @@ class observer {
     public static function is_user_carried(int $lpid, int $userid): bool {
         global $DB;
 
-        // Fix G.2 full solution (Session 003): reads local_adele's own
-        // host-course index instead of mod_adele's {adele} table and
-        // participantslist string format directly — this class no longer
-        // has any knowledge of either.
+        // Read via local_adele's own host-course index instead of mod_adele's
+        // {adele} table and participantslist string format directly — this
+        // class has no knowledge of either.
         $embeddings = \local_adele\enrol_state::get_host_embeddings($lpid);
 
         $hasoption2 = false;
@@ -183,11 +181,9 @@ class observer {
     /**
      * Whether the user holds any non-ADELE enrolment in one of the given courses.
      *
-     * Suspended enrolments count (decision F-4/A-8). Expired enrolments
-     * (timeend passed), not-yet-started enrolments (timestart in the
-     * future) and enrolments via a disabled enrol instance do NOT count
-     * (fix G.4, Session 003 — previously unchecked; F-4/A-8 only ever
-     * covered suspension, not expiry or a disabled method).
+     * Suspended enrolments count. Expired enrolments (timeend passed),
+     * not-yet-started enrolments (timestart in the future) and enrolments
+     * via a disabled enrol instance do NOT count.
      *
      * @param int $userid The user id.
      * @param int[] $courseids Course ids to check.

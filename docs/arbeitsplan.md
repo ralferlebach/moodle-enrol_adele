@@ -562,13 +562,13 @@ erledigt. Jeder Punkt gegen den aktuellen Code erneut nachvollzogen
 | 5 | A-13: Kurs-Duplikat/Restore enthält weder ADELE-Instanzen noch daraus konvertierte `manual`-Einschreibungen | `restore_instance()`/`restore_user_enrolment()` als bedingungsloser Skip (C.4) — jetzt mit automatisiertem Test (`tests/backup_restore_test.php`, Session 003 Teil 17), der genau diese beiden Bedingungen sowie die Unversehrtheit des Quellkurses direkt prüft | **Code bestätigt, jetzt mit automatisiertem Test.** Die im Pflichtenheft vorgesehene Same-Course-Ausnahme fehlt weiterhin (bewusst, siehe C.4). |
 | 6 | G-Q1a (ersetzt L-Q-08): Deinstallation/Deaktivierung von `enrol_adele` — kein Fatal Error, keine neuen Einschreibungen, klare `debugging()`-Meldung | `warn_enrol_adele_missing()` und alle Aufrufer verifiziert (Teil 1) | **Code bestätigt.** Durch die reale CI-Rückmeldung in Teil 14 (lokal_adeles PHPUnit-Suite lief tatsächlich ohne `enrol_adele`) sogar indirekt bestätigt — die Meldung erschien exakt wie vorgesehen. |
 | 7 | L-Q-09: Jede Operation doppelt ausgeführt = identisches Ergebnis | Alle in dieser Sitzung neu hinzugekommenen Operationen einzeln auf Idempotenz durchdacht: `sync_host_course_index()` (Update über `adeleinstanceid`-Unique-Key), `remove_host_course_index()`/`remove_orphaned_instances()`/`consolidate_duplicate_instances()`/`sync_instance_roles()` (jeweils zweiter Lauf findet nichts mehr zu tun) | **Code bestätigt für die Kernoperationen**, nicht durch einen eigenen Doppellauf-Test verifiziert. |
-| 8 | L-Q-03: CI grün auf allen Matrizen, Code-Checker null Warnungen | Laufende Rückmeldung seit Teil 8: mehrere echte Regressionen und Konfigurationsfehler gefunden und behoben (Teil 8–14) | **Noch nicht erreicht.** Das ist der aktuell einzige Punkt, der ehrlich als „in Arbeit" statt „erledigt" gilt — die laufende CI-Rückmeldeschleife mit dem Auftraggeber ist genau der Weg dahin. |
+| 8 | L-Q-03: CI grün auf allen Matrizen, Code-Checker null Warnungen | Laufende Rückmeldung seit Teil 8: zahlreiche echte Regressionen und Konfigurationsfehler gefunden und behoben (Teil 8–24), zuletzt der course_id-Render-Bug (Teil 22) und die Behat-Navigationskollision (Teil 24) | **Erreicht (Teil 24).** Der Auftraggeber bestätigt: alle drei Plugins (`enrol_adele`, `local_adele`, `mod_adele`) laufen in der CI durchgängig grün (Moodle 4.5, PHP 8.1–8.3, MariaDB/PostgreSQL, inkl. `@javascript`-Behat). Damit sind alle acht Prüfkriterien erfüllt. |
 
-**Gesamtbild:** Sieben von acht Kriterien sind im Code nachvollzogen und
-in sich konsistent; das achte (CI durchgängig grün) ist der einzige, der
-naturgemäß erst nach Abschluss der laufenden CI-Rückmeldeschleife
-tatsächlich erfüllt sein kann — kein Hinweis auf ein grundsätzliches
-Problem, sondern schlicht noch nicht abgeschlossen.
+**Gesamtbild:** Alle acht Kriterien sind erfüllt. Die ersten sieben sind im
+Code nachvollzogen und in sich konsistent; das achte (CI durchgängig grün)
+wurde in Teil 24 vom Auftraggeber bestätigt — alle drei Plugins laufen in
+der CI-Matrix grün. Damit ist die formale Prüfkriterien-Abnahme (D.8)
+vollständig.
 
 ## Definition of Done (je Phase)
 

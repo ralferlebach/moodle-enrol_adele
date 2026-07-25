@@ -18,6 +18,7 @@
  * Language strings for enrol_adele.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -32,7 +33,7 @@ $string['event_learning_path_purged_description'] = 'Alle ADELE-Einschreibeinsta
 $string['event_learning_path_reconciled'] = 'Lernpfad-Einschreibungen neu berechnet';
 $string['event_learning_path_reconciled_description'] = 'Die ADELE-Einschreibungen des Lernpfads {$a->learningpathid} wurden neu berechnet ({$a->affected} Nutzer/in(nen) betroffen).';
 $string['event_user_access_revoked'] = 'Lernpfadzugang entzogen';
-$string['event_user_access_revoked_description'] = 'Nutzer/in {$a->userid} hat den Zugang zum Lernpfad {$a->learningpathid} verloren (Regelwerk A-4: keine verbleibende Einschreibeoption trägt die Mitgliedschaft weiter).';
+$string['event_user_access_revoked_description'] = 'Nutzer/in {$a->userid} hat den Zugang zum Lernpfad {$a->learningpathid} verloren, weil keine verbleibende Einschreibeoption die Mitgliedschaft weiterträgt.';
 $string['instancename'] = 'ADELE: {$a}';
 $string['instancenamehost'] = 'ADELE (Lernpfadzugang): {$a}';
 $string['manage_action_purge'] = 'Hart löschen';

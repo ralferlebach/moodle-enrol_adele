@@ -18,6 +18,7 @@
  * Event observers for enrol_adele.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,9 +26,9 @@
 defined('MOODLE_INTERNAL') || die();
 
 $observers = [
-    // Requirement A-4: losing membership in an embedding course removes the
-    // learning path enrolments, unless another subscription option still
-    // carries the user. Suspension is deliberately not observed (decision F-4).
+    // Losing membership in an embedding course removes the learning path
+    // enrolments, unless another subscription option still carries the user.
+    // Suspension is deliberately not observed.
     [
         'eventname' => '\core\event\user_enrolment_deleted',
         'callback' => '\enrol_adele\observer::user_enrolment_deleted',

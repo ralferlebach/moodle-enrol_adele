@@ -15,9 +15,10 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * A user lost their learning path access because rule A-4 fired.
+ * A user lost their learning path access.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,9 +28,8 @@ namespace enrol_adele\event;
 /**
  * Triggered from observer::user_enrolment_deleted() when leaving an
  * embedding course removes a user's learning path membership because no
- * other subscription option still carries them (requirement A-4, rule set
- * in specification section 4). Deliberately NOT triggered for the routine
- * per-node suspend/reactivate cycle (requirement A-2/A-7) - that is already
+ * other subscription option still carries them. Deliberately NOT triggered
+ * for the routine per-node suspend/reactivate cycle, which is already
  * visible via core \core\event\user_enrolment_updated events; this event
  * marks the harder, whole-path removal case specifically.
  *

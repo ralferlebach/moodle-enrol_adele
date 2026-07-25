@@ -18,11 +18,8 @@
  * Management page: every learning path that owns at least one ADELE
  * enrolment instance, with "Recompute" and "Hard delete" actions.
  *
- * Specification section 6 (requirement A-5). Modelled after
- * enrol_coursecompleted/manage.php (page structure, capability check) and
- * enrol_campusonline (admin table layout).
- *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -120,9 +117,8 @@ if ($action && $learningpathid) {
 
 // One row per learning path that owns at least one ADELE instance. A LEFT
 // JOIN against local_adele_learning_paths deliberately surfaces orphaned
-// instances (learning path deleted, instances somehow left behind — the
-// exact legacy case requirement A-3 is meant to prevent going forward) as
-// rows with a null name, rather than silently hiding them.
+// instances (learning path deleted, instances somehow left behind) as rows
+// with a null name, rather than silently hiding them.
 $rows = $DB->get_records_sql(
     "SELECT e.customint1 AS learningpathid,
             lp.name AS learningpathname,

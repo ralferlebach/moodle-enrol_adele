@@ -18,6 +18,7 @@
  * Stateless reconciliation of ADELE enrolments.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -33,11 +34,11 @@ use progress_trace;
  * (\local_adele\enrol_state::get_entitled_courseids()); this class compares it
  * against Moodle's user_enrolments on the ADELE instances and enrols,
  * reactivates or suspends accordingly. There is deliberately no persisted
- * state of its own (decision F-6): every run derives everything fresh, which
- * makes each operation idempotent and self-healing.
+ * state of its own: every run derives everything fresh, which makes each
+ * operation idempotent and self-healing.
  *
  * Node closing = suspension; learning path deletion or loss of access through
- * the embedding course = hard removal (decisions F-1/F-2). A shared target
+ * the embedding course = hard removal. A shared target
  * course stays active as long as any node still grants it, because entitlement
  * is computed as a set across all nodes.
  *
@@ -153,10 +154,9 @@ class reconciler {
             self::reconcile_user($learningpathid, (int) $userid);
         }
 
-        // Specification 7.3: marks a deliberate, whole-learning-path
-        // recomputation (management page "Recompute" / equivalent ad-hoc
-        // task) - distinct from the routine per-user recompute hook, which
-        // does not trigger this event.
+        // Mark a deliberate, whole-learning-path recomputation (management
+        // page "Recompute" / equivalent ad-hoc task), distinct from the
+        // routine per-user recompute hook, which does not trigger this event.
         \enrol_adele\event\learning_path_reconciled::create([
             'context' => \context_system::instance(),
             'other' => [
@@ -172,12 +172,10 @@ class reconciler {
      * Reconcile every active user path in the system (scheduled task, CLI).
      *
      * Safety net against missed events; the primary trigger is the recompute
-     * hook in local_adele. Extended (fix G.5, Session 003) to go beyond
-     * target-course enrolments: also migrates stale roles (G.14), removes
-     * orphaned instances (learning path no longer exists) and consolidates
-     * duplicate instances (fix G.6 closes the race that creates them going
-     * forward; this repairs any that already exist). Uses a recordset
-     * instead of loading everything into memory at once.
+     * hook in local_adele. Beyond target-course enrolments it also migrates
+     * stale roles, removes orphaned instances (learning path no longer
+     * exists) and consolidates duplicate instances. Uses a recordset instead
+     * of loading everything into memory at once.
      *
      * @param progress_trace|null $trace Optional progress trace.
      * @return int Number of (learning path, user) pairs reconciled.
@@ -221,11 +219,9 @@ class reconciler {
     /**
      * Remove ADELE enrol instances whose learning path no longer exists.
      *
-     * Fix G.5 (Session 003): reconcile_all() previously never looked at
-     * anything except active user paths, so an instance left behind by a
-     * learning path deletion that bypassed purge_learning_path() (e.g. a
-     * direct database edit, or a bug predating this fix) was never cleaned
-     * up. delete_instance() removes the instance and its user_enrolments.
+     * Cleans up instances left behind by a learning path deletion that
+     * bypassed purge_learning_path() (e.g. a direct database edit).
+     * delete_instance() removes the instance and its user_enrolments.
      *
      * @param progress_trace|null $trace Optional progress trace.
      * @return int Number of instances removed.
@@ -261,9 +257,9 @@ class reconciler {
      * Consolidate duplicate ADELE instances (same learning path, course and
      * kind) onto the lowest-id instance.
      *
-     * Fix G.5/G.6 (Session 003): G.6 closes the race that creates these
-     * going forward; this repairs any that already exist. Any
-     * user_enrolments on a duplicate that the primary instance does not
+     * Repairs duplicates created by a race between two near-simultaneous
+     * instance creations. Any user_enrolments on a duplicate that the
+     * primary instance does not
      * already have for that user are re-created on the primary before the
      * duplicate is deleted, so no active access is lost — only the
      * bookkeeping is merged.
@@ -339,9 +335,9 @@ class reconciler {
      * Migrate ADELE-owned role assignments on existing instances to the
      * currently configured role.
      *
-     * Fix G.14 (Session 003): previously, enrol_adele/roleid only affected
-     * newly created instances — reconcile_user()/reconcile_host_user() used
-     * $instance->roleid, which is set once at creation and never updated.
+     * Migrates the role on existing instances when enrol_adele/roleid
+     * changes: $instance->roleid is set once at creation and never updated,
+     * so a config change would otherwise only affect new instances.
      * Only role assignments this plugin itself made (component
      * 'enrol_adele', itemid = instance id) are touched — a foreign role
      * assignment in the same course context is never removed.
@@ -385,10 +381,9 @@ class reconciler {
     /**
      * Hard-remove one user from all ADELE enrolments of a learning path.
      *
-     * Used when access through the embedding course is lost (requirement A-4).
-     * The caller must have removed or deactivated the user path first,
-     * otherwise the next reconciliation run re-enrols immediately (invariant
-     * in the specification, section 2.5).
+     * Used when access through the embedding course is lost. The caller must
+     * have removed or deactivated the user path first, otherwise the next
+     * reconciliation run re-enrols immediately.
      *
      * @param int $learningpathid The learning path id.
      * @param int $userid The user id.
@@ -426,8 +421,8 @@ class reconciler {
      * mirroring the target-course logic without the set aggregation, since a
      * host-course instance is scoped to a single course.
      *
-     * $mode (requirement mod_adele #22) lets the embedding scale back what
-     * "entitled" actually grants, without the caller having to pre-compute a
+     * $mode lets the embedding scale back what "entitled" actually grants,
+     * without the caller having to pre-compute a
      * Moodle enrolment status itself:
      * - MODE_VISIBLE (default): entitled => active, matches 0.1.2 behaviour.
      * - MODE_HIDDEN: entitled => an enrolment record still exists (countable
@@ -436,7 +431,7 @@ class reconciler {
      * - MODE_NONE: this embedding never grants host-course access, however
      *   entitled the caller reports. Never creates a new instance for it; an
      *   instance left over from a PRIOR, more permissive mode is suspended,
-     *   not deleted, so a later mode change back loses no history (L-Q-07).
+     *   not deleted, so a later mode change back loses no history.
      *
      * @param int $learningpathid The learning path id.
      * @param int $hostcourseid The course embedding the mod_adele activity.
@@ -536,10 +531,8 @@ class reconciler {
      *
      * The same learning path can be embedded (subscription options 2/3) in
      * several different host courses at once; leaving the learning path
-     * entirely — the A-4 case this is wired into — must clear every one of
-     * them, not just the host course that happened to trigger the removal.
-     * Mirrors purge_user() (mod_adele #21 / enrol_adele project ticket
-     * enrol_adele-issue-host-purge-on-leave, Session 002 Teil 12).
+     * entirely must clear every one of them, not just the host course that
+     * happened to trigger the removal. Mirrors purge_user().
      *
      * @param int $learningpathid The learning path id.
      * @param int $userid The user id.
@@ -566,12 +559,11 @@ class reconciler {
     }
 
     /**
-     * Hard-remove everything a learning path ever created (requirement A-3).
+     * Hard-remove everything a learning path ever created.
      *
      * Deletes every ADELE instance of the learning path through the plugin API,
      * which also removes the attached user_enrolments and role assignments.
-     * Never deletes {enrol} rows directly — that would orphan user_enrolments
-     * (documented anti-pattern, see specification 2.4).
+     * Never deletes {enrol} rows directly — that would orphan user_enrolments.
      *
      * Instances of other learning paths and all other enrolment methods are
      * untouched by construction, because each instance belongs to exactly one

@@ -18,6 +18,7 @@
  * Tests for the ADELE enrolment reconciler.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -150,8 +151,7 @@ final class reconciler_test extends \advanced_testcase {
 
     /**
      * Opening enrols, closing suspends, re-opening reactivates the same record.
-     * A shared target course stays active while any node still grants it (A-1,
-     * A-2, A-6; acceptance criterion 1).
+     * A shared target course stays active while any node still grants it.
      *
      * @return void
      */
@@ -214,7 +214,7 @@ final class reconciler_test extends \advanced_testcase {
     /**
      * Purging a learning path removes its instances and enrolments, while a
      * second learning path on the same course and a parallel manual enrolment
-     * survive (A-3; acceptance criterion 2).
+     * survive.
      *
      * @return void
      */
@@ -261,7 +261,7 @@ final class reconciler_test extends \advanced_testcase {
     /**
      * The carried-by rules: option 1 releases when the last option-1 membership
      * goes, options 2/3 keep carrying through node-course membership, and
-     * ADELE's own enrolments never carry (A-4; acceptance criterion 3).
+     * ADELE's own enrolments never carry.
      *
      * @return void
      */
@@ -292,13 +292,12 @@ final class reconciler_test extends \advanced_testcase {
             'timecreated' => time(),
             'timemodified' => time(),
         ]);
-        // Fix (Session 003, Teil 13): enrol_adele no longer reads {adele}
-        // directly (G.2 full solution) - it reads local_adele's own
-        // local_adele_host_courses index instead, which only mod_adele's
+        // The enrol_adele plugin no longer reads {adele} directly - it reads
+        // local_adele's own local_adele_host_courses index instead, which
+        // only mod_adele's
         // real lifecycle hooks keep in sync in production. This fixture
-        // bypasses those hooks (it writes {adele} directly, the same
-        // shortcut it already took before G.2), so it must sync the index
-        // itself, exactly like adele_add_instance() now does.
+        // bypasses those hooks (it writes {adele} directly), so it must sync
+        // the index itself, exactly like adele_add_instance() does.
         \local_adele\enrol_state::sync_host_course_index(
             (int) $adeleid,
             $lpid,
@@ -340,8 +339,8 @@ final class reconciler_test extends \advanced_testcase {
     }
 
     /**
-     * Host-course reconciliation (options 2/3, requirement following ticket
-     * #486 follow-up): enrolling is driven by a caller-supplied boolean, not by
+     * Host-course reconciliation (options 2/3): enrolling is driven by a
+     * caller-supplied boolean, not by
      * local_adele's node feedback status, and lands on a KIND_HOST instance
      * distinct from any KIND_TARGET instance the same learning path might have
      * on the same course. Covers enrol, suspend, reactivate and purge.
@@ -402,7 +401,7 @@ final class reconciler_test extends \advanced_testcase {
     }
 
     /**
-     * Leaving the learning path via the A-4 rule (requirement mod_adele #21)
+     * Leaving the learning path
      * must clear ALL of a user's host-course enrolments for that learning
      * path, not just the host course through which access was lost. Uses
      * reconcile_host_user() directly to plant the "other host course" state,
@@ -440,7 +439,7 @@ final class reconciler_test extends \advanced_testcase {
             'timecreated' => time(),
             'timemodified' => time(),
         ]);
-        // Fix (Session 003, Teil 13): see the identical comment in
+        // See the identical comment in
         // test_host_course_removal_rules() above.
         \local_adele\enrol_state::sync_host_course_index(
             (int) $adeleid,
@@ -452,7 +451,7 @@ final class reconciler_test extends \advanced_testcase {
         $this->getDataGenerator()->enrol_user($userid, $host1->id, 'student', 'manual');
         $this->set_node_status($lpid, $userid, 'dndnode_1', 'accessible');
         reconciler::reconcile_user($lpid, $userid);
-        // A second host course granted through a separate Fall-2/3 embedding
+        // A second host course granted through a separate option-2/3 embedding
         // (planted directly — the live mod_adele trigger is out of scope here).
         reconciler::reconcile_host_user($lpid, (int) $host2->id, $userid, true);
         $host2instance = $DB->get_record('enrol', [
@@ -465,7 +464,7 @@ final class reconciler_test extends \advanced_testcase {
             $DB->get_record('user_enrolments', ['enrolid' => $host2instance->id, 'userid' => $userid])
         );
 
-        // Leave the learning path via the A-4 rule: unenrol from host1, the
+        // Leave the learning path: unenrol from host1, the
         // sole carrying embedding.
         $manual = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $host1->id]);
         enrol_get_plugin('manual')->unenrol_user($manual, $userid);
@@ -476,21 +475,21 @@ final class reconciler_test extends \advanced_testcase {
                 ['learning_path_id' => $lpid, 'user_id' => $userid]
             )
         );
-        // Target-course enrolment gone (pre-existing A-4 behaviour)...
+        // Target-course enrolment gone...
         $this->assertFalse($this->get_ue($lpid, (int) $target->id, $userid));
-        // ...and now the host2 Fall-2/3 enrolment is gone too (mod_adele #21).
+        // ...and now the host2 option-2/3 enrolment is gone too.
         $this->assertFalse(
             $DB->record_exists('user_enrolments', ['enrolid' => $host2instance->id, 'userid' => $userid])
         );
     }
 
     /**
-     * Host-course visibility modes (requirement mod_adele #22): MODE_VISIBLE
+     * Host-course visibility modes: MODE_VISIBLE
      * behaves exactly like the pre-0.1.5 boolean-only signature; MODE_HIDDEN
      * still creates an enrolment record (countable in participant lists) but
      * never grants access; MODE_NONE never creates a new instance, but
      * suspends — never deletes — one left over from an earlier, more
-     * permissive mode, so switching back later loses no history (L-Q-07).
+     * permissive mode, so switching back later loses no history.
      *
      * @return void
      */

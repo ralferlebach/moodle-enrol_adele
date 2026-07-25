@@ -18,6 +18,7 @@
  * Plugin version and other meta-data are defined here.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -26,15 +27,13 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
 $plugin->release = '0.2.0';
-$plugin->version = 2026072309;
+$plugin->version = 2026072500;
 $plugin->requires = 2022112800;
 $plugin->maturity = MATURITY_ALPHA;
 $plugin->supported = [401, 502];
-// Fix G.2 full solution (Session 003): raised from 2026072301 because
-// observer.php now calls enrol_state::get_host_embeddings()/
-// get_learningpaths_embedded_in_course(), which only exist from this
-// local_adele version onward. Installing this alongside an older
-// local_adele would fatal on those calls.
+// Requires a local_adele version that provides
+// enrol_state::get_host_embeddings() and
+// get_learningpaths_embedded_in_course(), which observer.php calls.
 $plugin->dependencies = [
     'local_adele' => 2026072404,
 ];

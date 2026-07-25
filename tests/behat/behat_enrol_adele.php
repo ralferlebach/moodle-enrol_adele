@@ -15,9 +15,10 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Custom Behat step definitions for enrol_adele (C.5).
+ * Custom Behat step definitions for enrol_adele.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -45,7 +46,7 @@ class behat_enrol_adele extends behat_base {
     /**
      * Visit a relative URL directly.
      *
-     * Fix (Session 003, Teil 16): "Given I am on "<url>"" (used previously)
+     * "Given I am on "<url>"" (used previously)
      * is not a registered step in this site's actual Moodle/Behat version -
      * the second real CI run showed "missing steps" for it. Rather than
      * guess a third time at whichever exact core step phrasing this Moodle

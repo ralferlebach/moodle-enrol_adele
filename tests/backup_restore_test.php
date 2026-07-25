@@ -15,9 +15,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Backup/restore test for enrol_adele (C.4, Prüfkriterium 5 / requirement A-13).
+ * Backup/restore test for enrol_adele.
  *
- * Fix (Session 003, Teil 20): the previous version of this test drove the
+ * This test drives the
  * real backup_controller/restore_controller pipeline end to end
  * (backup -> convert() -> execute_precheck() -> execute_plan()) and hit two
  * consecutive real, different failures in that state machine in this exact
@@ -32,7 +32,7 @@
  * objects (disableOriginalConstructor() + onlyMethods(), the standard
  * PHPUnit pattern for stubbing a handful of methods on an otherwise-real
  * Moodle class without navigating its full constructor requirements). This
- * tests exactly the logic this plugin owns and C.4 needs to guarantee,
+ * tests exactly the logic this plugin owns,
  * without depending on Moodle's backup/restore controller internals at all.
  *
  * A minimal smoke test (does backing up a course containing an ADELE
@@ -41,7 +41,7 @@
  * exact CI environment) - that part of the original approach was never the
  * one that failed.
  *
- * Fix (Session 003, Teil 21): a real CI run then showed a PHP fatal error
+ * A real CI run showed a PHP fatal error
  * building the restore_task mock ("contains 2 abstract methods ... must
  * therefore be declared abstract or implement the remaining methods
  * (base_task::build, base_task::define_settings)"). restore_task extends
@@ -57,6 +57,7 @@
  * restore_enrolments_structure_step, which is a concrete class.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -160,7 +161,7 @@ final class backup_restore_test extends advanced_testcase {
     /**
      * Restoring into a NEW course must skip entirely: no ADELE instance for
      * that learning path may exist in the restored course afterwards
-     * (requirement A-13).
+     *
      */
     public function test_restore_instance_skips_for_new_course(): void {
         global $DB;
@@ -196,14 +197,14 @@ final class backup_restore_test extends advanced_testcase {
                 'courseid' => $restorecourse->id,
                 'customint1' => $lpid,
             ]),
-            'Restoring into a new course must not create an ADELE enrol instance (A-13).'
+            'Restoring into a new course must not create an ADELE enrol instance.'
         );
     }
 
     /**
      * Restoring into the SAME course (backup::TARGET_CURRENT_ADDING) must
-     * trigger an immediate reconcile instead of skipping (Session 003,
-     * Teil 19) - the instance the learning path currently calls for must
+     * trigger an immediate reconcile instead of skipping - the instance the
+     * learning path currently calls for must
      * exist right after restore_instance() returns, not only after the
      * next scheduled task.
      */
