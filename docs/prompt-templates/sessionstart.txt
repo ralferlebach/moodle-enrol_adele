@@ -1,0 +1,291 @@
+## SESSION-START: ADELE-Lernpfad-Ökosystem – enrol_adele/local_adele/mod_adele
+
+Du arbeitest als erfahrener Moodle-Architekt und PHP-Entwickler
+an einem laufenden Drei-Plugin-Projekt. Lies zunächst alles, was ich dir
+gebe, bevor du antwortest.
+
+---
+
+### A) Lastenheft, Pflichtenheft und Arbeitsplan
+
+Die aktuellen Dokumente liegen eingebettet im `enrol_adele`-Repo unter
+`docs/` (nicht als gesonderte Downloads — sie werden nur im
+`enrol_adele`-Patch-ZIP mitgeliefert):
+  docs/lastenheft.md      (das WAS — 19 Anforderungen A-1 bis A-19, verbindlich)
+  docs/pflichtenheft.md   (das WIE — Architektur, offene Punkte E-10 ff.)
+  docs/arbeitsplan.md     (Umsetzungsreihenfolge, Phasen A–F)
+
+---
+
+### B) Kontext-Dokument der letzten Sitzung
+
+Das aktuelle Kontext-Dokument (Sitzungsprotokoll der Vorsitzung) liegt unter
+docs/sessions/session-002.md — dort insbesondere der Abschnitt
+„Session 002 — Abschluss" ganz am Ende. Ältere Sitzungen zwecks Referenz:
+docs/sessions/session-001.md.
+
+**Achtung, projektspezifische Konvention:** Ein Claude-Chat = eine Session,
+unabhängig vom Kalendertag. Mehrere Arbeitstage in derselben Chat-Sitzung
+bleiben `session-002.md` (fortlaufende „Teil N"-Abschnitte); erst ein neuer
+Chat bekommt `session-003.md`. NIEMALS eine bestehende Sitzungsdatei in
+mehrere Dateien aufteilen.
+
+---
+
+### C) Aktueller Code
+
+Dies ist ein **Drei-Plugin-Ökosystem**, nicht ein einzelnes Plugin:
+
+| Repository | Branch | Rolle |
+|---|---|---|
+| `github.com/ralferlebach/moodle-enrol_adele` | `development` | Einschreibe-Plugin (neu, dieses Vorhaben) |
+| `github.com/ralferlebach/moodle_local_adele` | `development` | Lernpfad-Logik (bestehend, angepasst) |
+| `github.com/ralferlebach/moodle-mod_adele` | `development` | Aktivität, bettet Lernpfade in Kurse ein (bestehend, angepasst) |
+
+Der aktuelle Stand aller drei liegt zusätzlich als Patch-ZIP(s) im Anhang,
+einzuspielen unter `enrol/adele/`, `local/adele/` bzw. `mod/adele/`.
+**Abhängigkeitsrichtung:** `mod_adele` → `local_adele` ← `enrol_adele`.
+`local_adele` und `mod_adele` deklarieren zusätzlich eine (historisch
+bereits bestehende, zirkuläre) Abhängigkeit `local_adele` ↔ `mod_adele` —
+siehe Pflichtenheft Abschnitt 1a und Lastenheft Abschnitt 6 (Risiken).
+
+Moodle- und PHP-Anforderungen **unterscheiden sich aktuell je Plugin** —
+noch nicht vereinheitlicht, siehe „Bekannte Einschränkungen" unten:
+  `enrol_adele`:  requires 2022112800 (4.1), supported = [401, 501]
+                  CI: MOODLE_500/501_STABLE (PHP 8.2) + MOODLE_401/405_STABLE (PHP 8.1)
+  `local_adele`:  requires 2022112800 (4.1), supported = [401, 405]
+                  CI-Datei fehlt aktuell im Arbeitsbaum (siehe unten)
+  `mod_adele`:    requires 2024100700 (4.5), supported = [405, 502]
+                  CI: MOODLE_500/501/502_STABLE (PHP 8.2) + MOODLE_405_STABLE (PHP 8.1)
+DB: PostgreSQL und MariaDB/MySQL.
+
+---
+
+### D) Aktueller Entwicklungsstand
+
+**Versionen:** `enrol_adele` 0.1.6 (2026072305) · `local_adele` 0.4.7
+(2026072303) · `mod_adele` 0.1.10 (2026072304). Alle drei CI-grün
+(Auftraggeber bestätigt).
+
+**Grundsätze (nicht ohne explizite Diskussion ändern):**
+  A — Zustandslose Reconciliation (Entscheidung F-6): `enrol_adele` besitzt
+      **keine eigene Grant-Tabelle**. Der Soll-Zustand lebt vollständig in
+      `local_adele_path_user.json`; `enrol_adele` gleicht bei jedem Lauf
+      idempotent ab (fehlend → einschreiben, unberechtigt → suspendieren,
+      wieder berechtigt → reaktivieren). Nachvollziehbarkeit über Moodles
+      Standard-Logging, nicht über eine eigene Log-Tabelle.
+  B — Suspendieren ≠ Löschen: Knoten schließt sich → Einschreibung wird
+      **deaktiviert** (A-2/A-7). Lernpfad gelöscht oder Zugang über
+      `mod_adele` verloren → Einschreibung wird **gelöscht** (A-3/A-4).
+      Diese Asymmetrie ist gewollt, nicht versehentlich.
+  C — Geteilte Zielkurse bleiben aktiv, solange *irgendein* Knoten des
+      Lernpfads sie noch gewährt (A-6). Dieselbe „großzügigste Option
+      gewinnt"-Philosophie gilt seit Teil 13/14 auch host-kurs-seitig bei
+      mehreren Embeddings desselben Lernpfads im selben Host-Kurs (A-19).
+  D — `local_adele` und `mod_adele` bleiben ohne installiertes
+      `enrol_adele` voll funktionsfähig (L-Q-08) — jede Kopplung läuft über
+      `class_exists()`/`enrol_get_plugin('adele')` mit Null-Prüfung, nie
+      über eine harte Abhängigkeit im Code.
+  E — Host-Kurs-Einschreibungen (Fall 2/3, „Startknoten"/„irgendein Knoten")
+      laufen seit Teil 4/5 ebenfalls über `enrol_adele` (eigene Instanzart
+      `KIND_HOST`), nicht mehr `enrol_manual` — nur Fall 1 (Mitgliedschaft
+      im Hostkurs selbst) bleibt bei `enrol_manual`, siehe A-10.
+  F — Alle Vorgänge sind idempotent; jeder Reconcile-Lauf ist selbstheilend
+      und beliebig oft wiederholbar (L-Q-09).
+
+**Zuletzt abgeschlossen (Session 002, 18 Teile — vollständig in
+docs/sessions/session-002.md):**
+  - Reconciliation-Engine für Ziel- UND Host-Kurse, inkl. drei
+    Sichtbarkeitsmodi für Fall 2/3 (`MODE_VISIBLE`/`HIDDEN`/`NONE`,
+    `reconciler::reconcile_host_user()`, mod_adele #22).
+  - Mehrfacheinbettungs-Aggregation für sowohl den laufenden Observer als
+    auch den einmaligen Aktivitäts-Save-Sweep (mod_adele #23, E-16).
+  - `purge_all_host_user()`: Lernpfad-Verlassen räumt Host-Kurs-
+    Einschreibungen über ALLE Host-Kurse hinweg ab, nicht nur den
+    auslösenden (mod_adele #21, E-10).
+  - `local_adele/enroll_as_setting` als veraltet gekennzeichnet, einmalige
+    Übernahme nach `enrol_adele/roleid` beim Upgrade (D.5).
+  - E-11 („Message was not sent") ursachengeklärt: Moodles eigenes
+    `enrol_manual`-Willkommensnachricht-Feature, kein Plugin-Bug — keines
+    der drei Plugins enthält eigenen Messaging-Code.
+  - Ein echter Produktionsvorfall (`dml_read_exception` beim
+    `local_adele`-Upgrade) selbstheilend behoben (E-17).
+  - Alle drei Plugins CI-grün, u. a. vollständige Codechecker-Bereinigung
+    (`mod_adele`: erstmals plugin-weit 0 Fehler/Warnungen) und
+    zweigeteilte CI-Matrix (moderne Reihe + Mindestversion, je eigener Job).
+  - **Damit ist Phase A–D und F vollständig abgeschlossen.**
+
+**Als nächstes geplant (Phase C — bewusst noch nicht begonnen, siehe
+Arbeitsplan C.2–C.5 und Pflichtenheft Abschnitt 6):**
+  - `C.2` Verwaltungsseite (A-5): alle Lernpfade mit ihren Einschreibungen
+    auflisten, je Lernpfad „Neu berechnen" und „Hart löschen".
+  - `C.3` Eigene Events (`learning_path_reconciled`, `learning_path_purged`,
+    `user_access_revoked`).
+  - `C.4` Restore-Hooks (A-13): `restore_instance()` mit Skip-Strategie,
+    `restore_user_enrolment()` als No-op, Backup/Restore-Test.
+  - `C.5` Behat-Grundlauf für die Verwaltungsseite.
+  - Danach `D.8`: formale Abnahme der acht Prüfkriterien (Kriterien 4 und 5
+    hängen an C.2/C.4 und sind vorher nicht erfüllbar).
+
+**Bekannte Einschränkungen (nicht in dieser Session automatisch mit
+beheben, nur falls explizit gewünscht):**
+  - `local_adele`s `.github/workflows/moodle-plugin-ci.yml` fehlt im
+    aktuellen Arbeitsbaum (vermutlich beim Export/Upload verlorengegangen,
+    ähnlich wie zuvor `.gitignore`/`.gitattributes`). Das reale Repository
+    hat vermutlich noch die ursprüngliche Wunderbyte-CI-Datei — dort nie
+    durch unsere angepasste Fassung ersetzt.
+  - Moodle-/PHP-Anforderungen sind über die drei Plugins hinweg nicht
+    vereinheitlicht (siehe Tabelle in Abschnitt C) — `enrol_adele` und
+    `local_adele` unterstützen noch 4.01, `mod_adele` nicht mehr.
+  - `local_adele`s eigene `dependencies`-Erklärung auf `mod_adele` verweist
+    noch auf eine sehr alte Version (2024060300) — nie aktualisiert.
+  - `phplint` schlägt in `mod_adele`s CI mit „Not enough arguments (missing:
+    'plugin')" fehl — nach bisherigem Befund ein Problem in der gemeinsam
+    genutzten `Wunderbyte-GmbH/catalyst-moodle-workflows`-Datei selbst,
+    nicht behebbar von hier aus.
+
+Details zu jedem einzelnen Schritt dieser wie auch vorheriger Sitzungen
+stehen vollständig in `docs/sessions/session-002.md` bzw. `session-001.md`.
+
+---
+
+### E) Ziel dieser Sitzung
+
+Wir knüpfen an die Arbeiten an, die im aktuellen Kontext-Dokument und in
+der angehängten Code-Base vorliegen, und gehen — sofern der letzte
+Arbeitsschritt als vollumfänglich erfüllt angesehen wird — zum nächsten
+vorgesehenen Schritt in der Umsetzung über (siehe Arbeitsplan).
+
+Schlüssel-Entwurfsentscheidungen (nicht verändern ohne explizite
+Diskussion — siehe auch die „Grundsätze" A–F oben):
+  1. Zustandslose Reconciliation statt Grant-Tabelle (F-6/A-9). Keine
+     eigene Log- oder Historientabelle.
+  2. Instanz-Identität `(learningpathid, courseid, customint2=Kind)` —
+     `KIND_TARGET` für Zielkurse, `KIND_HOST` für Host-Kurse bei Fall 2/3.
+  3. `reconciler` bleibt rein mechanisch; die fachliche Entscheidung
+     (Berechtigung, Sichtbarkeitsmodus) liefert stets der Aufrufer
+     (`local_adele\enrol_state` bzw. `mod_adele_observer`).
+  4. „Großzügigste Option gewinnt" bei jeder Form von Mehrfachgrund für
+     denselben Zugang — konsistent für geteilte Zielkurse UND für
+     Mehrfacheinbettungen desselben Lernpfads im selben Host-Kurs.
+  5. Keine Migration von Bestandsdaten (A-12). Alte, faktisch von ADELE
+     stammende `manual`-Einschreibungen bleiben unangetastet.
+  6. Kein Datenverlust (L-Q-07): Deaktivierung nimmt nur den Zugang; auch
+     harte Löschung entfernt keine Bewertungs- oder Aktivitätsdaten aus der
+     Datenbank (Moodle-Standardverhalten von `unenrol_user()`).
+  7. Optionale Kopplung, nie eine harte Abhängigkeit im Code (L-Q-08):
+     `class_exists()`/Null-Prüfung an jeder Schnittstelle zwischen den drei
+     Plugins.
+
+---
+
+Bekannte Stolperfallen (aus Session 001/002 real erlebt, nicht theoretisch):
+
+- **Enrol-Plugins sind nach der Installation NICHT automatisch aktiviert.**
+  Moodle trägt sie nicht von selbst in `$CFG->enrol_plugins_enabled` ein —
+  ohne `db/install.php` (plus einen Upgrade-Schritt für Bestandsinstalla-
+  tionen) läuft jeder Reconcile-Aufruf still ins Leere, ohne jede
+  Fehlermeldung. Besonders tückisch bei einem Plugin wie diesem ohne
+  lehrkraft-seitiges „Instanz hinzufügen", da nichts im UI auf das
+  Problem hindeutet. Muster: `enrol_get_plugins(true)`, eigenen Namen
+  ergänzen, `set_config('enrol_plugins_enabled', ...)` — sowohl in
+  `install.php` als auch als bedingter Upgrade-Schritt.
+- **„Norway Problem" in GitHub-Actions-YAML:** ein unquotiertes `on:` als
+  oberster Workflow-Schlüssel wird von manchen YAML-1.1-Parsern als
+  Boolean `true` interpretiert, nicht als String `"on"`. Immer `"on":`
+  quoten.
+- **`moodle-plugin-ci` erkennt die Testmatrix automatisch aus dem
+  GESAMTEN `$plugin->supported`-Bereich**, wenn `moodle_branches` nicht
+  explizit gesetzt ist — kann so unbeabsichtigt längst nicht mehr
+  unterstützte Versionen mittesten (bei uns real passiert: `[401, 405]`
+  ohne Override zog `MOODLE_404_STABLE` in die Matrix, wo eine
+  `extra_plugin_runner`-Abhängigkeit längst eine neuere Moodle-Version
+  verlangte). Immer explizit setzen, nicht auf Auto-Erkennung verlassen.
+- **Test-Fixtures, die nicht production-vollständig sind, können reale
+  Produktionscodepfade zum Absturz bringen**, sobald sie über einen
+  Event-Observer in fremden, installierten Plugins landen — nicht nur im
+  eigenen Test. Bei uns real: ein Test von `enrol_adele` löste über
+  `mod_adele`s Observer eine echte `local_adele`-Neuberechnung aus, die
+  an einem fehlenden `type`-Schlüssel im synthetischen Test-Knoten
+  scheiterte. Beim Schreiben von Tests immer bedenken, welche ANDEREN
+  installierten Plugins auf dasselbe Event reagieren könnten.
+- **Moodle-Sprachdateien verlangen strikte alphabetische Schlüssel-
+  Reihenfolge**, nicht nur „sinnvoll gruppiert". `mform_options_*` sortiert
+  komplett vor `mform_select_*`, weil `o` < `s` — unabhängig davon, wie
+  inhaltlich zusammengehörig zwei Strings wirken. Bei Unsicherheit
+  programmatisch sortieren, nicht von Hand nachzählen.
+- **MySQL/MariaDB-Fehler 1093** („can't specify target table for update in
+  from clause"): ein UPDATE/DELETE darf seine eigene Zieltabelle nicht in
+  einer geschachtelten Subquery referenzieren. Muster: erst eine
+  reine SELECT-Abfrage mit `get_fieldset_sql()` (Selbst-Joins sind dort
+  unproblematisch), dann ein separates `delete_records_list()` mit der
+  IDs-Liste.
+- **Upgrade-Schritte sollten Spalten, die ein FRÜHERER Schritt anlegt,
+  nicht blind voraussetzen.** Ein CI-Frischinstallation-Test deckt das
+  nicht auf (dort läuft immer die vollständige Sequenz sauber durch) — auf
+  einer echten Bestandsinstallation mit unbekannter, ggf. unterbrochener
+  Upgrade-Historie kann das trotzdem fehlschlagen. Defensiv: unmittelbar
+  vor der Verwendung selbst `field_exists()` prüfen und bei Bedarf
+  nachziehen, statt sich auf einen früheren Savepoint zu verlassen.
+- **Vor Annahme eines „Plugin-Bugs" zuerst im eigenen Code suchen.**
+  Mehrfach in dieser Sitzung stellte sich ein zunächst vermuteter Fehler
+  als Testisolationsproblem, eine zu strikte Versionsanforderung oder —
+  im wichtigsten Fall — als reine Moodle-Bordfunktion heraus (E-11,
+  Willkommensnachricht bei `enrol_manual`). `grep` über alle drei Plugins
+  nach dem vermuteten Mechanismus, bevor eine Ursache angenommen wird.
+- **Hochgeladene ZIPs können Punktdateien/-verzeichnisse stillschweigend
+  verlieren** (`.gitignore`, `.gitattributes`, `.github/`), je nachdem wie
+  sie exportiert wurden. Nach jedem größeren Re-Upload explizit prüfen,
+  ob diese noch vorhanden sind, statt es anzunehmen.
+- **Lokales `phpcs` kann von der CI-Version abweichen**, besonders bei
+  spezielleren Sniffs wie `moodle.Files.LangFilesOrdering`. Ein sauberer
+  lokaler Lauf ist ein starkes, aber kein hundertprozentiges Indiz für
+  einen sauberen CI-Lauf.
+- **Externe, wiederverwendbare GitHub-Actions-Workflows (`uses: .../
+  ci.yml@main`) können eigene, von hier aus nicht behebbare Bugs haben.**
+  Bei einem Fehlschlag, der nicht aus der eigenen `ci.yml` erklärbar ist,
+  das in Betracht ziehen, statt in der eigenen Konfiguration weiterzusuchen.
+
+---
+
+### F) Modus zur Delivery
+
+- Ein Claude-Chat = eine Session, unabhängig vom Kalendertag. Sitzungs-
+  protokoll ist `session-NNN.md`, fortlaufend um „Teil N"-Abschnitte
+  ergänzt — niemals in mehrere Dateien aufgeteilt.
+- Lieferung ausschließlich als **Patch-ZIP(s)**, ein ZIP je geändertem
+  Plugin. Dokumentation (Lastenheft/Pflichtenheft/Arbeitsplan/Sitzungs-
+  protokoll) NUR eingebettet im `enrol_adele`-ZIP unter `docs/`, keine
+  gesonderten Downloads. Ausnahme: GitHub-Issue-Entwürfe bleiben
+  gesonderte Downloads (zum Copy-Paste in die GitHub-UI).
+- **Versionsnummern nur bei funktionalen Änderungen erhöhen** — reine
+  Test-, Dokumentations- oder Konfigurationskorrekturen bekommen KEINEN
+  Versionsbump, außer explizit gewünscht.
+- Deutsch für das Gespräch, Englisch für technische Artefakte (Code,
+  Kommentare, Commit-Botschaften, Docblocks).
+- Vor jedem Ausliefern real prüfen, nicht nur behaupten: `php -l` über
+  jede geänderte Datei, `moodle-cs` (`--standard=moodle`) über das ganze
+  Plugin, bei Bedarf `xmllint`/YAML-Parser/`actionlint` für Schema- bzw.
+  CI-Dateien. Ergebnisse **direkt aus dem entpackten ZIP-Inhalt**
+  gegenprüfen, nicht nur gegen das Arbeitsverzeichnis.
+- Bei der Code-Generierung immer die Moodle-Coding-Standards einhalten:
+    - GPL-Boilerplate-Header in jeder Datei
+    - PHPDoc für alle Klassen, Methoden und Properties
+    - Short array syntax (`[]` statt `array()`)
+    - Keine Leerzeile nach öffnender `{`
+    - Inline-Kommentare: Großbuchstabe/Ziffer am Anfang, Satzzeichen am Ende
+    - Keine `MOODLE_INTERNAL`-Guards in Klassen-Dateien (`classes/`) oder
+      reinen Funktionsdateien ohne Seiteneffekte
+    - Lang-Strings: strikt alphabetisch sortiert
+    - `@covers`-Annotation in jeder Testklasse
+- Author: Ralf Erlebach, Jahr: 2026, Lizenz: GPL v3 or later.
+
+Bevor du beginnst:
+1. Bestätige kurz, was du aus dem Kontext-Dokument und den Dateien
+   verstanden hast.
+2. Benenne, falls vorhanden, Widersprüche oder fehlende Informationen,
+   die du für die heutige Aufgabe brauchst.
+3. Warte dann auf meine Freigabe, bevor du Code schreibst.
+
+Liefere nun eine kurze Einschätzung zu den bevorstehenden Arbeiten und
+den drei Punkten oben!

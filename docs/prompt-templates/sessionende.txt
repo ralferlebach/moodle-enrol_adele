@@ -1,0 +1,103 @@
+## Session-Ende – ADELE-Ökosystem (enrol_adele/local_adele/mod_adele) · Session [NR], Teil [N]
+
+**Datum:** [DATUM]
+**Dauer:** ca. [X] Minuten
+
+---
+
+### Was wurde erledigt?
+
+- [ ] (Eintragen, konkret mit Plugin, Dateinamen/Klassen und A-/D-/E-/F-ID
+      falls zutreffend, z. B. „mod_adele: classes/observer.php,
+      sync_host_access_for_node_enrolment() — löst E-16")
+
+---
+
+### Entscheidungen getroffen
+
+| Thema | Entscheidung | Begründung |
+|---|---|---|
+| | | |
+
+(Bei einer neuen, dauerhaften Architekturentscheidung: als eigene ID
+A-NNN/F-NNN im Lastenheft bzw. Pflichtenheft festhalten, nicht nur hier.)
+
+---
+
+### Entwurfsentscheidungen geändert / zurückgestellt
+
+[Keine — oder: Beschreibung der Änderung, welche der Grundsätze A–F aus
+sessionstart.txt betroffen sind, und warum]
+
+---
+
+### Offene Punkte für die nächste Session
+
+- [ ] (Eintragen, mit Bezug zur betroffenen Arbeitsplan-Phase/AP-Nummer)
+
+---
+
+### Versionsstand nach dieser Sitzung
+
+```
+enrol_adele:  [Version] ([YYYYMMDDNN])
+local_adele:  [Version] ([YYYYMMDDNN])
+mod_adele:    [Version] ([YYYYMMDDNN])
+```
+
+(Nur die Plugins eintragen, die sich in dieser Sitzung tatsächlich geändert
+haben — ein unveränderter Versionsstand ist genauso eine relevante Aussage
+wie ein neuer.)
+
+---
+
+### Testlauf-Ergebnis (je betroffenem Plugin)
+
+```
+enrol_adele:
+  php -l:  [OK / FAIL]
+  phpcs:   [OK / FAIL – N Fehler, M Warnungen]
+  PHPUnit: [OK / FAIL – X tests, Y assertions] / [nicht gelaufen — Grund]
+
+local_adele:
+  ...
+
+mod_adele:
+  ...
+```
+
+---
+
+### Verzeichnis-Snapshot (changed files, je betroffenem Plugin)
+
+```bash
+git diff --name-only HEAD
+```
+
+```
+[HIER AUSGABE EINFÜGEN]
+```
+
+---
+
+### Für die nächste Session einfügen in sessionstart.txt
+
+**Aktueller Entwicklungsstand:**
+> [KURZBESCHREIBUNG DES STANDS JE PLUGIN]
+
+**Grundsätze A–F weiterhin gültig?**
+> [Ja — oder: welche geändert wurden und warum, siehe oben]
+
+**Zuletzt abgeschlossen:**
+> [WAS IN DIESER SESSION FERTIG WURDE, MIT ID-BEZUG]
+
+**Als nächstes geplant:**
+> [WAS ALS NÄCHSTES KOMMT, MIT ARBEITSPLAN-BEZUG]
+
+**Bekannte Einschränkungen (Änderungen gegenüber der letzten Fassung):**
+> [Neue Einschränkungen ergänzt / bestehende aufgelöst — siehe
+> sessionstart.txt Abschnitt D]
+
+**Neue Stolperfallen für den entsprechenden Abschnitt in sessionstart.txt:**
+> [Nur eintragen, wenn diese Sitzung eine neue, wiederverwendbare Lektion
+> hervorgebracht hat — keine Pflichtangabe]
