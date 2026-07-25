@@ -18,6 +18,7 @@
  * Background "Hard delete" for a single learning path.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,7 +28,7 @@ namespace enrol_adele\task;
 use enrol_adele\local\reconciler;
 
 /**
- * Queued by manage.php (C.2) instead of running synchronously, when the
+ * Queued by manage.php instead of running synchronously, when the
  * number of affected users exceeds the responsiveness threshold. The
  * confirmation step itself already happened synchronously in manage.php
  * before this task was queued.

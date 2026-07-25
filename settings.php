@@ -18,6 +18,7 @@
  * Admin settings for enrol_adele.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -49,10 +50,9 @@ if ($ADMIN->fulltree) {
     }
 }
 
-// Management page (C.2, specification section 6): added under the
-// top-level 'enrolments' category, not under this plugin's own
-// 'enrolsettingsadele' settings page. Verified via web search against
-// Moodle core itself (admin/settings/plugins.php adds its own
+// Management page: added under the top-level 'enrolments' category, not
+// under this plugin's own 'enrolsettingsadele' settings page (matches how
+// Moodle core itself registers such pages via admin/settings/plugins.php
 // 'enroltestsettings' external page the same way: $ADMIN->add('enrolments',
 // ...)) and a real-world precedent (moodle-tool_uploadenrolmentmethods).
 // admin_settingpage objects (like 'enrolsettingsadele') cannot hold child

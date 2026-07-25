@@ -1,11 +1,13 @@
-# Session 003 — Fortsetzung, externes Review abgeglichen, G-Q1a umgesetzt
+# Session 003 — Externes Review abgeglichen, Phase C/D abgeschlossen, alle drei CI grün
 
-**Datum:** 2026-07-24
+**Datum:** 2026-07-24 – 2026-07-25
 **Teilnehmer:** Ralf Erlebach, Claude
-**Ergebnis:** `enrol_adele` unverändert (0.1.6) — reine Dokumentation.
-`local_adele` → 0.4.8, `mod_adele` → 0.1.11 (G-Q1a umgesetzt: L-Q-08
-aufgehoben, `enrol_manual`-Rückfallpfade entfernt). `docs/arbeitsplan.md` um
-Phase G ergänzt (sieben verifizierte Befunde G.1–G.7, Entscheidung G-Q1a).
+**Endergebnis:** Alle acht Prüfkriterien erfüllt; `enrol_adele`,
+`local_adele` und `mod_adele` laufen in der CI durchgängig grün (Teil 24).
+Endstände: `enrol_adele` 0.1.11 (2026072310), `local_adele` 0.4.14
+(2026072407), `mod_adele` 0.1.13 (2026072402). Phase C vollständig, Phase G
+weitgehend abgeglichen (G.10 out-of-scope), D.8 abgenommen. Vollständige
+Zusammenfassung siehe „Sitzungsende — Session 003" am Ende dieser Datei.
 
 ---
 
@@ -1286,7 +1288,242 @@ Patch-ZIP (nur geänderte Datei): `enrol_adele`,
 
 ---
 
-## Teil 2 — Sessionstartprompt erneut geprüft, Risikoabwägung Codezirkel
+## Teil 22 — local_adele: course_id-Render-Bug (gegen echte Codebase)
+
+Siehe separates Fix-Dokument `docs/FIX-course_id-render-bug.md` in der
+gelieferten local_adele-Codebase (0.4.14). Kurz: die Student-Runtime-
+Ansicht rendert keine Knoten, weil `get_learning_user_relation()` (und zwei
+Geschwister) auf `course_id` filtern, obwohl der Unique-Index
+`(user_id, learning_path_id)` „independent of the host course" garantiert
+genau einen Snapshot liefert. `course_id`-Filter aus den drei
+Abruf-Funktionen entfernt.
+
+---
+
+## Teil 23 — Behat-Navigationskollision: enrol_adele-Admin-Strings umbenannt (VERWORFEN, siehe Teil 24)
+
+> **Hinweis:** Der in diesem Teil gewählte Ansatz (enrol_adele-Strings
+> umbenennen) wurde vom Auftraggeber verworfen und in Teil 24 vollständig
+> zurückgenommen. Der Abschnitt bleibt zur ehrlichen Nachvollziehbarkeit
+> erhalten. Die korrekte Lösung steht in Teil 24.
+
+### 1. Auftrag
+
+Behat-Faildump (HTML+Screenshot) zu einem fehlschlagenden
+`local_adele`-Szenario `adele_config.feature` („As an admin I perform
+several drag and drop actions"), Schritt 32:
+`I select "All courses meeting the other criteria." from the "Activate
+filter" singleselect`.
+
+### 2. Diagnose (aus dem Faildump)
+
+Der HTML-Dump zeigt: der Browser stand auf der Seite **„Learning path
+enrolment management"** — der `enrol_adele`-Verwaltungsseite —, nicht auf
+`local_adele`s eigener Einstellungsseite. Das Szenario macht
+`I follow "Plugins"` → `I follow "Learning path"`. Moodles `I follow`-Schritt
+matcht Links per Teiltext. Zwei kollidierende Links:
+- `local_adele` `pluginname` = **„Learning path"** (die gesuchte Einstellungsseite)
+- `enrol_adele` `manage_heading` = **„Learning path enrolment management"**
+  (und `pluginname` = „Learning path enrolment")
+
+`I follow "Learning path"` traf den `enrol_adele`-Link statt local_adeles →
+falsche Seite → „Activate filter"-Dropdown nicht vorhanden → Fehlschlag.
+
+Ursache: meine Teil-14-Änderung brachte `enrol_adele` (und dessen
+Admin-Seite) in `local_adele`s Testumgebung. Der Faildump stammt aus einem
+CI-Stand, der `enrol_adele` installiert hat (das hochgeladene 0.4.7-Snapshot
+selbst hat es noch nicht — der reale CI-Stand des Auftraggebers ist neuer).
+
+### 3. Fix
+
+`enrol_adele`s kollidierende Admin-Strings umbenannt, sodass kein
+per-`I follow "Learning path"`-matchbarer Link mehr „Learning path"
+enthält — behebt die Kollision unabhängig vom CI-Zustand und beseitigt
+zugleich für echte Admins (die beide Plugins installiert haben) die
+Mehrdeutigkeit zwischen „Lernpfad-Editor" und „Lernpfad-Einschreibungs-
+verwaltung":
+- `pluginname`: „Learning path enrolment" → „ADELE enrolment"
+- `manage_heading`: „Learning path enrolment management" → „ADELE enrolment management"
+- deutsch analog (`ADELE-Einschreibung` / `Verwaltung der ADELE-Einschreibung`)
+- eigene `manage.feature`-Assertion angepasst.
+
+Event-Beschreibungen (`event_learning_path_*`, reine Log-Einträge) und die
+Tabellen-Spaltenüberschrift `manage_col_learningpath` = „Learning path"
+bleiben — das sind keine Navigations-Links und matchen `I follow` nicht.
+
+### 4. Architektonische Rückfrage (an den Auftraggeber)
+
+Der tiefere Punkt: `local_adele` hängt **nicht** von `enrol_adele` ab
+(G-Q1a). Streng genommen sollte `local_adele`s eigene CI `enrol_adele` gar
+nicht installieren — meine Teil-14-Ergänzung war ein Workaround gegen die
+`debugging()`-Warnung und testet `local_adele` in einer Nicht-
+Auslieferungs-Konfiguration. Alternative zum String-Rename wäre, die
+Teil-14-CI-Ergänzung zurückzunehmen; das brächte aber die
+`debugging()`-Warnungen in `local_adele`s PHPUnit zurück (die dann in den
+auslösenden Tests per `assertDebuggingCalled()` behandelt werden müssten).
+Der String-Rename ist der risikoärmere Weg und verbessert die echte
+Admin-UX — die CI-Grundsatzfrage bleibt aber Ihre Entscheidung.
+
+### 5. Verifikation
+
+`php -l` sauber. Nicht gegen echten CI-Lauf bestätigt.
+
+### 6. Ausgeliefert
+
+`enrol_adele` **0.1.12** (2026072311): `lang/en/enrol_adele.php`,
+`lang/de/enrol_adele.php`, `tests/behat/manage.feature`, `version.php`,
+dieses Protokoll.
+
+### 7. Offene Punkte
+
+- Weitere `local_adele`-Behat-Szenarien (`dndnode_2`) — durch den
+  course_id-Fix aus Teil 22 adressiert, noch nicht gemeinsam CI-bestätigt.
+- CI-Grundsatzfrage aus Punkt 4.
+- G.10 out-of-scope.
+
+---
+
+## Teil 24 — Rename verworfen, korrekter Fix im local_adele-Test; app-lazy.js geklärt; ALLE DREI CI GRÜN
+
+### 1. Auftrag
+
+Drei Rückmeldungen des Auftraggebers:
+1. Warum wird `enrol_adele` gefixt statt der Test in `local_adele`, wo der
+   Fehler entsteht? Der „ADELE enrolment"-Rename wurde bereits verworfen —
+   letzten Output verwerfen, angemessene Lösung erarbeiten.
+2. Im `local_adele`-Behat-Test sicherstellen, dass gezielt `local_adele`s
+   eigene Seite gefunden und genutzt wird.
+3. Warum ist `amd/src/app-lazy.js` aus der Codebase gelöscht? Soll das so?
+
+### 2. Rename vollständig zurückgenommen
+
+Der Teil-23-Ansatz war falsch: Er verbog die öffentlichen Strings von
+`enrol_adele`, um einen Testfehler eines anderen Plugins zu umgehen. Alle
+Änderungen zurückgesetzt — `manage_heading` und `pluginname` (EN+DE) wieder
+auf „Learning path enrolment [management]", eigene `manage.feature`-Assertion
+zurück, Version zurück auf 0.1.11 (2026072310). Das verworfene ZIP aus den
+Outputs entfernt.
+
+### 3. Korrekter Fix — im local_adele-Test
+
+Ursache war nie ein Namensproblem von `enrol_adele`, sondern eine
+**mehrdeutige Navigation** im Test: `I follow "Plugins"` → `I follow
+"Learning path"` matcht per Teiltext jeden Link, der „Learning path"
+enthält — sobald `enrol_adele` mitinstalliert ist auch dessen „Learning
+path enrolment management" (anderer Admin-Zweig: Enrolments). Der Schritt
+folgte dann der falschen Seite.
+
+Fix in `local_adele/tests/behat/adele_config.feature`: gezielte
+Admin-Baum-Navigation zu `local_adele`s **eigener** Seite, die eindeutig
+unter „Local plugins" registriert ist (`$ADMIN->add('localplugins', ...)`):
+
+```gherkin
+Given I navigate to "Plugins > Local plugins > Learning path" in site administration
+And I should see "Activate filter"
+```
+
+Das trifft immer `local_adele`s Seite, unabhängig von mitinstallierten
+Plugins. Die `Activate filter`-Assertion schlägt sofort an der Navigation
+fehl (statt erst am Formularschritt), falls je wieder falsch gelandet wird.
+Redundanten Re-Login entfernt (das Background loggt bereits als admin ein).
+Reine Teständerung → **kein Versionsbump** (Konvention: Versionsnummern nur
+bei funktionalen Änderungen). Kein weiteres Feature hatte dasselbe Muster.
+
+### 4. app-lazy.js — untersucht, alles in Ordnung
+
+`amd/src/app-lazy.js` ist in der hochgeladenen Codebase **vorhanden, in git
+getrackt und valide** (1 MB, kompiliertes Vue3-Bundle, beginnt mit
+`define([...])`). Weder `.gitattributes` (nur `docs/`, `tools/`, `.github/`
+etc. per `export-ignore`) noch `.gitignore` (nur `amd/build/`) entfernen
+sie — `amd/src/` bleibt erhalten.
+
+Die einzige Löschung war ein **einmaliger Commit vom 24.11.2023**
+(`3bad5a2 „Linting: Checking grunt tests"`), vermutlich um grunt/ESLint
+nicht am Minified-Bundle scheitern zu lassen; rückgängig gemacht durch
+spätere „Build: rebuild amd bundle"-Commits (#459/#474/#485). Im aktuellen
+HEAD (0.4.7, `development`) ist sie enthalten und darf **nicht** gelöscht
+werden — ohne dieses Bundle lädt das gesamte Vue3-Frontend nicht und kein
+Knoten rendert. Hinweis an den Auftraggeber: Da `amd/build/` gitignoriert
+ist, muss die CI den Grunt-/Build-Schritt ausführen, damit
+`amd/build/app-lazy.min.js` entsteht.
+
+### 5. MEILENSTEIN: alle drei CI-Läufe grün
+
+Der Auftraggeber bestätigt: `enrol_adele`, `local_adele` und `mod_adele`
+laufen in der CI **durchgängig grün** (Moodle 4.5, PHP 8.1–8.3,
+MariaDB/PostgreSQL, inkl. `@javascript`-Behat via Selenium). Damit ist das
+letzte offene der acht Prüfkriterien (Kriterium 8, „CI durchgängig grün")
+erfüllt. Die beiden `local_adele`-Behat-Fehlerklassen dieser Sitzung —
+der course_id-Render-Bug (Teil 22) und die Navigationskollision (Teil 24) —
+sind damit gemeinsam CI-bestätigt.
+
+### 6. Ausgeliefert
+
+- `local_adele` Behat-Fix: `tests/behat/adele_config.feature` (reine
+  Teständerung, kein Versionsbump; separates Patch-ZIP).
+- `enrol_adele` auf 0.1.11 zurückgesetzt (keine Netto-Änderung ggü. Teil 22).
+- Dieses Protokoll + Sitzungsende-Doku (siehe unten), eingebettet im
+  enrol_adele-docs-ZIP.
+
+---
+
+# Sitzungsende — Session 003
+
+## Endstand der Versionen (alle CI-grün)
+
+| Plugin | Release | Version | Stand |
+|--------|---------|---------|-------|
+| `enrol_adele` | 0.1.11 | 2026072310 | Backup/Restore-Test (Mock-basiert), C.4 Same-Course-Ausnahme |
+| `local_adele` | 0.4.14 | 2026072407 | course_id-Render-Fix + Behat-Navigations-Fix (Teständerung) |
+| `mod_adele` | 0.1.13 | 2026072402 | unverändert seit Teil 14 |
+
+> **Repo-Divergenz-Hinweis:** Das in Teil 22 hochgeladene „getestete"
+> `local_adele`-Repo stand auf 0.4.7 (2026072303) — vor mehreren
+> Session-Patches. Der Auftraggeber muss beim Zusammenführen abgleichen,
+> welche Patches sein reales Repo bereits enthält. Die course_id-Fix-Version
+> 0.4.14 ist bewusst oberhalb aller Session-Stände gewählt (monoton-sicher).
+
+## In dieser Session erreicht
+
+- **Phase C vollständig** (C.1–C.5): Verwaltungsseite, Events, Restore-Hooks
+  inkl. Same-Course-Ausnahme (C.4, gegen echten Moodle-Core-Code verifiziert),
+  automatisierter Backup/Restore-Test (Mock-basiert, nach zwei
+  Controller-Pipeline-Fehlschlägen bewusst umgestellt), Behat-Grundlauf.
+- **Phase G**: ~29 Review-Punkte einzeln verifiziert; G.2 (Host-Course-Index,
+  Schichtentrennung) und G.13 (Löschsperre bei Einbettung) vollständig; G.10
+  formal out-of-scope (als Issue festgehalten).
+- **D.8**: alle acht Prüfkriterien erfüllt — Kriterium 8 (CI grün) als letztes.
+- **CI-Rückmeldeschleife**: zahlreiche echte Regressionen und Altbugs
+  gefunden und behoben, u. a. der course_id-Render-Bug und die
+  Behat-Navigationskollision, beide gegen die tatsächliche Codebase
+  (inkl. Vue3-Quelle bzw. Faildump) bis zur Wurzel diagnostiziert.
+
+## Offen / an den Auftraggeber
+
+1. **G.10** (Capability-Modell-Redesign) — out-of-scope, gesondert zu
+   diskutieren; Issue-Entwurf liegt vor.
+2. **CI-Grundsatzfrage**: `local_adele`s eigene CI installiert `enrol_adele`
+   (Teil-14-Workaround gegen `debugging()`). Architektonisch hängt
+   `local_adele` nicht von `enrol_adele` ab. Alternative wäre, die
+   Warnungen in den auslösenden PHPUnit-Tests per `assertDebuggingCalled()`
+   zu behandeln und `enrol_adele` aus local_adeles CI zu nehmen. Entscheidung
+   liegt beim Auftraggeber.
+3. **Grunt-/Build-Schritt** in der CI: sicherstellen, dass `amd/build/` aus
+   `amd/src/app-lazy.js` gebaut wird (gitignoriert).
+4. **Repo-Divergenz** (siehe oben) zusammenführen.
+5. **444 `*Zone.Identifier`-Windows-Artefakte** im local_adele-Repo bereinigen
+   (`find . -name '*Zone.Identifier' -delete` + `.gitignore`-Eintrag).
+
+## Wiederkehrende Lehre dieser Session
+
+Moodle-API-Nutzung stets erst gegen echten Core-Code / reale Beispiele
+verifizieren, nicht aus dem Gedächtnis (Backup/Restore-Statusmaschine kostete
+drei Anläufe). Bei Berechtigungs- und Namensänderungen gegen „wer nutzt das
+tatsächlich, mit welcher Art Zugriff" prüfen. Und: einen Fehler dort beheben,
+wo er entsteht — nicht die öffentlichen Strings eines Plugins verbiegen, um
+den Testfehler eines anderen zu umgehen (Teil 23 → 24).
+
+---
 
 ### 1. Sessionstartprompt — auch unter `db/prompt-templates` nicht vorhanden
 

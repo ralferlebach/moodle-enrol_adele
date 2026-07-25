@@ -18,6 +18,7 @@
  * All ADELE enrolments and instances a learning path owns were hard-removed.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,7 +26,7 @@
 namespace enrol_adele\event;
 
 /**
- * Triggered by "Hard delete" on the management page (C.2), the equivalent
+ * Triggered by "Hard delete" on the management page, the equivalent
  * ad-hoc task, or local_adele's own learning-path deletion flow (via
  * enrol_state::request_purge()), per specification 7.3.
  *

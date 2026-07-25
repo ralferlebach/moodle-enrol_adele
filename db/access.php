@@ -18,6 +18,7 @@
  * Capability definitions for enrol_adele.
  *
  * @package     enrol_adele
+ * @copyright   2026 Wunderbyte GmbH
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
