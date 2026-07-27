@@ -36,5 +36,4 @@ $plugin->supported = [401, 502];
 // get_learningpaths_embedded_in_course(), which observer.php calls.
 $plugin->dependencies = [
     'local_adele' => 2026072500,
-    'enrol_adele' => 2026072500,
 ];
