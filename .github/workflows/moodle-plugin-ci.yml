@@ -1,7 +1,7 @@
 name: Moodle Plugin CI
 
 "on": [push, pull_request]
-
+--branch development--branch development
 jobs:
   # Moodle 5.0 / 5.1 on PHP 8.2+, mirroring the matrix that local_adele tests against.
   moodle500to501:
@@ -19,8 +19,8 @@ jobs:
       # branch per repo (Session 001, Teil 4). enrol_adele 0.1.1 depends on
       # local_adele 0.4.3 / mod_adele 0.1.5.
       extra_plugin_runners: |
-        moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle_local_adele
-        moodle-plugin-ci add-plugin --branch master Wunderbyte-GmbH/moodle-mod_adele
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-mod_adele
 
       # local_adele ships a Vue3 build tree; this plugin does not, so there is
       # nothing here for grunt to do.
@@ -40,8 +40,8 @@ jobs:
       min_php: '8.1'
 
       extra_plugin_runners: |
-        moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle_local_adele
-        moodle-plugin-ci add-plugin --branch master Wunderbyte-GmbH/moodle-mod_adele
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
+        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-mod_adele
 
       disable_grunt: true
 

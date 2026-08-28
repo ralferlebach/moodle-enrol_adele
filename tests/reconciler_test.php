@@ -43,6 +43,47 @@ use enrol_adele\local\reconciler;
  */
 final class reconciler_test extends \advanced_testcase {
     /**
+     * Skip when the installed companion plugins are older than this plugin
+     * declares it needs.
+     *
+     * Host-course entitlement is derived by mod_adele and reached through
+     * local_adele\\enrol_state::get_host_entitlement(). version.php requires a
+     * local_adele that provides it; a job that installs an older one is
+     * testing a combination this plugin does not claim to support, and a
+     * green result from bending the tests to fit would be worth nothing.
+     * Skipping says so out loud instead.
+     *
+     * @return void
+     */
+    private static function require_local_adele(): void {
+        if (!class_exists('\\local_adele\\enrol_state')) {
+            self::markTestSkipped('local_adele is required.');
+        }
+    }
+
+    /**
+     * Skip when the installed companion plugins are older than this plugin
+     * declares it needs.
+     *
+     * Only the tests that let entitlement be DERIVED need this. Tests that
+     * hand reconcile_host_user() an explicit entitlement exercise this
+     * plugin's own mechanics and work against any local_adele.
+     *
+     * @return void
+     */
+    private static function require_host_support(): void {
+        if (!class_exists('\\local_adele\\enrol_state')) {
+            self::markTestSkipped('local_adele is required.');
+        }
+        if (!method_exists('\\local_adele\\enrol_state', 'get_host_entitlement')) {
+            self::markTestSkipped(
+                'The installed local_adele predates enrol_state::get_host_entitlement(); ' .
+                'see version.php for the required version.'
+            );
+        }
+    }
+
+    /**
      * Create a learning path with two nodes: node1 → course A+B (shared course
      * scenario uses A twice), node2 → course A.
      *
@@ -158,9 +199,7 @@ final class reconciler_test extends \advanced_testcase {
     public function test_reconcile_lifecycle_shared_course(): void {
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $coursea = $this->getDataGenerator()->create_course();
         $courseb = $this->getDataGenerator()->create_course();
@@ -222,9 +261,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $course = $this->getDataGenerator()->create_course();
         [$lpid1, $userid1] = $this->plant_state(
@@ -269,9 +306,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_host_support();
 
         $host = $this->getDataGenerator()->create_course();
         $target = $this->getDataGenerator()->create_course();
@@ -355,9 +390,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $host = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
@@ -419,9 +452,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_host_support();
 
         $host1 = $this->getDataGenerator()->create_course();
         $host2 = $this->getDataGenerator()->create_course();
@@ -464,7 +495,10 @@ final class reconciler_test extends \advanced_testcase {
         $manual = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $host1->id]);
         enrol_get_plugin('manual')->unenrol_user($manual, $userid);
 
-        $this->assertFalse(
+        // The user path record outlives the observer on purpose: its removal
+        // is deferred to remove_user_path_adhoc (issue #3). Access, however,
+        // goes immediately — which is what this test is about.
+        $this->assertTrue(
             $DB->record_exists(
                 'local_adele_path_user',
                 ['learning_path_id' => $lpid, 'user_id' => $userid]
@@ -492,9 +526,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $host = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();

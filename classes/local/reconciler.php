@@ -337,6 +337,13 @@ class reconciler {
     private static function sweep_host(?progress_trace $trace = null): int {
         global $DB;
 
+        if (!self::host_support_available()) {
+            if ($trace) {
+                $trace->output('  Host courses: skipped, the installed local_adele is too old.');
+            }
+            return 0;
+        }
+
         $count = 0;
         foreach (self::get_host_learningpathids() as $lpid) {
             foreach (self::get_host_courseids($lpid) as $hostcourseid) {
@@ -377,7 +384,7 @@ class reconciler {
     public static function reconcile_host_embedding(int $learningpathid, int $hostcourseid): int {
         global $DB;
 
-        if (!self::is_active()) {
+        if (!self::is_active() || !self::host_support_available()) {
             return 0;
         }
 
@@ -495,6 +502,28 @@ class reconciler {
             );
         }
         return $removed;
+    }
+
+    /**
+     * Whether the installed local_adele can answer host-course questions.
+     *
+     * version.php declares the required local_adele version, so a site that
+     * satisfies the dependency always can. A site does not always satisfy it:
+     * during an upgrade the two plugins are briefly out of step, and a CI job
+     * may deliberately combine this plugin with an older companion. Calling a
+     * method that is not there turns that into a fatal error in the middle of
+     * a scheduled task — a far worse outcome than skipping one pass and
+     * saying so in the trace.
+     *
+     * Checked per call rather than cached: the answer changes exactly once,
+     * during an upgrade, and a stale cached "no" would disable the host pass
+     * for the rest of the request.
+     *
+     * @return bool
+     */
+    private static function host_support_available(): bool {
+        return method_exists('\\local_adele\\enrol_state', 'get_host_entitlement')
+            && method_exists('\\local_adele\\enrol_state', 'get_learningpaths_with_host_embeddings');
     }
 
     /**
@@ -618,7 +647,7 @@ class reconciler {
     private static function remove_unembedded_host_instances(?progress_trace $trace = null): int {
         global $DB;
 
-        if (!method_exists('\local_adele\enrol_state', 'get_host_embeddings')) {
+        if (!self::host_support_available()) {
             return 0;
         }
 

@@ -69,10 +69,11 @@ Metadatenänderung ausgesperrt wird; der Widerspruch ist im Code kommentiert.
 und `enrollment::buildsqlquerypath()` joint `{adele}` schon heute. Die
 Direktive formalisiert einen bestehenden Zustand.
 
-**Q7 bleibt offen und wurde bewusst nicht angefasst.** Der deklarierte Graph
-ist weiterhin zirkulär. Die Rückverweise zeigen auf *ältere* Versionen, sodass
-die Bedingungen erfüllbar bleiben; ob eine **Neuinstallation** aller drei
-Plugins damit durchläuft, ist plausibel, aber **nicht verifiziert**.
+**Q7 — inzwischen entschieden (Teil 8).** Der deklarierte Graph ist weiterhin
+zirkulär und bleibt es: der Auftraggeber hat ihn ausdrücklich bestätigt. Die
+Rückverweise zeigen auf *ältere* Versionen, sodass die Bedingungen erfüllbar
+bleiben; ob eine **Neuinstallation** aller drei Plugins damit durchläuft, ist
+plausibel, aber **nicht verifiziert**.
 
 ---
 
@@ -487,16 +488,223 @@ Teil nicht angefasst und bekommen deshalb kein Patch-ZIP.
 
 Alle sieben Issues sind damit bearbeitet.
 
-### Offen
+### Offen nach Teil 7
 
-- **Q7** — der deklarierte Abhängigkeitsgraph ist weiterhin zirkulär
-  (`local_adele → enrol_adele` und `enrol_adele → local_adele`, dazu
-  `local_adele ⇄ mod_adele`) und widerspricht der Entscheidung G-Q1 in
-  `arbeitsplan.md`. Die Rückverweise zeigen auf ältere Versionen und bleiben
-  erfüllbar; ob eine **Neuinstallation** aller drei Plugins damit durchläuft,
-  ist nach wie vor nicht verifiziert. Die grüne CI beweist es nicht: sie
-  installiert in einen bereits bestehenden Baum.
+- **Q7** — Entscheidung ausstehend (in Teil 8 getroffen).
 - **G.10 Capability-Redesign** — unverändert außerhalb des Auftrags.
 - **CI-Abhängigkeitsfrage** `local_adele` → `enrol_adele` (Part-14-Behelf vs.
   `assertDebuggingCalled()`).
+
+---
+
+## Teil 8 — Q7 entschieden: zirkulärer Abhängigkeitsgraph bleibt
+
+**Entscheidung des Auftraggebers:** „voll in Ordnung, so lassen."
+
+Der deklarierte Graph bleibt damit unverändert und ist ausdrücklich gewollt,
+nicht bloß geduldet:
+
+```text
+local_adele  → mod_adele, enrol_adele
+mod_adele    → local_adele, enrol_adele
+enrol_adele  → local_adele
+```
+
+Folge für die Dokumentation: die Entscheidung **G-Q1** in `arbeitsplan.md`
+(„`local_adele` bekommt **keine** deklarierte Abhängigkeit auf `enrol_adele`",
+Session 003, Teil 1) ist damit aufgehoben. Sie ist dort als überholt
+gekennzeichnet worden, statt sie zu löschen — der Weg zur heutigen Lage bleibt
+so nachvollziehbar, und niemand richtet sich in einer späteren Sitzung nach
+einem Zielgraphen, den es nicht mehr gibt.
+
+Am Code ist nichts zu ändern; keine Versionsanhebung.
+
+**Was offen bleibt, ist kein Auftrag, sondern eine Wissenslücke:** ob eine
+**Neuinstallation** aller drei Plugins mit diesem Graphen durchläuft, ist
+weiterhin nicht verifiziert. Die grüne CI sagt darüber nichts, weil sie in
+einen bereits bestehenden Baum installiert. Die Rückverweise zeigen jeweils
+auf ältere Versionen, sodass die Bedingungen erfüllbar sein sollten — geprüft
+ist das nicht. Beim nächsten Aufsetzen einer frischen Instanz zu schließen.
+
+---
+
+---
+
+## Teil 9 — CI-Fehler nach Teil 1–6
+
+**Analysierte Läufe:** `90021390804` (enrol_adele) und `90021362158`
+(mod_adele), beide gegen den Stand nach Teil 6. Teil 7 (Verwaltungsseite) war
+zu diesem Zeitpunkt noch nicht gepusht — die acht neuen Behat-Szenarien sind
+also weiterhin ungeprüft; der Lauf zeigt die alten drei, alle grün.
+
+Ergebnis: `enrol_adele` 2 Errors + 2 Failures, `mod_adele` 5 Errors. Drei
+verschiedene Ursachen, von denen zwei auf mich zurückgehen und eine auf die
+CI-Konfiguration.
+
+---
+
+### Ursache 1 — Die CI testet eine Kombination, die es nicht gibt
+
+Beide Workflows installieren die Begleit-Plugins aus dem **Upstream**:
+
+```text
+enrol_adele-CI:  add-plugin --branch main   Wunderbyte-GmbH/moodle_local_adele
+                 add-plugin --branch master Wunderbyte-GmbH/moodle-mod_adele
+mod_adele-CI:    add-plugin --branch main   Wunderbyte-GmbH/moodle_local_adele
+                 add-plugin --branch main   Wunderbyte-GmbH/moodle-enrol_adele
+```
+
+Nachgeprüft: keiner dieser Branches enthält den Stand von Session 005.
+`local_adele@main` kennt `enrol_state::get_learningpaths_with_host_embeddings()`
+nicht, `mod_adele@master` hat keine `classes/local/host_policy.php`,
+`enrol_adele@main` kennt `reconciler::reconcile_host_embedding()` nicht.
+
+`enrol_adele/version.php` verlangt `local_adele >= 2026082800`. Die CI
+installiert eine Version, die diese Bedingung nicht erfüllt, und prüft damit
+eine Kombination, die das Plugin ausdrücklich nicht unterstützt.
+
+**Das ist die eigentliche Ursache** von zwei der vier enrol_adele-Befunde und
+allen fünf mod_adele-Befunden. Sie lässt sich nicht im Code reparieren, nur
+entschärfen — die Entscheidung, wogegen getestet wird, gehört dem
+Auftraggeber. Vorgeschlagene Änderung in den Workflow-Dateien (liegen wegen
+`export-ignore` nicht im Archiv vor):
+
+```yaml
+# enrol_adele/.github/workflows/moodle-plugin-ci.yml
+- moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
+- moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-mod_adele
+
+# mod_adele/.github/workflows/moodle-plugin-ci.yml
+- moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
+- moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-enrol_adele
+```
+
+Solange die drei Plugins gemeinsam entwickelt werden, kann die CI nur gegen
+den gemeinsamen Entwicklungsstand aussagekräftig sein. Ein Test gegen den
+Upstream-Stand ist erst wieder sinnvoll, wenn dort alles angekommen ist.
+
+### Ursache 2 — `adele_queue_host_reconcile()` warnte zu laut (mod_adele, 5 Errors)
+
+```text
+Unexpected debugging() call detected.
+Debugging: local_adele: enrol_adele is not installed or not active. …
+* line 165 of /mod/adele/lib.php: call to warn_enrol_adele_missing()
+* line  77 of /mod/adele/lib.php: call to adele_queue_host_reconcile()
+* line 143 of /course/modlib.php: call to adele_add_instance()
+```
+
+Mein Fehler aus Teil 4. Der neue Lifecycle-Hook prüfte auf die **Task-Klasse**
+und rief bei deren Fehlen `warn_enrol_adele_missing()` — eine Meldung, die
+sagt, enrol_adele sei nicht installiert. In der mod_adele-CI ist enrol_adele
+aber sehr wohl installiert, nur älter. Die Meldung war also sachlich falsch,
+und weil sie bei jedem `adele_add_instance()` feuert, hat PHPUnit fünf Tests
+darüber abgebrochen.
+
+Behoben, indem zwei verschiedene Abwesenheiten verschieden behandelt werden:
+
+- `\enrol_adele\local\reconciler` fehlt → enrol_adele ist wirklich nicht da,
+  nichts pflegt ADELE-Einschreibungen → warnen, wie überall sonst im Projekt.
+- Reconciler da, Task-Klasse nicht → **Teilupgrade**, kein Defekt. Der
+  nächtliche Abgleich korrigiert den Host-Zugang weiterhin; dieser Aufruf
+  hätte ihn nur sofort wirksam gemacht. Eine Warnung bei jedem Aktivitäts-
+  speichern für einen Zustand, der sich von selbst auflöst, ist Lärm — hier
+  wird still übersprungen.
+
+Das ist kein Testkniff: die Unterscheidung ist auch im Produktivbetrieb
+richtig, weil genau dieser Zustand während jedes Upgrades kurz besteht.
+
+### Ursache 3 — Fehlender Guard im Reconciler (enrol_adele, 2 Errors)
+
+```text
+Error: Call to undefined method local_adele\enrol_state::get_learningpaths_with_host_embeddings()
+  reconciler.php:506 → :333 → :213 (reconcile_all)
+```
+
+`reconcile_all()` rief die neuen `local_adele`-Methoden ungeprüft auf. Bei
+einem älteren `local_adele` ist das ein **fataler Fehler mitten im geplanten
+Task** — der schlechtestmögliche Ausgang, weil damit auch die Durchgänge
+sterben, die problemlos gelaufen wären.
+
+Neu: `reconciler::host_support_available()` prüft beide Methoden per
+`method_exists()`. `sweep_host()` überspringt den Host-Durchgang mit einer
+Trace-Zeile, `remove_unembedded_host_instances()` und
+`reconcile_host_embedding()` steigen ebenfalls aus. Alles andere läuft weiter.
+
+Bewusst nicht gecacht: die Antwort ändert sich genau einmal, während eines
+Upgrades, und ein zwischengespeichertes „nein" würde den Host-Durchgang für
+den Rest des Requests abschalten.
+
+### Ursache 4 — Vergessene Zusicherung (enrol_adele, 2 Failures)
+
+**`test_leaving_learning_path_purges_every_host_course`, Zeile 470:**
+„Failed asserting that true is false." Schlicht übersehen. In Teil 5 wurde die
+Löschung der `local_adele_path_user`-Zeile in die Ad-hoc-Task verlagert; ich
+habe `test_host_course_removal_rules` darauf umgestellt und diesen zweiten
+Test mit derselben Zusicherung stehen lassen. Jetzt prüft er, was tatsächlich
+gilt: Zugriff sofort weg, Zeile bleibt bis zum Task-Lauf.
+
+**`test_host_course_removal_rules`, Zeile 311:**
+„Failed asserting that false is true." Folge von Ursache 1. Der Test leitet
+die Trägerschaft über `is_user_carried()` → `enrol_state::get_host_embeddings()`
+ab. Im installierten alten `local_adele` liest diese Methode noch die in Teil 4
+entfernte Indextabelle, die das Fixture folgerichtig nicht mehr befüllt.
+
+Hier wäre es leicht gewesen, das Fixture die alte Indextabelle mitschreiben zu
+lassen und die CI damit grün zu bekommen. Das habe ich **nicht** getan: dann
+prüfte der Test eine Kombination grün, die das Plugin gar nicht unterstützt.
+Stattdessen ein sprechender `markTestSkipped()` über
+`require_host_support()` — und zwar nur bei den zwei Tests, die die
+Berechtigung wirklich **ableiten** lassen. Die vier Tests, die
+`reconcile_host_user()` eine explizite Berechtigung übergeben, prüfen eigene
+Mechanik und laufen weiterhin gegen jedes `local_adele`; sie behalten den
+schwächeren Guard `require_local_adele()`.
+
+Übersprungene Tests sind im Lauf sichtbar (`↩`) und stellen die Lücke
+ausdrücklich zur Schau, statt sie zu kaschieren. Sie verschwinden, sobald
+Ursache 1 behoben ist.
+
+---
+
+### Verifikation
+
+`php -l` sauber, `phpcs --standard=moodle --severity=1` 0/0 über alle drei
+Plugins. PHPUnit und Behat weiterhin nicht lokal ausführbar.
+
+### Versionsstände
+
+| Plugin | Release | version | Anmerkung |
+|---|---|---|---|
+| `enrol_adele` | 0.4.0 | 2026082801 | enthält auch Teil 7, der noch nicht gepusht war |
+| `mod_adele` | 0.3.1 | 2026082801 | |
+| `local_adele` | 0.6.0 | 2026082800 | unverändert, kein Patch |
+
+### Erwartung für den nächsten Lauf
+
+Mit diesen Änderungen sollten die fünf mod_adele-Errors und die vier
+enrol_adele-Befunde verschwinden. Was **neu** dazukommt und ungeprüft ist:
+die acht Behat-Szenarien aus Teil 7. Feldbeschriftungen und die
+Seitennummerierung (`"Page: 1 2"`) sind Annahmen über die Theme-Ausgabe.
+
+Solange Ursache 1 besteht, laufen in `enrol_adele` elf Tests als übersprungen
+durch — sie sind kein Fehler, aber auch kein Nachweis.
+
+---
+
+## Sitzungsstand
+
+Alle sieben Upstream-Issues (#2–#8) sind bearbeitet. Alle in dieser Sitzung
+gestellten Fragen Q1 bis Q9 sind beantwortet.
+
+**Der CI-Nachweis steht für alles noch aus.** Die Runde, die in Teil 7 als
+grün gemeldet wurde, betraf einen früheren Stand; der Lauf gegen Teil 1–6
+brachte neun Befunde (Teil 9). Solange die Workflows die Begleit-Plugins aus
+dem Upstream ziehen, kann `enrol_adele` seine Host-Funktionalität in der CI
+gar nicht prüfen — elf Tests laufen als übersprungen durch. Die dafür nötige
+Änderung an den Workflow-Dateien liegt beim Auftraggeber (Teil 9,
+Ursache 1).
+
+Weiterhin außerhalb des Auftrags: **G.10 Capability-Redesign** (Issue-Dokument
+liegt vor) und die **CI-Abhängigkeitsfrage** `local_adele` → `enrol_adele`
+(Part-14-Behelf gegenüber `assertDebuggingCalled()` in den betroffenen
+PHPUnit-Tests).
 
