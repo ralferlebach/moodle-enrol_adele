@@ -411,16 +411,20 @@ Betroffen: `enrol_adele`. Versionsbump: ja.
 
 ## Teil 5 — Reihenfolge
 
-| Schritt | Paket | Issues | Begründung |
+| Schritt | Paket | Issues | Stand |
 |---|---|---|---|
-| 1 | P0 | — | Einzeiler, betrifft Installierbarkeit |
-| 2 | P1 | #2, #5 | Fundament, drei Pakete hängen daran |
-| 3 | P2 | #3 | Höchster Schadensgrad, unabhängig, Richtung entschieden |
-| 4 | P4 | #7b | Beseitigt die Ursache der unbegründeten Einschreibungen |
-| 5 | P3 | #8, #7c | Schließt die zweite Ursache derselben Symptomatik |
-| 6 | P5 | #7a | Räumt den Restbestand auf |
-| 7 | P6 | #4 | Klar umrissen, geringes Risiko |
-| 8 | P7 | #6 | Niedrigste Priorität laut Label, plus Q4 |
+| 1 | P0 | — | ✅ Session 005, Teil 2 |
+| 2 | P1 | #2, #5 | ✅ Session 005, Teil 3 |
+| 3 | Q8 | — | ✅ Session 005, Teil 4 — Indextabelle entfernt |
+| 4 | P4 | #7b | ✅ Session 005, Teil 4 |
+| 5 | P3 | #8, #7c | ✅ Session 005, Teil 4 |
+| 6 | P2 | #3 | ✅ Session 005, Teil 5 |
+| 7 | P5 | #7a | ✅ Session 005, Teil 6 |
+| 8 | P6 | #4 | ✅ Session 005, Teil 6 |
+| 9 | P7 | #6 | offen — niedrigste Priorität laut Label, plus Q4 |
+
+Alle Nachweise stehen aus, bis die CI gelaufen ist: PHPUnit lässt sich in der
+Arbeitsumgebung nicht ausführen.
 
 #7 gilt erst nach P4, P3 **und** P5 als geschlossen — drei getrennte Ursachen,
 nicht vorzeitig abhaken.
@@ -438,12 +442,16 @@ Fall wäre G-Q1 in `arbeitsplan.md` als überholt zu kennzeichnen — und es ble
 zu verifizieren, ob eine **Neuinstallation** aller drei Plugins mit einem
 zirkulären Graphen überhaupt durchläuft.
 
-**Q8 — `local_adele_host_courses`.** Mit `{adele}` als alleiniger Quelle wird
-die Tabelle zur Dublette. Vorschlag: vorerst stehen lassen, unbenutzt, Abbau als
-eigener Punkt mit eigener Schemaentscheidung.
+**Q8 — `local_adele_host_courses`: entschieden, Tabelle entfernt.** Direktive
+des Auftraggebers: keine Dubletten, keine leeren Gerüste. Umgesetzt in Session
+005, Teil 4 — Definition aus `install.xml`, `drop_table()`-Schritt in
+`db/upgrade.php`, Schreibmethoden und Aufrufer entfernt. Kein Datenverlust,
+jede Spalte war eine Kopie aus `{adele}`.
 
-**Q9 — Ad-hoc-Fenster in P2**: 300 s fest als dokumentierte Konstante oder als
-Einstellung?
+**Q9 — Ad-hoc-Fenster in P2: entschieden, feste Konstante.**
+`remove_user_path_adhoc::DELAY_SECONDS = 300`, bewusst keine Einstellung: ein
+pro Instanz einstellbarer Wert wird irgendwo auf null gesetzt, und dann ist der
+Datenverlust zurück.
 
 ---
 

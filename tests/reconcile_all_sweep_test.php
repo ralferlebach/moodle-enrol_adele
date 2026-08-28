@@ -268,16 +268,23 @@ final class reconcile_all_sweep_test extends \advanced_testcase {
     }
 
     /**
-     * Deleting the last embedding must cost the user their host access.
+     * Deleting the last embedding must cost the user their host access, and
+     * take the instance with it.
      *
      * Answers the question raised in issue #7: nothing used to remove host
      * enrolments once the mod_adele activity was gone, because the orphan
      * cleanup only looks at deleted LEARNING PATHS, and the learning path is
-     * still very much alive here.
+     * still very much alive here. Suspending would not be enough — an
+     * instance with no embedding has nothing left that could ever justify it
+     * again, so it is removed outright, unlike a user who merely lost their
+     * entitlement for now.
+     *
+     * The target-course instance of the same learning path must survive: it
+     * is justified by the learning path, not by the embedding.
      *
      * @return void
      */
-    public function test_sweep_revokes_host_access_after_embedding_removed(): void {
+    public function test_sweep_removes_host_instance_after_embedding_removed(): void {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
@@ -291,17 +298,28 @@ final class reconcile_all_sweep_test extends \advanced_testcase {
             $this->get_ue($lpid, (int) $host->id, $userid, instance_manager::KIND_HOST),
             'Precondition: the observer must grant host access.'
         );
+        reconciler::reconcile_user($lpid, $userid);
+        $this->assertNotFalse(
+            $this->get_ue($lpid, (int) $node->id, $userid, instance_manager::KIND_TARGET),
+            'Precondition: the target course enrolment must exist.'
+        );
 
         $DB->delete_records('adele', ['id' => $adeleid]);
 
         reconciler::reconcile_all();
 
-        $ue = $this->get_ue($lpid, (int) $host->id, $userid, instance_manager::KIND_HOST);
-        $this->assertNotFalse($ue);
-        $this->assertEquals(
-            ENROL_USER_SUSPENDED,
-            (int) $ue->status,
-            'Host access must not outlive the embedding that justified it.'
+        $this->assertFalse(
+            $DB->record_exists('enrol', [
+                'enrol' => 'adele',
+                'courseid' => $host->id,
+                'customint1' => $lpid,
+                'customint2' => instance_manager::KIND_HOST,
+            ]),
+            'A host instance without an embedding must be removed, not kept suspended.'
+        );
+        $this->assertNotFalse(
+            $this->get_ue($lpid, (int) $node->id, $userid, instance_manager::KIND_TARGET),
+            'The target course instance is justified by the learning path and must survive.'
         );
     }
 

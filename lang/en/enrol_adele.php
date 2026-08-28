@@ -55,3 +55,5 @@ $string['pluginname'] = 'Learning path enrolment';
 $string['pluginname_desc'] = 'This enrolment method owns the course enrolments that an ADELE learning path creates in its target courses. One enrolment instance belongs to exactly one learning path and one target course. This keeps the enrolments of different learning paths apart and lets it withdraw its own enrolments without ever touching manual, self or cohort enrolments.';
 $string['privacy:metadata'] = 'The learning path enrolment plugin does not store any personal data. The enrolments it creates are stored by the Moodle core enrolment subsystem.';
 $string['reconciletask'] = 'Reconcile learning path enrolments';
+$string['suspendedretention'] = 'Remove suspended enrolments after';
+$string['suspendedretention_desc'] = 'Number of days an enrolment may stay suspended before this plugin removes it altogether. Suspended participants remain visible on the course participants page and cannot be removed by hand, because this plugin owns its enrolments; this setting keeps that list from growing without limit. Set to 0 to keep suspended enrolments indefinitely.';

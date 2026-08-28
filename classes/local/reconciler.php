@@ -181,7 +181,9 @@ class reconciler {
      * 4. target courses, wanted -> actual: every active user path,
      * 5. target courses, actual -> wanted: every user holding an ADELE
      *    target enrolment WITHOUT an active user path,
-     * 6. host courses, both directions at once.
+     * 6. host courses, both directions at once,
+     * 7. hard-remove enrolments that have been suspended past the retention
+     *    period.
      *
      * Passes 5 and 6 are what make the run bidirectional. Before them the
      * sweep only ever started from the wanted state, so a user whose path row
@@ -209,6 +211,7 @@ class reconciler {
             'targetwanted' => self::sweep_target_wanted($trace),
             'targetactual' => self::sweep_target_actual($trace),
             'host' => self::sweep_host($trace),
+            'expired' => self::purge_expired_suspensions($trace),
         ];
 
         if ($trace) {
@@ -216,7 +219,8 @@ class reconciler {
                 "Done. Instances: {$report['orphaned']} orphaned removed, " .
                 "{$report['duplicates']} duplicates consolidated, {$report['roles']} roles migrated. " .
                 "Users: {$report['targetwanted']} target (wanted->actual), " .
-                "{$report['targetactual']} target (actual->wanted), {$report['host']} host."
+                "{$report['targetactual']} target (actual->wanted), {$report['host']} host, " .
+                "{$report['expired']} expired suspension(s) removed."
             );
         }
 
@@ -328,40 +332,7 @@ class reconciler {
         $count = 0;
         foreach (self::get_host_learningpathids() as $lpid) {
             foreach (self::get_host_courseids($lpid) as $hostcourseid) {
-                $rs = $DB->get_recordset_sql(
-                    "SELECT DISTINCT userid
-                       FROM (
-                            SELECT lpu.user_id AS userid
-                              FROM {local_adele_path_user} lpu
-                             WHERE lpu.learning_path_id = :lpid1
-                                   AND lpu.status = 'active'
-                             UNION
-                            SELECT ue.userid AS userid
-                              FROM {user_enrolments} ue
-                              JOIN {enrol} e ON e.id = ue.enrolid
-                             WHERE e.enrol = 'adele'
-                                   AND e.customint1 = :lpid2
-                                   AND e.customint2 = :kind
-                                   AND e.courseid = :courseid
-                       ) affected",
-                    [
-                        'lpid1' => $lpid,
-                        'lpid2' => $lpid,
-                        'kind' => instance_manager::KIND_HOST,
-                        'courseid' => $hostcourseid,
-                    ]
-                );
-                foreach ($rs as $row) {
-                    $userid = (int) $row->userid;
-                    $entitlement = \local_adele\enrol_state::get_host_entitlement($lpid, $hostcourseid, $userid);
-                    if ($entitlement === null) {
-                        continue;
-                    }
-                    [$entitled, $mode] = $entitlement;
-                    self::reconcile_host_user($lpid, $hostcourseid, $userid, (bool) $entitled, (string) $mode);
-                    $count++;
-                }
-                $rs->close();
+                $count += self::reconcile_host_embedding($lpid, $hostcourseid);
             }
         }
 
@@ -369,6 +340,153 @@ class reconciler {
             $trace->output("  Host courses: {$count} learning path/host course/user triple(s) visited.");
         }
         return $count;
+    }
+
+    /**
+     * Re-derive host-course access for every user of one embedding.
+     *
+     * The unit of work of the host pass, and the entry point mod_adele's
+     * ad-hoc task uses when an activity is created, saved or deleted.
+     *
+     * The working set is deliberately the UNION of two populations:
+     *
+     * - users with an active user path — heals missed GRANTS;
+     * - users currently holding an ADELE host enrolment for this pair —
+     *   heals missed REVOCATIONS, including the case where the user path row
+     *   is already gone and the first population would never mention them.
+     *
+     * The entitlement itself is never derived here. It is asked of
+     * local_adele, which routes the question to mod_adele — the same code the
+     * live observer uses, so sweep and event path cannot disagree. A null
+     * answer means "cannot tell right now" (mod_adele missing or mid-upgrade)
+     * and is skipped rather than treated as "not entitled", which would
+     * revoke access from everyone.
+     *
+     * @param int $learningpathid The learning path id.
+     * @param int $hostcourseid The host course id.
+     * @return int Number of users visited.
+     */
+    public static function reconcile_host_embedding(int $learningpathid, int $hostcourseid): int {
+        global $DB;
+
+        if (!self::is_active()) {
+            return 0;
+        }
+
+        $count = 0;
+        $rs = $DB->get_recordset_sql(
+            "SELECT DISTINCT userid
+               FROM (
+                    SELECT lpu.user_id AS userid
+                      FROM {local_adele_path_user} lpu
+                     WHERE lpu.learning_path_id = :lpid1
+                           AND lpu.status = 'active'
+                     UNION
+                    SELECT ue.userid AS userid
+                      FROM {user_enrolments} ue
+                      JOIN {enrol} e ON e.id = ue.enrolid
+                     WHERE e.enrol = 'adele'
+                           AND e.customint1 = :lpid2
+                           AND e.customint2 = :kind
+                           AND e.courseid = :courseid
+               ) affected",
+            [
+                'lpid1' => $learningpathid,
+                'lpid2' => $learningpathid,
+                'kind' => instance_manager::KIND_HOST,
+                'courseid' => $hostcourseid,
+            ]
+        );
+        foreach ($rs as $row) {
+            $userid = (int) $row->userid;
+            $entitlement = \local_adele\enrol_state::get_host_entitlement($learningpathid, $hostcourseid, $userid);
+            if ($entitlement === null) {
+                continue;
+            }
+            [$entitled, $mode] = $entitlement;
+            self::reconcile_host_user($learningpathid, $hostcourseid, $userid, (bool) $entitled, (string) $mode);
+            $count++;
+        }
+        $rs->close();
+
+        return $count;
+    }
+
+    /**
+     * Pass 7 — hard-remove enrolments that have been suspended for longer
+     * than the configured retention period.
+     *
+     * Suspend-not-delete is the right default: a suspended enrolment keeps
+     * the record intact for reports and certificates, and costs nothing if
+     * the entitlement returns. But Moodle lists suspended participants on the
+     * course participants page, and this plugin refuses manual unenrolment
+     * (allow_unenrol() is false), so a course that has seen a lot of
+     * enrolment turnover accumulates rows no teacher can act on or remove —
+     * exactly the complaint in issue #7.
+     *
+     * MUST run last. Passes 4 to 6 have just brought every status up to date,
+     * so anything still suspended at this point is genuinely unjustified, and
+     * its timemodified is the moment it became so — core's
+     * enrol_plugin::update_user_enrol() sets timemodified on every status
+     * change (verified against MOODLE_405_STABLE). Anything reactivated
+     * moments ago carries a fresh timestamp and is therefore out of range by
+     * construction, with no second entitlement check needed.
+     *
+     * The caveat that comes with that: timemodified is also touched by
+     * timestart/timeend edits and by a restore, so it means "last changed",
+     * not strictly "suspended since". For ADELE-owned enrolments those are
+     * the same event in practice, since nothing else may write them.
+     *
+     * A retention of 0 disables the pass entirely.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of enrolments removed.
+     */
+    private static function purge_expired_suspensions(?progress_trace $trace = null): int {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/enrollib.php');
+
+        $days = (int) get_config('enrol_adele', 'suspendedretention');
+        if ($days <= 0) {
+            return 0;
+        }
+        $plugin = enrol_get_plugin('adele');
+        if (!$plugin) {
+            return 0;
+        }
+
+        $cutoff = time() - ($days * DAYSECS);
+        $expired = $DB->get_records_sql(
+            "SELECT ue.id, ue.userid, ue.enrolid
+               FROM {user_enrolments} ue
+               JOIN {enrol} e ON e.id = ue.enrolid
+              WHERE e.enrol = 'adele'
+                    AND ue.status = :suspended
+                    AND ue.timemodified > 0
+                    AND ue.timemodified < :cutoff",
+            ['suspended' => ENROL_USER_SUSPENDED, 'cutoff' => $cutoff]
+        );
+
+        $instances = [];
+        $removed = 0;
+        foreach ($expired as $ue) {
+            $enrolid = (int) $ue->enrolid;
+            if (!isset($instances[$enrolid])) {
+                $instances[$enrolid] = $DB->get_record('enrol', ['id' => $enrolid]);
+            }
+            if (!$instances[$enrolid]) {
+                continue;
+            }
+            $plugin->unenrol_user($instances[$enrolid], (int) $ue->userid);
+            $removed++;
+        }
+
+        if ($trace) {
+            $trace->output(
+                "  Retention: {$removed} enrolment(s) removed after {$days} day(s) suspended."
+            );
+        }
+        return $removed;
     }
 
     /**
@@ -425,11 +543,23 @@ class reconciler {
     }
 
     /**
-     * Remove ADELE enrol instances whose learning path no longer exists.
+     * Remove ADELE enrol instances nothing justifies any more.
      *
-     * Cleans up instances left behind by a learning path deletion that
-     * bypassed purge_learning_path() (e.g. a direct database edit).
-     * delete_instance() removes the instance and its user_enrolments.
+     * Two kinds of orphan, both leaving enrolments that no administrator can
+     * explain and — since allow_unenrol() is false — none can remove by hand:
+     *
+     * 1. The learning path is gone. Left behind by a deletion that bypassed
+     *    purge_learning_path(), e.g. a direct database edit.
+     * 2. The learning path still exists, but the host-course instance has no
+     *    embedding any more: the mod_adele activity that justified it was
+     *    deleted. Case 1 never catches this, because it keys on the learning
+     *    path, which is very much alive (issue #7).
+     *
+     * delete_instance() removes the instance together with its
+     * user_enrolments and role assignments. That is deliberately harder than
+     * the suspend-not-delete rule applied to users elsewhere: suspending
+     * preserves a record whose justification might come back, while an
+     * instance without any embedding has nothing left to come back to.
      *
      * @param progress_trace|null $trace Optional progress trace.
      * @return int Number of instances removed.
@@ -443,6 +573,8 @@ class reconciler {
             return 0;
         }
 
+        $removed = 0;
+
         $orphaned = $DB->get_records_sql(
             "SELECT e.*
                FROM {enrol} e
@@ -451,6 +583,7 @@ class reconciler {
         );
         foreach ($orphaned as $instance) {
             $plugin->delete_instance($instance);
+            $removed++;
             if ($trace) {
                 $trace->output(
                     "  Removed orphaned instance {$instance->id} " .
@@ -458,7 +591,62 @@ class reconciler {
                 );
             }
         }
-        return count($orphaned);
+
+        $removed += self::remove_unembedded_host_instances($trace);
+
+        return $removed;
+    }
+
+    /**
+     * Remove host-course instances whose embedding has been deleted.
+     *
+     * Skipped entirely when mod_adele cannot be reached: an empty embedding
+     * list would then mean "I cannot tell", not "there are none", and acting
+     * on it would delete every host instance on the site.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of instances removed.
+     */
+    private static function remove_unembedded_host_instances(?progress_trace $trace = null): int {
+        global $DB;
+
+        if (!method_exists('\local_adele\enrol_state', 'get_host_embeddings')) {
+            return 0;
+        }
+
+        $instances = $DB->get_records(
+            'enrol',
+            ['enrol' => 'adele', 'customint2' => instance_manager::KIND_HOST]
+        );
+        if (!$instances) {
+            return 0;
+        }
+
+        $plugin = enrol_get_plugin('adele');
+        $embeddedby = [];
+        $removed = 0;
+        foreach ($instances as $instance) {
+            $lpid = (int) $instance->customint1;
+            if (!array_key_exists($lpid, $embeddedby)) {
+                $courseids = [];
+                foreach (\local_adele\enrol_state::get_host_embeddings($lpid) as $embedding) {
+                    $courseids[] = (int) $embedding['courseid'];
+                }
+                $embeddedby[$lpid] = $courseids;
+            }
+            if (in_array((int) $instance->courseid, $embeddedby[$lpid], true)) {
+                continue;
+            }
+            $plugin->delete_instance($instance);
+            $removed++;
+            if ($trace) {
+                $trace->output(
+                    "  Removed host instance {$instance->id} (learning path {$lpid} is no longer " .
+                    "embedded in course {$instance->courseid})."
+                );
+            }
+        }
+        return $removed;
     }
 
     /**
@@ -543,23 +731,70 @@ class reconciler {
      * Migrate ADELE-owned role assignments on existing instances to the
      * currently configured role.
      *
-     * Migrates the role on existing instances when enrol_adele/roleid
-     * changes: $instance->roleid is set once at creation and never updated,
-     * so a config change would otherwise only affect new instances.
-     * Only role assignments this plugin itself made (component
-     * 'enrol_adele', itemid = instance id) are touched — a foreign role
-     * assignment in the same course context is never removed.
+     * Two independent kinds of drift, because a role can go wrong in two
+     * places that do not imply each other:
+     *
+     * 1. The INSTANCE carries a stale roleid. $instance->roleid is set once
+     *    at creation and never updated, so a change to enrol_adele/roleid
+     *    would otherwise only ever affect newly created instances.
+     * 2. A USER is missing the assignment, or holds an ADELE-owned one with
+     *    the wrong role. Checking the instance alone cannot see this: an
+     *    instance whose roleid already matches passes step 1 without anyone
+     *    ever looking at whether its participants actually hold the role. A
+     *    bulk role tool, a partial restore or a direct database edit takes
+     *    the assignment away silently, and nothing here used to notice.
+     *
+     * Only assignments this plugin itself made (component 'enrol_adele',
+     * itemid = instance id) are ever touched. A role a teacher assigned by
+     * hand in the same course context carries a different component and is
+     * left strictly alone, in both steps.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of instances and users repaired.
+     */
+    private static function sync_instance_roles(?progress_trace $trace = null): int {
+        return self::sync_stale_instance_roles($trace) + self::repair_user_role_assignments($trace);
+    }
+
+    /**
+     * Public entry point for the role migration.
+     *
+     * Used by the ad-hoc task queued when enrol_adele/roleid changes, so an
+     * administrator does not have to wait for the nightly run to see a
+     * deliberate configuration change take effect.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of instances and users repaired.
+     */
+    public static function sync_roles(?progress_trace $trace = null): int {
+        if (!self::is_active()) {
+            return 0;
+        }
+        return self::sync_instance_roles($trace);
+    }
+
+    /**
+     * Step 1 — instances whose roleid no longer matches the configuration.
+     *
+     * Instances with roleid 0 are included: reconcile_user() falls back to
+     * the configured role when enrolling them, so their participants do hold
+     * the current role while the instance record claims nothing at all.
+     * Leaving that unrepaired means the next configuration change cannot find
+     * them either.
      *
      * @param progress_trace|null $trace Optional progress trace.
      * @return int Number of instances migrated.
      */
-    private static function sync_instance_roles(?progress_trace $trace = null): int {
+    private static function sync_stale_instance_roles(?progress_trace $trace = null): int {
         global $DB;
 
         $currentroleid = instance_manager::get_role_id();
+        if (!$currentroleid) {
+            return 0;
+        }
         $stale = $DB->get_records_select(
             'enrol',
-            "enrol = 'adele' AND roleid <> :roleid AND roleid <> 0",
+            "enrol = 'adele' AND roleid <> :roleid",
             ['roleid' => $currentroleid]
         );
 
@@ -571,7 +806,15 @@ class reconciler {
             }
             $assignments = $DB->get_records('user_enrolments', ['enrolid' => $instance->id]);
             foreach ($assignments as $ue) {
-                role_unassign($instance->roleid, (int) $ue->userid, $context->id, 'enrol_adele', (int) $instance->id);
+                if ((int) $instance->roleid) {
+                    role_unassign(
+                        (int) $instance->roleid,
+                        (int) $ue->userid,
+                        $context->id,
+                        'enrol_adele',
+                        (int) $instance->id
+                    );
+                }
                 role_assign($currentroleid, (int) $ue->userid, $context->id, 'enrol_adele', (int) $instance->id);
             }
             $DB->set_field('enrol', 'roleid', $currentroleid, ['id' => $instance->id]);
@@ -584,6 +827,84 @@ class reconciler {
             }
         }
         return $migrated;
+    }
+
+    /**
+     * Step 2 — participants whose ADELE-owned role assignment is missing or
+     * points at the wrong role.
+     *
+     * Runs after step 1, so every instance already carries the configured
+     * role by the time this looks at users.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of assignments repaired.
+     */
+    private static function repair_user_role_assignments(?progress_trace $trace = null): int {
+        global $DB;
+
+        $currentroleid = instance_manager::get_role_id();
+        if (!$currentroleid) {
+            return 0;
+        }
+
+        $repaired = 0;
+
+        // Wrong role, but ours: unassign before re-adding, so a role changed
+        // twice does not leave the intermediate one behind.
+        $wrong = $DB->get_records_sql(
+            "SELECT ra.id, ra.roleid, ra.userid, ra.contextid, ra.itemid
+               FROM {role_assignments} ra
+               JOIN {enrol} e ON e.id = ra.itemid
+              WHERE ra.component = 'enrol_adele'
+                    AND e.enrol = 'adele'
+                    AND ra.roleid <> :roleid",
+            ['roleid' => $currentroleid]
+        );
+        foreach ($wrong as $ra) {
+            role_unassign(
+                (int) $ra->roleid,
+                (int) $ra->userid,
+                (int) $ra->contextid,
+                'enrol_adele',
+                (int) $ra->itemid
+            );
+            $repaired++;
+        }
+
+        // Missing entirely: a participant of an ADELE instance with no
+        // assignment of ours in that course context.
+        $missing = $DB->get_recordset_sql(
+            "SELECT ue.id, ue.userid, e.id AS enrolid, e.courseid
+               FROM {user_enrolments} ue
+               JOIN {enrol} e ON e.id = ue.enrolid
+              WHERE e.enrol = 'adele'
+                    AND NOT EXISTS (
+                        SELECT 1
+                          FROM {role_assignments} ra
+                          JOIN {context} ctx ON ctx.id = ra.contextid
+                         WHERE ra.userid = ue.userid
+                               AND ra.component = 'enrol_adele'
+                               AND ra.itemid = e.id
+                               AND ra.roleid = :roleid
+                               AND ctx.contextlevel = :courselevel
+                               AND ctx.instanceid = e.courseid
+                    )",
+            ['roleid' => $currentroleid, 'courselevel' => CONTEXT_COURSE]
+        );
+        foreach ($missing as $row) {
+            $context = \context_course::instance((int) $row->courseid, IGNORE_MISSING);
+            if (!$context) {
+                continue;
+            }
+            role_assign($currentroleid, (int) $row->userid, $context->id, 'enrol_adele', (int) $row->enrolid);
+            $repaired++;
+        }
+        $missing->close();
+
+        if ($trace && $repaired) {
+            $trace->output("  Repaired {$repaired} role assignment(s) on existing participants.");
+        }
+        return $repaired;
     }
 
     /**
