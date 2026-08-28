@@ -25,6 +25,7 @@
  */
 
 use enrol_adele\local\instance_manager;
+use enrol_adele\local\manage;
 use enrol_adele\local\reconciler;
 
 require(__DIR__ . '/../../config.php');
@@ -36,11 +37,6 @@ require_once($CFG->libdir . '/tablelib.php');
  * running synchronously, so the page stays responsive.
  */
 const ADELE_MANAGE_ASYNC_THRESHOLD = 200;
-
-/**
- * Instances shown per page.
- */
-const ADELE_MANAGE_PER_PAGE = 50;
 
 $learningpathid = optional_param('learningpathid', 0, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA);
@@ -62,72 +58,10 @@ $filteredurl = new moodle_url($pageurl, array_filter([
 ]));
 $PAGE->set_url($pageurl);
 
-/**
- * Number of distinct users an ADELE-owned learning path currently holds an
- * enrolment for (target and host courses combined) — the basis for the
- * async-threshold decision.
- *
- * @param int $learningpathid The learning path id.
- * @return int
- */
-function enrol_adele_manage_affected_user_count(int $learningpathid): int {
-    global $DB;
-    return (int) $DB->count_records_sql(
-        "SELECT COUNT(DISTINCT ue.userid)
-           FROM {user_enrolments} ue
-           JOIN {enrol} e ON e.id = ue.enrolid
-          WHERE e.enrol = 'adele' AND e.customint1 = :lpid",
-        ['lpid' => $learningpathid]
-    );
-}
-
-/**
- * The WHERE fragment and parameters implementing the current filters.
- *
- * Kept in one place so the count query and the page query cannot drift apart
- * — a paginated table whose total is computed from different conditions than
- * its rows shows the wrong number of pages.
- *
- * @param int $learningpathid Filter by learning path, 0 for all.
- * @param string $coursesearch Filter by course short or full name.
- * @param int $kind Filter by instance kind, 0 for all.
- * @param string $status Filter by enrolment status: active, suspended or ''.
- * @return array [string $where, array $params]
- */
-function enrol_adele_manage_filter(int $learningpathid, string $coursesearch, int $kind, string $status): array {
-    global $DB;
-
-    $where = ["e.enrol = 'adele'"];
-    $params = [];
-
-    if ($learningpathid) {
-        $where[] = 'e.customint1 = :lpid';
-        $params['lpid'] = $learningpathid;
-    }
-    if ($kind) {
-        $where[] = 'e.customint2 = :kind';
-        $params['kind'] = $kind;
-    }
-    if ($coursesearch !== '') {
-        $like = '%' . $DB->sql_like_escape($coursesearch) . '%';
-        $where[] = '(' . $DB->sql_like('c.shortname', ':cs1', false) . ' OR '
-            . $DB->sql_like('c.fullname', ':cs2', false) . ')';
-        $params['cs1'] = $like;
-        $params['cs2'] = $like;
-    }
-    if ($status === 'active' || $status === 'suspended') {
-        $params['uestatus'] = ($status === 'active') ? ENROL_USER_ACTIVE : ENROL_USER_SUSPENDED;
-        $where[] = 'EXISTS (SELECT 1 FROM {user_enrolments} ue
-                             WHERE ue.enrolid = e.id AND ue.status = :uestatus)';
-    }
-
-    return [implode(' AND ', $where), $params];
-}
-
 if ($action && $learningpathid) {
     if ($action === 'reconcile') {
         require_sesskey();
-        $affected = enrol_adele_manage_affected_user_count($learningpathid);
+        $affected = manage::affected_user_count($learningpathid);
         if ($affected > ADELE_MANAGE_ASYNC_THRESHOLD) {
             $task = new \enrol_adele\task\reconcile_learning_path_adhoc();
             $task->set_custom_data(['learningpathid' => $learningpathid]);
@@ -158,7 +92,7 @@ if ($action && $learningpathid) {
             exit;
         }
         require_sesskey();
-        $affected = enrol_adele_manage_affected_user_count($learningpathid);
+        $affected = manage::affected_user_count($learningpathid);
         if ($affected > ADELE_MANAGE_ASYNC_THRESHOLD) {
             $task = new \enrol_adele\task\purge_learning_path_adhoc();
             $task->set_custom_data(['learningpathid' => $learningpathid]);
@@ -220,13 +154,7 @@ echo html_writer::tag(
 );
 
 // Filter form.
-$learningpaths = $DB->get_records_sql(
-    "SELECT DISTINCT e.customint1 AS id, lp.name
-       FROM {enrol} e
-  LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
-      WHERE e.enrol = 'adele'
-   ORDER BY lp.name ASC"
-);
+$learningpaths = manage::get_filter_learningpaths();
 $lpoptions = [0 => get_string('manage_filter_all', 'enrol_adele')];
 foreach ($learningpaths as $lp) {
     $lpoptions[(int) $lp->id] = ($lp->name !== null)
@@ -315,15 +243,8 @@ if ($learningpathid) {
     );
 }
 
-[$where, $params] = enrol_adele_manage_filter($learningpathid, $coursesearch, $kind, $status);
-
-$total = (int) $DB->count_records_sql(
-    "SELECT COUNT(1)
-       FROM {enrol} e
-       JOIN {course} c ON c.id = e.courseid
-      WHERE {$where}",
-    $params
-);
+[$where, $params] = manage::filter($learningpathid, $coursesearch, $kind, $status);
+$total = manage::count_instances($where, $params);
 
 if (!$total) {
     echo $OUTPUT->notification(get_string('manage_no_paths', 'enrol_adele'), 'info');
@@ -349,50 +270,17 @@ $table->no_sorting('suspended');
 $table->no_sorting('actions');
 $table->attributes['class'] = 'generaltable';
 $table->setup();
-$table->pagesize(ADELE_MANAGE_PER_PAGE, $total);
+$table->pagesize(manage::PER_PAGE, $total);
 
-// Only two columns are sortable, and both map onto a real, indexed column.
-// Anything else falls back to a deterministic order rather than trusting a
-// request parameter in an ORDER BY clause.
-$sort = $table->get_sql_sort();
-if ($sort === 'learningpath ASC' || $sort === 'learningpath DESC') {
-    $sort = str_replace('learningpath', 'lp.name', $sort);
-} else if ($sort === 'course DESC') {
-    $sort = 'c.shortname DESC';
-} else {
-    $sort = 'c.shortname ASC';
-}
+$sort = manage::safe_sort($table->get_sql_sort());
 
 // Only the current page is fetched — the whole point of the exercise. The
 // previous version aggregated every instance, every user enrolment and every
 // count in a single request.
-$rows = $DB->get_records_sql(
-    "SELECT e.id, e.courseid, e.customint1 AS learningpathid, e.customint2 AS kind, e.status,
-            c.shortname, c.fullname, lp.name AS learningpathname
-       FROM {enrol} e
-       JOIN {course} c ON c.id = e.courseid
-  LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
-      WHERE {$where}
-   ORDER BY {$sort}",
-    $params,
-    $table->get_page_start(),
-    $table->get_page_size()
-);
+$rows = manage::get_page($where, $params, $sort, $table->get_page_start(), $table->get_page_size());
 
 // Enrolment counts for the visible page only, in one query.
-$counts = [];
-if ($rows) {
-    [$insql, $inparams] = $DB->get_in_or_equal(array_keys($rows), SQL_PARAMS_NAMED);
-    $counts = $DB->get_records_sql(
-        "SELECT ue.enrolid,
-                SUM(CASE WHEN ue.status = :active THEN 1 ELSE 0 END) AS activecount,
-                SUM(CASE WHEN ue.status = :suspended THEN 1 ELSE 0 END) AS suspendedcount
-           FROM {user_enrolments} ue
-          WHERE ue.enrolid {$insql}
-       GROUP BY ue.enrolid",
-        ['active' => ENROL_USER_ACTIVE, 'suspended' => ENROL_USER_SUSPENDED] + $inparams
-    );
-}
+$counts = manage::get_counts(array_keys($rows));
 
 foreach ($rows as $row) {
     $lpid = (int) $row->learningpathid;

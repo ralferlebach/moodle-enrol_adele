@@ -690,18 +690,153 @@ durch — sie sind kein Fehler, aber auch kein Nachweis.
 
 ---
 
+---
+
+## Teil 10 — Echte Verifikationsumgebung, erster realer Testlauf
+
+Bis hierher war jede Aussage über PHPUnit in dieser Sitzung eine Vermutung:
+die Arbeitsumgebung hatte keinen Moodle-Kern, und die CI testete gegen
+Begleit-Plugins ohne den Session-005-Stand (Teil 9, Ursache 1). Auftrag des
+Auftraggebers: die Umgebung vollständig aufbauen und lokal testen.
+
+### Aufgebaut
+
+| Komponente | Wert |
+|---|---|
+| Moodle | 4.5.13+ (Build 20260818), Branch `MOODLE_405_STABLE` |
+| PHP | 8.3.6 |
+| DB | PostgreSQL 16.15, `dbname=moodle`, `prefix=mdl_` |
+| PHPUnit | 9.6.34 |
+| Pfade | `/home/claude/moodle`, `/home/claude/moodledata`, `/home/claude/moodledata_phpu` |
+
+Zwei Stolpersteine, die in `environment-setup.md` §5–§8 fehlten und dort
+nachzutragen sind:
+
+1. **`sudo` existiert im Container nicht.** Die Rolle und die Datenbank werden
+   über `su postgres -c "psql …"` angelegt, nicht über `sudo -u postgres`.
+2. **Die Locale `en_AU.UTF-8` fehlt** und lässt `admin/tool/phpunit/cli/init.php`
+   mit einer Umgebungsprüfung abbrechen. `locale-gen en_AU.UTF-8` vorab.
+   Ebenso reicht `php -d max_input_vars=5000` **nicht**, wenn `init.php` intern
+   weitere PHP-Prozesse startet — der Wert gehört dauerhaft in die
+   `php.ini` des CLI-SAPI.
+
+### Nebenbefund: Q7 ist damit beantwortet
+
+Die Installation war eine **Neuinstallation aller drei Plugins gleichzeitig**,
+mit dem zirkulären Deklarationsgraphen. Sie lief durch: alle drei Plugins sind
+installiert, `enrol_plugins_enabled` enthält `adele` (das
+`db/install.php`-Aktivierungsmuster greift), und
+`local_adele_host_courses` existiert nicht.
+
+Die seit Teil 8 als „nicht verifiziert" geführte Wissenslücke ist damit
+geschlossen: **der Zyklus blockiert eine Neuinstallation nicht.**
+
+### Upgradepfad geprüft
+
+Der `drop_table()`-Schritt aus Teil 4 läuft bei einer Neuinstallation nie —
+die Tabelle steht ja nicht mehr in `install.xml`. Also gezielt simuliert:
+Tabelle samt Inhalt von Hand angelegt, `local_adele`-Version auf `2026072500`
+zurückgesetzt, `admin/cli/upgrade.php` laufen lassen. Ergebnis: Upgrade auf
+`2026082800`, Tabelle entfernt, keine Fehler.
+
+Dabei gelernt: `moodle_needs_upgrading()` vergleicht zuerst
+`$CFG->allversionshash` und meldet „kein Upgrade nötig", solange sich die
+**Dateien** nicht geändert haben — eine von Hand zurückgesetzte
+Versionsnummer in der Datenbank allein genügt nicht. Für solche Tests muss
+`allversionshash` aus `mdl_config` gelöscht werden.
+
+### Gefundene und behobene Fehler
+
+Der Lauf hat drei Dinge aufgedeckt, die weder phpcs noch die CI gezeigt haben.
+
+**1. Off-by-one in `reconciler_test`.** Core wählt Ad-hoc-Tasks mit
+`nextruntime < :timestart` — **strikt** kleiner. Der Test übergab exakt
+`time() + DELAY_SECONDS`, also den Gleichstand, und bekam `null` statt der
+Task. In `transient_unenrolment_test` stand das `+ 1` schon drin, in
+`reconciler_test` nicht. Der Produktivpfad war nie betroffen: Cron ruft mit
+der fortschreitenden `time()` auf.
+
+**2. Fixture-Effekt in `reconcile_all_sweep_test`.** Das Einschreiben über den
+Data-Generator feuert den `mod_adele`-Observer, der über `local_adele` einen
+echten Recompute auslöst; der leitet den Knotenstatus aus realen
+Completion-Daten ab, die das Fixture nie hatte, und überschreibt das
+gepflanzte `accessible`. Genau der Effekt, den `reconciler_test` bereits
+dokumentiert. `set_node_status()` in das Sweep-Fixture übernommen.
+
+**3. Die Verwaltungsseite war nicht testbar.** `manage.php` ist ein
+Seitenskript mit `require(config.php)` und `admin_externalpage_setup()` —
+aus einem Unit-Test nicht einbindbar. Alles, was darin steckte, wäre also
+ausschließlich durch Öffnen der Seite im Browser geprüft worden, und genau die
+paginierten Abfragen sind der Teil, der auf einer Datenbank bricht und auf
+einer anderen nicht.
+
+Deshalb die Abfrageschicht nach `enrol_adele\local\manage` gezogen:
+`filter()`, `count_instances()`, `get_page()`, `get_counts()`,
+`safe_sort()`, `get_filter_learningpaths()`, `affected_user_count()`.
+`manage.php` ruft sie nur noch auf. Dazu `tests/manage_test.php` mit sieben
+Tests: Übereinstimmung von Zählung und Seitung, überlappungsfreie Seiten,
+Filter nach Lernpfad/Kurs/Typ, Groß-Klein-Unabhängigkeit der Kurssuche,
+Statusfilter über die Einschreibungen, Aufteilung aktiv/suspendiert,
+Sortier-Whitelist (inklusive eines SQL-Injektionsversuchs) und die verwaiste
+Instanz, die weiterhin gelistet wird.
+
+Alle sieben liefen beim ersten Versuch grün — das SQL war also in Ordnung.
+Der Gewinn ist trotzdem real: es ist jetzt **geprüft** statt angenommen, und
+bleibt es.
+
+### Ergebnis
+
+```
+Testdateien grün: 100, rot: 0
+```
+
+- `enrol_adele`: 7 Dateien, 34 Tests, 131 Assertions — alle grün
+- `mod_adele`: 3 Dateien, 8 Tests — alle grün
+- `local_adele`: 90 Dateien — alle grün
+
+phpcs `--standard=moodle --severity=1` weiterhin 0/0 über alle drei Plugins.
+
+**Nicht geprüft:** Behat. Dafür fehlt ein Browser-Treiber im Container; die
+acht Szenarien aus Teil 7 bleiben ungeprüft, und meine Annahmen über
+Feldbeschriftungen und die Seitennummerierung (`"Page: 1 2"`) stehen weiter
+aus.
+
+### Versionsstände
+
+| Plugin | Release | version |
+|---|---|---|
+| `enrol_adele` | 0.4.0 | 2026082802 |
+| `local_adele` | 0.5.5 | 2026082800 |
+| `mod_adele` | 0.4.0 | 2026082801 |
+
+### Was jetzt noch offen ist
+
+- **Behat**, siehe oben.
+- **Die Workflow-Änderung aus Teil 9**: solange die CI die Begleit-Plugins aus
+  dem Upstream zieht, sagt sie über `enrol_adele` wenig. Dass hier lokal alles
+  grün ist, ersetzt das nicht — es zeigt nur, dass die Kombination, die das
+  Plugin *deklariert*, funktioniert.
+- `environment-setup.md` um die beiden Stolpersteine und den nun verifizierten
+  Stand von §5–§8 fortschreiben.
+
+---
+
 ## Sitzungsstand
 
 Alle sieben Upstream-Issues (#2–#8) sind bearbeitet. Alle in dieser Sitzung
 gestellten Fragen Q1 bis Q9 sind beantwortet.
 
-**Der CI-Nachweis steht für alles noch aus.** Die Runde, die in Teil 7 als
-grün gemeldet wurde, betraf einen früheren Stand; der Lauf gegen Teil 1–6
-brachte neun Befunde (Teil 9). Solange die Workflows die Begleit-Plugins aus
-dem Upstream ziehen, kann `enrol_adele` seine Host-Funktionalität in der CI
-gar nicht prüfen — elf Tests laufen als übersprungen durch. Die dafür nötige
-Änderung an den Workflow-Dateien liegt beim Auftraggeber (Teil 9,
-Ursache 1).
+**PHPUnit ist seit Teil 10 real belegt:** 100 Testdateien über alle drei
+Plugins, alle grün, gegen ein echtes Moodle 4.5.13 mit PostgreSQL 16. Der
+Lauf hat drei Fehler aufgedeckt, die weder phpcs noch die CI gezeigt hätten.
+
+**Offen bleibt Behat** — dafür fehlt im Container ein Browser-Treiber; die
+acht Szenarien aus Teil 7 sind weiterhin ungeprüft.
+
+**Und die Workflow-Änderung aus Teil 9.** Solange die CI die Begleit-Plugins
+aus dem Upstream zieht, sagt sie über `enrol_adele` wenig. Der grüne lokale
+Lauf ersetzt das nicht: er zeigt, dass die Kombination funktioniert, die das
+Plugin *deklariert* — nicht die, die die CI installiert.
 
 Weiterhin außerhalb des Auftrags: **G.10 Capability-Redesign** (Issue-Dokument
 liegt vor) und die **CI-Abhängigkeitsfrage** `local_adele` → `enrol_adele`

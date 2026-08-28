@@ -12,11 +12,11 @@ Behat. Geschrieben für die Arbeit im Container.
 > (Wegwerf-Kopien im Moodle-Baum, gegen die getestet wird). Nie im Spiegel
 > entwickeln – er wird bei jedem Testlauf überschrieben.
 
-> **Verifikationsstand dieses Dokuments:** §0–§4 und §9 sind am 2026-08-28
+> **Verifikationsstand dieses Dokuments:** §0–§7 und §9–§11 sind am 2026-08-28
 > Schritt für Schritt im Container ausgeführt worden; die angegebenen Ausgaben
-> sind die tatsächlichen. §5–§8 sind aus dem `local_catquiz`-Setup übertragen
-> und für ADELE angepasst, aber **hier noch nicht ausgeführt**. Wer sie zum
-> ersten Mal nutzt, protokolliert Abweichungen und schreibt dieses Dokument fort.
+> sind die tatsächlichen. Nur §8 (Behat) ist übertragen und **nicht
+> ausgeführt** — dafür fehlt ein Browser-Treiber. Wer ihn zum ersten Mal
+> aufsetzt, protokolliert Abweichungen und schreibt dieses Dokument fort.
 
 ---
 
@@ -32,16 +32,19 @@ Behat. Geschrieben für die Arbeit im Container.
 | Arbeitskopien | `/home/claude/work/moodle-{enrol,local,mod}_adele-development` |
 | Nullmessung | alle drei Plugins `phpcs --standard=moodle` Exit 0, ohne Sniff-Ausschlüsse |
 
-### Vorgesehen, hier noch nicht aufgebaut
+### Ebenfalls verifiziert (Session 005, Teil 10)
 
 | Komponente | Wert |
 |---|---|
-| Moodle | 4.5.x, Branch `MOODLE_405_STABLE` |
-| DB | PostgreSQL 16.x, `dbname=moodle`, `dbuser=moodle`, `prefix=mdl_` |
-| PHPUnit | 9.6.x (aus Moodle-Core-Composer) |
+| Moodle | 4.5.13+ (Build 20260818), Branch `MOODLE_405_STABLE` |
+| DB | PostgreSQL 16.15, `dbname=moodle`, `dbuser=moodle`, `prefix=mdl_` |
+| PHPUnit | 9.6.34 (aus Moodle-Core-Composer) |
 | Moodle-Pfad | `/home/claude/moodle` |
 | dataroot | `/home/claude/moodledata` |
 | phpunit_dataroot | `/home/claude/moodledata_phpu`, `phpunit_prefix=phpu_` |
+| Ergebnis | 100 Testdateien über alle drei Plugins, alle grün |
+
+Nur **Behat** ist weiterhin nicht aufgebaut: dafür fehlt ein Browser-Treiber.
 
 Moodle **4.5** ist die Untergrenze, nicht 4.1: `enrol_adele` und `local_adele`
 verlangen zwar nur `2022112800`, `mod_adele` aber `2024100700`. Das gesamte
@@ -70,8 +73,17 @@ apt-get install -y php8.3-pgsql php8.3-gd php8.3-intl php8.3-soap \
     postgresql postgresql-client git unzip
 ```
 
-Moodle verlangt `max_input_vars >= 5000`. Statt die php.ini zu ändern, wird das
-Flag bei den CLI-Aufrufen mitgegeben (siehe §7).
+Moodle verlangt `max_input_vars >= 5000` und die Locale `en_AU.UTF-8`. Beides
+muss **dauerhaft** gesetzt sein, nicht nur pro Aufruf: `admin/tool/phpunit/cli/
+init.php` startet intern weitere PHP-Prozesse, die ein `php -d …` nicht erben,
+und bricht sonst mit einem Umgebungsfehler ab.
+
+```bash
+apt-get install -y -qq locales
+echo "en_AU.UTF-8 UTF-8" >> /etc/locale.gen && locale-gen en_AU.UTF-8
+echo "max_input_vars=5000" >> "$(php -i | grep 'Loaded Configuration File' | awk '{print $NF}')"
+php -r 'echo ini_get("max_input_vars"), PHP_EOL;'   # erwartet: 5000
+```
 
 ---
 
@@ -187,9 +199,13 @@ done
 
 ```bash
 service postgresql start        # bzw. pg_ctlcluster 16 main start
-sudo -u postgres psql -c "CREATE ROLE moodle LOGIN PASSWORD 'moodle';"
-sudo -u postgres psql -c "CREATE DATABASE moodle OWNER moodle;"
+su postgres -c "psql -c \"CREATE ROLE moodle LOGIN PASSWORD 'moodle';\""
+su postgres -c "psql -c 'CREATE DATABASE moodle OWNER moodle;'"
+PGPASSWORD=moodle psql -h localhost -U moodle -d moodle -c "select version();"
 ```
+
+**`sudo` gibt es im Container nicht** — `sudo -u postgres` scheitert mit
+`sudo: not found`. Deshalb `su postgres -c "…"`.
 
 Der DB-Server läuft nach einem Container-Neustart nicht automatisch – vor
 Testläufen immer `service postgresql start` voranstellen.
@@ -363,3 +379,12 @@ vendor/bin/phpunit enrol/adele/tests/<test>.php
 - **Zone.Identifier-Dateien** wandern bei rohen Ordner-Exporten von Windows mit
   und stören `find`-basierte Läufe. Sie stammen aus dem Export, nicht aus dem
   Repo; mit `find . -iname '*Zone.Identifier*' -delete` wegräumen.
+- **`sudo: not found`** → §5, `su postgres -c "…"` verwenden.
+- **`Required locale 'en_AU.UTF-8' is not installed`** → §1, `locale-gen`.
+- **`max_input_vars must be at least 5000`, obwohl `php -d` gesetzt ist** →
+  §1, der Wert muss in die php.ini; Unterprozesse erben `-d` nicht.
+- **Upgradeschritte lassen sich nicht durch Zurücksetzen der Versionsnummer in
+  der Datenbank auslösen.** `moodle_needs_upgrading()` vergleicht zuerst
+  `$CFG->allversionshash` und meldet „kein Upgrade nötig", solange sich die
+  Dateien nicht geändert haben. Für solche Tests zusätzlich
+  `delete from mdl_config where name='allversionshash';`.

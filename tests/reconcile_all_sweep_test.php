@@ -130,6 +130,36 @@ final class reconcile_all_sweep_test extends \advanced_testcase {
     }
 
     /**
+     * Force one node's feedback status back to what the test planted.
+     *
+     * Enrolling a user through the data generator fires mod_adele's observer,
+     * which re-subscribes via local_adele and synchronously triggers its own
+     * recompute pipeline. That pipeline derives node status from real
+     * completion and restriction data — which this bare-bones fixture node
+     * never carried — and overwrites the planted value. A property of the
+     * fixture, not of either plugin: reset it before asserting anything that
+     * depends on target-course entitlement.
+     *
+     * @param int $lpid Learning path id.
+     * @param int $userid User id.
+     * @param string $status The feedback status to restore.
+     * @return void
+     */
+    private function set_node_status(int $lpid, int $userid, string $status): void {
+        global $DB;
+        $record = $DB->get_record('local_adele_path_user', [
+            'learning_path_id' => $lpid,
+            'user_id' => $userid,
+        ]);
+        if (!$record) {
+            return;
+        }
+        $json = json_decode($record->json, true);
+        $json['user_path_relation']['dndnode_1']['feedback']['status'] = $status;
+        $DB->set_field('local_adele_path_user', 'json', json_encode($json), ['id' => $record->id]);
+    }
+
+    /**
      * The user enrolment on the ADELE instance of one kind, or false.
      *
      * @param int $lpid Learning path id.
@@ -298,6 +328,7 @@ final class reconcile_all_sweep_test extends \advanced_testcase {
             $this->get_ue($lpid, (int) $host->id, $userid, instance_manager::KIND_HOST),
             'Precondition: the observer must grant host access.'
         );
+        $this->set_node_status($lpid, $userid, 'accessible');
         reconciler::reconcile_user($lpid, $userid);
         $this->assertNotFalse(
             $this->get_ue($lpid, (int) $node->id, $userid, instance_manager::KIND_TARGET),

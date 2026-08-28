@@ -364,7 +364,10 @@ final class reconciler_test extends \advanced_testcase {
             'The snapshot must survive the observer; only the deferred task may delete it.'
         );
 
-        $task = \core\task\manager::get_next_adhoc_task(time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS);
+        // Core selects with nextruntime < :timestart, strictly less than, so
+        // the exact delay would filter the task out by one second.
+        $due = time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS + 1;
+        $task = \core\task\manager::get_next_adhoc_task($due);
         $this->assertInstanceOf(\enrol_adele\task\remove_user_path_adhoc::class, $task);
         $task->execute();
         \core\task\manager::adhoc_task_complete($task);
