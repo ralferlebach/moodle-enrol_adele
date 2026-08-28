@@ -169,20 +169,32 @@ class reconciler {
     }
 
     /**
-     * Reconcile every active user path in the system (scheduled task, CLI).
+     * Reconcile the whole installation (scheduled task, CLI).
      *
-     * Safety net against missed events; the primary trigger is the recompute
-     * hook in local_adele. Beyond target-course enrolments it also migrates
-     * stale roles, removes orphaned instances (learning path no longer
-     * exists) and consolidates duplicate instances. Uses a recordset instead
-     * of loading everything into memory at once.
+     * The safety net against missed events; the primary trigger remains the
+     * recompute hook in local_adele. Runs six passes, each idempotent and
+     * each reporting its own line through the trace:
+     *
+     * 1. instances: remove orphans (learning path gone),
+     * 2. instances: consolidate duplicates,
+     * 3. instances: migrate stale roles,
+     * 4. target courses, wanted -> actual: every active user path,
+     * 5. target courses, actual -> wanted: every user holding an ADELE
+     *    target enrolment WITHOUT an active user path,
+     * 6. host courses, both directions at once.
+     *
+     * Passes 5 and 6 are what make the run bidirectional. Before them the
+     * sweep only ever started from the wanted state, so a user whose path row
+     * had gone away — or whose host-course entitlement changed while the
+     * event was lost — was never visited at all, and their enrolment stayed
+     * active forever. Every pass streams through a recordset instead of
+     * loading its working set into memory.
      *
      * @param progress_trace|null $trace Optional progress trace.
-     * @return int Number of (learning path, user) pairs reconciled.
+     * @return int Number of (learning path, user) pairs reconciled across
+     *     passes 4 to 6.
      */
     public static function reconcile_all(?progress_trace $trace = null): int {
-        global $DB;
-
         if (!self::is_active()) {
             if ($trace) {
                 $trace->output('enrol_adele is not active, nothing to do.');
@@ -190,9 +202,35 @@ class reconciler {
             return 0;
         }
 
-        $orphaned = self::remove_orphaned_instances($trace);
-        $duplicates = self::consolidate_duplicate_instances($trace);
-        $rolesmigrated = self::sync_instance_roles($trace);
+        $report = [
+            'orphaned' => self::remove_orphaned_instances($trace),
+            'duplicates' => self::consolidate_duplicate_instances($trace),
+            'roles' => self::sync_instance_roles($trace),
+            'targetwanted' => self::sweep_target_wanted($trace),
+            'targetactual' => self::sweep_target_actual($trace),
+            'host' => self::sweep_host($trace),
+        ];
+
+        if ($trace) {
+            $trace->output(
+                "Done. Instances: {$report['orphaned']} orphaned removed, " .
+                "{$report['duplicates']} duplicates consolidated, {$report['roles']} roles migrated. " .
+                "Users: {$report['targetwanted']} target (wanted->actual), " .
+                "{$report['targetactual']} target (actual->wanted), {$report['host']} host."
+            );
+        }
+
+        return $report['targetwanted'] + $report['targetactual'] + $report['host'];
+    }
+
+    /**
+     * Pass 4 — every active user path against its target courses.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of (learning path, user) pairs visited.
+     */
+    private static function sweep_target_wanted(?progress_trace $trace = null): int {
+        global $DB;
 
         $count = 0;
         $rs = $DB->get_recordset_sql(
@@ -207,13 +245,183 @@ class reconciler {
         $rs->close();
 
         if ($trace) {
-            $trace->output(
-                "Reconciled {$count} learning path/user pairs, removed {$orphaned} orphaned " .
-                "instance(s), consolidated {$duplicates} duplicate instance(s), migrated roles " .
-                "on {$rolesmigrated} instance(s)."
-            );
+            $trace->output("  Target courses (wanted -> actual): {$count} learning path/user pair(s) visited.");
         }
         return $count;
+    }
+
+    /**
+     * Pass 5 — every user holding an ADELE target enrolment that no active
+     * user path justifies any more.
+     *
+     * The counterpart of pass 4: it starts from the ACTUAL state instead of
+     * the wanted one. Without it, a user whose path row was deleted or set to
+     * a non-active status keeps every target-course enrolment ADELE ever gave
+     * them, because pass 4 never enumerates them. reconcile_user() suspends
+     * them, since get_entitled_courseids() returns an empty set for a user
+     * without an active path.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of (learning path, user) pairs visited.
+     */
+    private static function sweep_target_actual(?progress_trace $trace = null): int {
+        global $DB;
+
+        $count = 0;
+        $rs = $DB->get_recordset_sql(
+            "SELECT DISTINCT e.customint1 AS learningpathid, ue.userid
+               FROM {user_enrolments} ue
+               JOIN {enrol} e ON e.id = ue.enrolid
+              WHERE e.enrol = 'adele'
+                    AND e.customint2 = :kind
+                    AND ue.status = :active
+                    AND NOT EXISTS (
+                        SELECT 1
+                          FROM {local_adele_path_user} lpu
+                         WHERE lpu.learning_path_id = e.customint1
+                               AND lpu.user_id = ue.userid
+                               AND lpu.status = 'active'
+                    )",
+            ['kind' => instance_manager::KIND_TARGET, 'active' => ENROL_USER_ACTIVE]
+        );
+        foreach ($rs as $pair) {
+            self::reconcile_user((int) $pair->learningpathid, (int) $pair->userid);
+            $count++;
+        }
+        $rs->close();
+
+        if ($trace) {
+            $trace->output("  Target courses (actual -> wanted): {$count} unjustified enrolment(s) revisited.");
+        }
+        return $count;
+    }
+
+    /**
+     * Pass 6 — host-course access, in both directions.
+     *
+     * Host access used to be maintained purely by mod_adele's enrolment
+     * observers, so a single lost event (bulk operation with events
+     * suppressed, an exception inside the observer, a direct database edit,
+     * a partial restore) left it wrong forever: nothing ever re-derived it.
+     *
+     * The working set is deliberately the UNION of two populations per
+     * (learning path, host course) pair:
+     *
+     * - users with an active user path — heals missed GRANTS;
+     * - users currently holding an ADELE host enrolment — heals missed
+     *   REVOCATIONS, including the case where the user path row is already
+     *   gone and the first population would therefore never mention them.
+     *
+     * The entitlement itself is never derived here. It is asked of
+     * local_adele, which routes the question to mod_adele — the same code the
+     * live observer uses, so the sweep and the event path cannot disagree.
+     * A null answer means "cannot tell right now" (mod_adele missing or
+     * mid-upgrade) and is skipped rather than treated as "not entitled",
+     * which would revoke access from everyone.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of (learning path, host course, user) triples visited.
+     */
+    private static function sweep_host(?progress_trace $trace = null): int {
+        global $DB;
+
+        $count = 0;
+        foreach (self::get_host_learningpathids() as $lpid) {
+            foreach (self::get_host_courseids($lpid) as $hostcourseid) {
+                $rs = $DB->get_recordset_sql(
+                    "SELECT DISTINCT userid
+                       FROM (
+                            SELECT lpu.user_id AS userid
+                              FROM {local_adele_path_user} lpu
+                             WHERE lpu.learning_path_id = :lpid1
+                                   AND lpu.status = 'active'
+                             UNION
+                            SELECT ue.userid AS userid
+                              FROM {user_enrolments} ue
+                              JOIN {enrol} e ON e.id = ue.enrolid
+                             WHERE e.enrol = 'adele'
+                                   AND e.customint1 = :lpid2
+                                   AND e.customint2 = :kind
+                                   AND e.courseid = :courseid
+                       ) affected",
+                    [
+                        'lpid1' => $lpid,
+                        'lpid2' => $lpid,
+                        'kind' => instance_manager::KIND_HOST,
+                        'courseid' => $hostcourseid,
+                    ]
+                );
+                foreach ($rs as $row) {
+                    $userid = (int) $row->userid;
+                    $entitlement = \local_adele\enrol_state::get_host_entitlement($lpid, $hostcourseid, $userid);
+                    if ($entitlement === null) {
+                        continue;
+                    }
+                    [$entitled, $mode] = $entitlement;
+                    self::reconcile_host_user($lpid, $hostcourseid, $userid, (bool) $entitled, (string) $mode);
+                    $count++;
+                }
+                $rs->close();
+            }
+        }
+
+        if ($trace) {
+            $trace->output("  Host courses: {$count} learning path/host course/user triple(s) visited.");
+        }
+        return $count;
+    }
+
+    /**
+     * Every learning path the host pass has to consider.
+     *
+     * The union of learning paths currently embedded with option 2 or 3 and
+     * learning paths that still own a host instance. The second half matters:
+     * once the last embedding is deleted, the first half no longer mentions
+     * the learning path at all, yet its host enrolments are exactly the ones
+     * that need revoking.
+     *
+     * @return int[] Distinct learning path ids.
+     */
+    private static function get_host_learningpathids(): array {
+        global $DB;
+
+        $embedded = \local_adele\enrol_state::get_learningpaths_with_host_embeddings();
+        $withinstances = $DB->get_fieldset_select(
+            'enrol',
+            'DISTINCT customint1',
+            "enrol = 'adele' AND customint2 = :kind",
+            ['kind' => instance_manager::KIND_HOST]
+        );
+        $all = array_merge(array_map('intval', $embedded), array_map('intval', $withinstances));
+        return array_values(array_unique($all));
+    }
+
+    /**
+     * Every host course of one learning path the host pass has to consider.
+     *
+     * Same union rationale as {@see get_host_learningpathids()}: currently
+     * embedded host courses plus host courses that still carry an instance.
+     *
+     * @param int $learningpathid The learning path id.
+     * @return int[] Distinct course ids.
+     */
+    private static function get_host_courseids(int $learningpathid): array {
+        global $DB;
+
+        $courseids = [];
+        foreach (\local_adele\enrol_state::get_host_embeddings($learningpathid) as $embedding) {
+            if (!empty($embedding['option2']) || !empty($embedding['option3'])) {
+                $courseids[] = (int) $embedding['courseid'];
+            }
+        }
+        $withinstances = $DB->get_fieldset_select(
+            'enrol',
+            'DISTINCT courseid',
+            "enrol = 'adele' AND customint1 = :lpid AND customint2 = :kind",
+            ['lpid' => $learningpathid, 'kind' => instance_manager::KIND_HOST]
+        );
+        $courseids = array_merge($courseids, array_map('intval', $withinstances));
+        return array_values(array_unique($courseids));
     }
 
     /**

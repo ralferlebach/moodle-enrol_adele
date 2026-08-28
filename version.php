@@ -26,14 +26,19 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
-$plugin->release = '0.2.0';
-$plugin->version = 2026072500;
+$plugin->release = '0.3.0';
+$plugin->version = 2026082800;
 $plugin->requires = 2022112800;
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->supported = [401, 502];
-// Requires a local_adele version that provides
-// enrol_state::get_host_embeddings() and
-// get_learningpaths_embedded_in_course(), which observer.php calls.
+// The lower bound is 4.5, not 4.1: this plugin alone would run on 4.1,
+// but it depends on local_adele, which depends on mod_adele, which
+// requires 2024100700. The trio is therefore only installable from 4.5.
+// $plugin->requires stays at 4.1 so an existing installation is not
+// locked out by a metadata change alone.
+$plugin->supported = [405, 502];
+// Requires a local_adele version that provides enrol_state::
+// get_host_entitlement(), get_host_embeddings() and
+// get_learningpaths_with_host_embeddings(), which the host sweep calls.
 $plugin->dependencies = [
-    'local_adele' => 2026072500,
+    'local_adele' => 2026082800,
 ];
