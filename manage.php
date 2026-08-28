@@ -15,8 +15,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Management page: every learning path that owns at least one ADELE
- * enrolment instance, with "Recompute" and "Hard delete" actions.
+ * Management page: every ADELE enrolment instance, with filters, the outcome
+ * of the last reconciliation run, and per-learning-path repair actions.
  *
  * @package     enrol_adele
  * @copyright   2026 Wunderbyte GmbH
@@ -29,25 +29,37 @@ use enrol_adele\local\reconciler;
 
 require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->libdir . '/tablelib.php');
 
 /**
  * Above this threshold, actions are queued as an ad-hoc task instead of
- * running synchronously, so the page stays responsive (specification
- * section 6). Not exposed as a setting (yet) — a fixed, documented value
- * keeps behaviour predictable; revisit if real installations need it
- * configurable.
+ * running synchronously, so the page stays responsive.
  */
 const ADELE_MANAGE_ASYNC_THRESHOLD = 200;
+
+/**
+ * Instances shown per page.
+ */
+const ADELE_MANAGE_PER_PAGE = 50;
 
 $learningpathid = optional_param('learningpathid', 0, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA);
 $confirm = optional_param('confirm', 0, PARAM_BOOL);
+$coursesearch = trim(optional_param('coursesearch', '', PARAM_TEXT));
+$kind = optional_param('kind', 0, PARAM_INT);
+$status = optional_param('status', '', PARAM_ALPHA);
 
 admin_externalpage_setup('enrolsettingsadelemanage');
 $context = context_system::instance();
 require_capability('enrol/adele:config', $context);
 
 $pageurl = new moodle_url('/enrol/adele/manage.php');
+$filteredurl = new moodle_url($pageurl, array_filter([
+    'learningpathid' => $learningpathid,
+    'coursesearch' => $coursesearch,
+    'kind' => $kind,
+    'status' => $status,
+]));
 $PAGE->set_url($pageurl);
 
 /**
@@ -69,6 +81,49 @@ function enrol_adele_manage_affected_user_count(int $learningpathid): int {
     );
 }
 
+/**
+ * The WHERE fragment and parameters implementing the current filters.
+ *
+ * Kept in one place so the count query and the page query cannot drift apart
+ * — a paginated table whose total is computed from different conditions than
+ * its rows shows the wrong number of pages.
+ *
+ * @param int $learningpathid Filter by learning path, 0 for all.
+ * @param string $coursesearch Filter by course short or full name.
+ * @param int $kind Filter by instance kind, 0 for all.
+ * @param string $status Filter by enrolment status: active, suspended or ''.
+ * @return array [string $where, array $params]
+ */
+function enrol_adele_manage_filter(int $learningpathid, string $coursesearch, int $kind, string $status): array {
+    global $DB;
+
+    $where = ["e.enrol = 'adele'"];
+    $params = [];
+
+    if ($learningpathid) {
+        $where[] = 'e.customint1 = :lpid';
+        $params['lpid'] = $learningpathid;
+    }
+    if ($kind) {
+        $where[] = 'e.customint2 = :kind';
+        $params['kind'] = $kind;
+    }
+    if ($coursesearch !== '') {
+        $like = '%' . $DB->sql_like_escape($coursesearch) . '%';
+        $where[] = '(' . $DB->sql_like('c.shortname', ':cs1', false) . ' OR '
+            . $DB->sql_like('c.fullname', ':cs2', false) . ')';
+        $params['cs1'] = $like;
+        $params['cs2'] = $like;
+    }
+    if ($status === 'active' || $status === 'suspended') {
+        $params['uestatus'] = ($status === 'active') ? ENROL_USER_ACTIVE : ENROL_USER_SUSPENDED;
+        $where[] = 'EXISTS (SELECT 1 FROM {user_enrolments} ue
+                             WHERE ue.enrolid = e.id AND ue.status = :uestatus)';
+    }
+
+    return [implode(' AND ', $where), $params];
+}
+
 if ($action && $learningpathid) {
     if ($action === 'reconcile') {
         require_sesskey();
@@ -77,10 +132,10 @@ if ($action && $learningpathid) {
             $task = new \enrol_adele\task\reconcile_learning_path_adhoc();
             $task->set_custom_data(['learningpathid' => $learningpathid]);
             \core\task\manager::queue_adhoc_task($task);
-            redirect($pageurl, get_string('manage_action_queued', 'enrol_adele', $affected));
+            redirect($filteredurl, get_string('manage_action_queued', 'enrol_adele', $affected));
         }
         $n = reconciler::reconcile_learning_path($learningpathid);
-        redirect($pageurl, get_string('manage_reconcile_done', 'enrol_adele', $n));
+        redirect($filteredurl, get_string('manage_reconcile_done', 'enrol_adele', $n));
     } else if ($action === 'purge') {
         // First click (no $confirm yet): only navigates to a confirmation
         // page, no mutation happens — deliberately does not require sesskey
@@ -97,7 +152,7 @@ if ($action && $learningpathid) {
                     'confirm' => 1,
                     'sesskey' => sesskey(),
                 ]),
-                $pageurl
+                $filteredurl
             );
             echo $OUTPUT->footer();
             exit;
@@ -115,45 +170,229 @@ if ($action && $learningpathid) {
     }
 }
 
-// One row per learning path that owns at least one ADELE instance. A LEFT
-// JOIN against local_adele_learning_paths deliberately surfaces orphaned
-// instances (learning path deleted, instances somehow left behind) as rows
-// with a null name, rather than silently hiding them.
-$rows = $DB->get_records_sql(
-    "SELECT e.customint1 AS learningpathid,
-            lp.name AS learningpathname,
-            COUNT(DISTINCT CASE WHEN e.customint2 = :kindtarget THEN e.id END) AS targetcourses,
-            COUNT(DISTINCT CASE WHEN ue.status = 0 THEN ue.id END) AS activeenrolments,
-            COUNT(DISTINCT CASE WHEN ue.status = 1 THEN ue.id END) AS suspendedenrolments
-       FROM {enrol} e
-  LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
-  LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id
-      WHERE e.enrol = 'adele'
-   GROUP BY e.customint1, lp.name
-   ORDER BY lp.name ASC, e.customint1 ASC",
-    ['kindtarget' => instance_manager::KIND_TARGET]
-);
-
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('manage_heading', 'enrol_adele'));
 echo html_writer::tag('p', get_string('manage_intro', 'enrol_adele'));
 
-if (!$rows) {
+// Outcome of the last full reconciliation run. A scheduled task's trace ends
+// up in the task log, which is exactly where nobody looks when wondering
+// whether reconciliation is doing anything at all.
+$report = json_decode((string) get_config('enrol_adele', 'lastreport'), true);
+echo $OUTPUT->heading(get_string('manage_report_heading', 'enrol_adele'), 3);
+if (!is_array($report) || empty($report['timestamp'])) {
+    echo $OUTPUT->notification(get_string('manage_report_never', 'enrol_adele'), 'info');
+} else {
+    $reporttable = new html_table();
+    $reporttable->attributes['class'] = 'generaltable';
+    $reporttable->head = [
+        get_string('manage_report_pass', 'enrol_adele'),
+        get_string('manage_report_count', 'enrol_adele'),
+    ];
+    $passes = [
+        'orphaned' => 'manage_report_orphaned',
+        'duplicates' => 'manage_report_duplicates',
+        'roles' => 'manage_report_roles',
+        'targetwanted' => 'manage_report_targetwanted',
+        'targetactual' => 'manage_report_targetactual',
+        'host' => 'manage_report_host',
+        'expired' => 'manage_report_expired',
+    ];
+    foreach ($passes as $key => $stringid) {
+        $reporttable->data[] = [
+            get_string($stringid, 'enrol_adele'),
+            (int) ($report[$key] ?? 0),
+        ];
+    }
+    echo html_writer::tag(
+        'p',
+        get_string('manage_report_when', 'enrol_adele', userdate($report['timestamp']))
+    );
+    echo html_writer::table($reporttable);
+}
+
+// Repairs currently queued in the background.
+$pending = $DB->count_records('task_adhoc', ['component' => 'enrol_adele']);
+echo html_writer::tag(
+    'p',
+    $pending
+        ? get_string('manage_tasks_pending', 'enrol_adele', $pending)
+        : get_string('manage_tasks_none', 'enrol_adele')
+);
+
+// Filter form.
+$learningpaths = $DB->get_records_sql(
+    "SELECT DISTINCT e.customint1 AS id, lp.name
+       FROM {enrol} e
+  LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
+      WHERE e.enrol = 'adele'
+   ORDER BY lp.name ASC"
+);
+$lpoptions = [0 => get_string('manage_filter_all', 'enrol_adele')];
+foreach ($learningpaths as $lp) {
+    $lpoptions[(int) $lp->id] = ($lp->name !== null)
+        ? format_string($lp->name) . ' (#' . (int) $lp->id . ')'
+        : '#' . (int) $lp->id . ' — ' . get_string('manage_orphaned', 'enrol_adele');
+}
+
+echo html_writer::start_tag('form', ['method' => 'get', 'action' => $pageurl->out(false), 'class' => 'mb-3']);
+echo html_writer::start_div('form-inline');
+echo html_writer::label(
+    get_string('manage_col_learningpath', 'enrol_adele'),
+    'adelefilterlp',
+    true,
+    ['class' => 'mr-1']
+);
+echo html_writer::select(
+    $lpoptions,
+    'learningpathid',
+    $learningpathid,
+    false,
+    ['id' => 'adelefilterlp', 'class' => 'mr-2']
+);
+echo html_writer::label(
+    get_string('manage_col_course', 'enrol_adele'),
+    'adelefiltercourse',
+    true,
+    ['class' => 'mr-1']
+);
+echo html_writer::empty_tag('input', [
+    'type' => 'text',
+    'name' => 'coursesearch',
+    'id' => 'adelefiltercourse',
+    'value' => $coursesearch,
+    'class' => 'mr-2',
+]);
+echo html_writer::label(
+    get_string('manage_col_type', 'enrol_adele'),
+    'adelefilterkind',
+    true,
+    ['class' => 'mr-1']
+);
+echo html_writer::select(
+    [
+        0 => get_string('manage_filter_all', 'enrol_adele'),
+        instance_manager::KIND_TARGET => get_string('manage_type_target', 'enrol_adele'),
+        instance_manager::KIND_HOST => get_string('manage_type_host', 'enrol_adele'),
+    ],
+    'kind',
+    $kind,
+    false,
+    ['id' => 'adelefilterkind', 'class' => 'mr-2']
+);
+echo html_writer::label(
+    get_string('manage_filter_status', 'enrol_adele'),
+    'adelefilterstatus',
+    true,
+    ['class' => 'mr-1']
+);
+echo html_writer::select(
+    [
+        '' => get_string('manage_filter_all', 'enrol_adele'),
+        'active' => get_string('manage_status_active', 'enrol_adele'),
+        'suspended' => get_string('manage_status_suspended', 'enrol_adele'),
+    ],
+    'status',
+    $status,
+    false,
+    ['id' => 'adelefilterstatus', 'class' => 'mr-2']
+);
+echo html_writer::empty_tag('input', [
+    'type' => 'submit',
+    'value' => get_string('manage_filter_apply', 'enrol_adele'),
+    'class' => 'btn btn-secondary',
+]);
+echo html_writer::end_div();
+echo html_writer::end_tag('form');
+
+// A purge wipes an entire learning path, so it is offered only once the list
+// has been narrowed to one — never as a per-row button that could be hit by
+// accident on the wrong line.
+if ($learningpathid) {
+    echo $OUTPUT->single_button(
+        new moodle_url($pageurl, ['action' => 'purge', 'learningpathid' => $learningpathid]),
+        get_string('manage_action_purge', 'enrol_adele'),
+        'get'
+    );
+}
+
+[$where, $params] = enrol_adele_manage_filter($learningpathid, $coursesearch, $kind, $status);
+
+$total = (int) $DB->count_records_sql(
+    "SELECT COUNT(1)
+       FROM {enrol} e
+       JOIN {course} c ON c.id = e.courseid
+      WHERE {$where}",
+    $params
+);
+
+if (!$total) {
     echo $OUTPUT->notification(get_string('manage_no_paths', 'enrol_adele'), 'info');
     echo $OUTPUT->footer();
     exit;
 }
 
-$table = new html_table();
-$table->head = [
+$table = new flexible_table('enrol_adele_manage');
+$table->define_columns(['learningpath', 'course', 'type', 'active', 'suspended', 'actions']);
+$table->define_headers([
     get_string('manage_col_learningpath', 'enrol_adele'),
-    get_string('manage_col_targetcourses', 'enrol_adele'),
+    get_string('manage_col_course', 'enrol_adele'),
+    get_string('manage_col_type', 'enrol_adele'),
     get_string('manage_col_active', 'enrol_adele'),
     get_string('manage_col_suspended', 'enrol_adele'),
     get_string('manage_col_actions', 'enrol_adele'),
-];
-$table->id = 'enroladelemanagetable';
+]);
+$table->define_baseurl($filteredurl);
+$table->sortable(true, 'course', SORT_ASC);
+$table->no_sorting('type');
+$table->no_sorting('active');
+$table->no_sorting('suspended');
+$table->no_sorting('actions');
 $table->attributes['class'] = 'generaltable';
+$table->setup();
+$table->pagesize(ADELE_MANAGE_PER_PAGE, $total);
+
+// Only two columns are sortable, and both map onto a real, indexed column.
+// Anything else falls back to a deterministic order rather than trusting a
+// request parameter in an ORDER BY clause.
+$sort = $table->get_sql_sort();
+if ($sort === 'learningpath ASC' || $sort === 'learningpath DESC') {
+    $sort = str_replace('learningpath', 'lp.name', $sort);
+} else if ($sort === 'course DESC') {
+    $sort = 'c.shortname DESC';
+} else {
+    $sort = 'c.shortname ASC';
+}
+
+// Only the current page is fetched — the whole point of the exercise. The
+// previous version aggregated every instance, every user enrolment and every
+// count in a single request.
+$rows = $DB->get_records_sql(
+    "SELECT e.id, e.courseid, e.customint1 AS learningpathid, e.customint2 AS kind, e.status,
+            c.shortname, c.fullname, lp.name AS learningpathname
+       FROM {enrol} e
+       JOIN {course} c ON c.id = e.courseid
+  LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
+      WHERE {$where}
+   ORDER BY {$sort}",
+    $params,
+    $table->get_page_start(),
+    $table->get_page_size()
+);
+
+// Enrolment counts for the visible page only, in one query.
+$counts = [];
+if ($rows) {
+    [$insql, $inparams] = $DB->get_in_or_equal(array_keys($rows), SQL_PARAMS_NAMED);
+    $counts = $DB->get_records_sql(
+        "SELECT ue.enrolid,
+                SUM(CASE WHEN ue.status = :active THEN 1 ELSE 0 END) AS activecount,
+                SUM(CASE WHEN ue.status = :suspended THEN 1 ELSE 0 END) AS suspendedcount
+           FROM {user_enrolments} ue
+          WHERE ue.enrolid {$insql}
+       GROUP BY ue.enrolid",
+        ['active' => ENROL_USER_ACTIVE, 'suspended' => ENROL_USER_SUSPENDED] + $inparams
+    );
+}
 
 foreach ($rows as $row) {
     $lpid = (int) $row->learningpathid;
@@ -167,33 +406,35 @@ foreach ($rows as $row) {
         $namecell = format_string($row->learningpathname) . ' (#' . $lpid . ')';
     }
 
-    $reconcileurl = new moodle_url($pageurl, [
+    $coursecell = html_writer::link(
+        new moodle_url('/course/view.php', ['id' => $row->courseid]),
+        format_string($row->shortname)
+    );
+
+    $typecell = ((int) $row->kind === instance_manager::KIND_HOST)
+        ? get_string('manage_type_host', 'enrol_adele')
+        : get_string('manage_type_target', 'enrol_adele');
+    if ((int) $row->status !== ENROL_INSTANCE_ENABLED) {
+        $typecell .= ' ' . html_writer::span(get_string('manage_instance_disabled', 'enrol_adele'), 'badge badge-secondary');
+    }
+
+    $count = $counts[$row->id] ?? null;
+
+    $reconcileurl = new moodle_url($filteredurl, [
         'action' => 'reconcile',
         'learningpathid' => $lpid,
         'sesskey' => sesskey(),
     ]);
-    $purgeurl = new moodle_url($pageurl, [
-        'action' => 'purge',
-        'learningpathid' => $lpid,
-    ]);
-    $actions = $OUTPUT->single_button(
-        $reconcileurl,
-        get_string('manage_action_reconcile', 'enrol_adele'),
-        'post'
-    ) . $OUTPUT->single_button(
-        $purgeurl,
-        get_string('manage_action_purge', 'enrol_adele'),
-        'get'
-    );
 
-    $table->data[] = [
+    $table->add_data([
         $namecell,
-        (int) $row->targetcourses,
-        (int) $row->activeenrolments,
-        (int) $row->suspendedenrolments,
-        $actions,
-    ];
+        $coursecell,
+        $typecell,
+        $count ? (int) $count->activecount : 0,
+        $count ? (int) $count->suspendedcount : 0,
+        $OUTPUT->single_button($reconcileurl, get_string('manage_action_reconcile', 'enrol_adele'), 'post'),
+    ]);
 }
 
-echo html_writer::table($table);
+$table->finish_output();
 echo $OUTPUT->footer();

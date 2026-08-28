@@ -26,8 +26,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
-$plugin->release = '0.3.0';
-$plugin->version = 2026082800;
+$plugin->release = '0.4.0';
+$plugin->version = 2026082801;
 $plugin->requires = 2022112800;
 $plugin->maturity = MATURITY_ALPHA;
 // The lower bound is 4.5, not 4.1: this plugin alone would run on 4.1,

@@ -294,7 +294,7 @@ Sprachstrings EN/DE ergänzt: 32/32, alphabetisch, Parität geprüft.
 
 ---
 
-## Tests
+### Tests
 
 Neu, insgesamt vierzehn:
 
@@ -333,7 +333,7 @@ und simulieren erst dann das verlorene Ereignis per direktem DB-Eingriff.
 
 ---
 
-## Verifikation
+### Verifikation
 
 `php -l` über alle Dateien sauber. `phpcs --standard=moodle --severity=1` über
 alle drei Plugins 0 Fehler / 0 Warnungen. `db/install.xml` wohlgeformt.
@@ -356,7 +356,7 @@ Abhängigkeiten nachgezogen: `enrol_adele → local_adele 2026082800`,
 
 ---
 
-## Stand der Issues
+## Stand der Issues nach Teil 6
 
 | Issue | Stand |
 |---|---|
@@ -368,14 +368,135 @@ Abhängigkeiten nachgezogen: `enrol_adele → local_adele 2026082800`,
 | #7 | (a) umgesetzt (P5) · (b) umgesetzt · (c) umgesetzt |
 | #8 | umgesetzt (P3) |
 
-## Offen
+---
 
-- **Q7** — zirkulärer Abhängigkeitsgraph, Entscheidung ausstehend.
-- **P7** (#6) — Pagination, Filter, Taskstatus, Diagnosebericht (Q4). Das
-  einzige noch offene Paket.
-- **Release-Namen** auf 0.3.0/0.6.0/0.3.0 angehoben. Falls nur `version`
-  steigen soll, ist das je Plugin ein Einzeiler.
-- **Auslieferungsdisziplin**: die vorige Lieferung enthielt drei Doku-Dateien,
-  die seit der Lieferung davor unverändert waren. Ab jetzt wird jede Datei vor
-  dem Packen gegen den unveränderten Download gedifft; nur echte Änderungen
-  gehen ins ZIP.
+## Teil 7 — P7: Verwaltungsseite (#6)
+
+**Ausgangsstand:** Branch-Heads `7a8046e` / `ce12df2` / `acd6347`,
+`enrol_adele` 0.3.0, `local_adele` 0.6.0, `mod_adele` 0.3.0. Der Auftraggeber
+meldet die letzte CI-Runde grün; gegen den Branch-Head verifiziert, dass die
+Session-005-Änderungen tatsächlich enthalten sind (`host_policy.php` vorhanden,
+alle drei Versionen auf `2026082800`). Damit sind P0–P6 samt der vierzehn
+neuen Tests real belegt, nicht nur behauptet.
+
+Nullmessung gegen den neuen Stand: `phpcs --standard=moodle` 0/0 über alle
+drei Plugins.
+
+---
+
+### Was das Issue verlangte und was tatsächlich fehlte
+
+Der asynchrone Teil war bereits vorhanden (`ADELE_MANAGE_ASYNC_THRESHOLD`).
+Offen waren Pagination, Filter und Taskstatus — sowie der Diagnosebericht aus
+#5, den Q4 hierher verschoben hat.
+
+Die alte Seite hatte eine Zeile je **Lernpfad** und aggregierte dafür in einem
+einzigen Request über `{enrol}` ⋈ `{user_enrolments}`, unbegrenzt. Die
+verlangten Filter nach Kurs und Typ lassen sich auf dieser Granularität gar
+nicht ausdrücken: ein Lernpfad hat viele Kurse und beide Instanztypen. Die
+Zeileneinheit ist deshalb jetzt die **Instanz**.
+
+### Umgesetzt
+
+**Pagination.** `flexible_table` mit serverseitiger Pagination, 50 Zeilen je
+Seite. Die Gesamtzahl kommt aus einer eigenen `COUNT`-Abfrage, die Daten aus
+einer Abfrage mit `LIMIT`/`OFFSET`. Die Zählungen der aktiven und
+suspendierten Einschreibungen werden **nur für die sichtbare Seite** geholt,
+in einer einzigen gruppierten Abfrage — nicht je Zeile.
+
+Die Filterbedingung steht in genau einer Funktion
+(`enrol_adele_manage_filter()`), die Zähl- und Datenabfrage gemeinsam nutzen.
+Eine paginierte Tabelle, deren Summe aus anderen Bedingungen stammt als ihre
+Zeilen, zeigt sonst die falsche Seitenzahl.
+
+**Sortierung.** Nur zwei Spalten sind sortierbar, und beide bilden auf eine
+echte Spalte ab (`lp.name`, `c.shortname`). Alles andere fällt auf eine
+deterministische Reihenfolge zurück, statt einen Request-Parameter in ein
+`ORDER BY` zu lassen.
+
+**Filter** für Lernpfad (Auswahlliste der Pfade, die überhaupt Instanzen
+besitzen), Kurs (Textsuche über Kurz- und Langname), Typ (Ziel/Host) und
+Einschreibestatus (aktiv/suspendiert).
+
+**Taskstatus.** Zahl der eingereihten Ad-hoc-Tasks der Komponente
+`enrol_adele`, oder die ausdrückliche Aussage, dass keine anstehen.
+
+**Diagnosebericht (Q4).** `reconcile_all()` schreibt sein Ergebnis je
+Durchgang samt Zeitstempel nach `enrol_adele/lastreport`; die Seite liest es
+zurück. Als Plugin-Config gespeichert, nicht in einer eigenen Tabelle — eine
+einzelne Zusammenfassung des letzten Laufs rechtfertigt kein Schema. Der Grund
+für die Anzeige: die Trace-Ausgabe eines geplanten Tasks landet im Task-Log,
+also genau dort, wo niemand nachsieht, wenn er wissen will, ob der Abgleich
+überhaupt etwas tut.
+
+**„Hard delete" erscheint nur noch gefiltert.** Ein Purge löscht einen
+kompletten Lernpfad. Als Schaltfläche in jeder Tabellenzeile wäre das eine
+Einladung, die falsche Zeile zu treffen; sie erscheint deshalb erst, wenn die
+Liste auf genau einen Lernpfad eingegrenzt ist. „Recompute" bleibt je Zeile —
+idempotent und ungefährlich.
+
+### Sprachdateien
+
+24 neue Schlüssel, `manage_col_targetcourses` entfernt (die Spalte gibt es
+nicht mehr — keine leeren Gerüste). EN/DE je 55 Schlüssel, alphabetisch
+sortiert, Parität geprüft. Die bestehenden Einträge sind byteweise unverändert
+geblieben; stichprobenartig gegen den Referenzstand gedifft.
+
+### Tests
+
+`tests/behat/manage.feature` von drei auf acht Szenarien erweitert:
+Instanzzeile mit Kurs und Typ, Bericht „noch nicht gelaufen", Taskstatus,
+Recompute, „Hard delete erst nach Filterung", Pagination über 60 Instanzen,
+Filter nach Kurs, Filter nach Typ ohne Treffer.
+
+Neuer Behat-Schritt `Given 60 ADELE enrol instances exist`, damit die
+Pagination an echten Daten geprüft wird statt an einer leeren Liste.
+
+### Verifikation
+
+`php -l` sauber, `phpcs --standard=moodle --severity=1` 0/0 über alle drei
+Plugins. **Behat und PHPUnit sind hier nicht ausführbar** — die
+Behat-Szenarien sind gegen die reale Seite geschrieben, aber ungeprüft, und
+Behat-Szenarien mit Filterformularen sind erfahrungsgemäß der Teil, der beim
+ersten CI-Lauf zuerst rot wird. Feldbeschriftungen und Seitennummerierung
+(`"Page: 1 2"`) sind Annahmen über die Theme-Ausgabe, die der CI-Lauf
+bestätigen oder widerlegen muss.
+
+### Versionsstand
+
+| Plugin | Release | version |
+|---|---|---|
+| `enrol_adele` | 0.4.0 | 2026082801 |
+| `local_adele` | 0.6.0 | 2026082800 (unverändert) |
+| `mod_adele` | 0.3.0 | 2026082800 (unverändert) |
+
+Nur `enrol_adele` ist betroffen; die beiden anderen Plugins wurden in diesem
+Teil nicht angefasst und bekommen deshalb kein Patch-ZIP.
+
+### Stand der Issues nach Teil 7
+
+| Issue | Stand |
+|---|---|
+| #2 | umgesetzt, CI grün |
+| #3 | umgesetzt, CI grün |
+| #4 | umgesetzt, CI grün |
+| #5 | umgesetzt, CI grün; Diagnosebericht ergänzt (Teil 7) |
+| #6 | umgesetzt (Teil 7), CI-Nachweis offen |
+| #7 | (a) (b) (c) umgesetzt, CI grün |
+| #8 | umgesetzt, CI grün |
+
+Alle sieben Issues sind damit bearbeitet.
+
+### Offen
+
+- **Q7** — der deklarierte Abhängigkeitsgraph ist weiterhin zirkulär
+  (`local_adele → enrol_adele` und `enrol_adele → local_adele`, dazu
+  `local_adele ⇄ mod_adele`) und widerspricht der Entscheidung G-Q1 in
+  `arbeitsplan.md`. Die Rückverweise zeigen auf ältere Versionen und bleiben
+  erfüllbar; ob eine **Neuinstallation** aller drei Plugins damit durchläuft,
+  ist nach wie vor nicht verifiziert. Die grüne CI beweist es nicht: sie
+  installiert in einen bereits bestehenden Baum.
+- **G.10 Capability-Redesign** — unverändert außerhalb des Auftrags.
+- **CI-Abhängigkeitsfrage** `local_adele` → `enrol_adele` (Part-14-Behelf vs.
+  `assertDebuggingCalled()`).
+

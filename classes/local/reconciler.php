@@ -214,6 +214,14 @@ class reconciler {
             'expired' => self::purge_expired_suspensions($trace),
         ];
 
+        // Keep the outcome where an administrator can find it. A scheduled
+        // task's trace ends up in the task log, which is exactly where nobody
+        // looks when wondering whether reconciliation is doing anything; the
+        // management page reads this back instead. Stored as plugin config
+        // rather than in a table of its own, because a single last-run
+        // summary does not justify a schema.
+        set_config('lastreport', json_encode($report + ['timestamp' => time()]), 'enrol_adele');
+
         if ($trace) {
             $trace->output(
                 "Done. Instances: {$report['orphaned']} orphaned removed, " .
