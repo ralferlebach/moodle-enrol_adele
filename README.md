@@ -3,9 +3,9 @@ moodle-enrol_adele
 
 [![Moodle Plugin CI](https://github.com/ralferlebach/moodle-enrol_adele/actions/workflows/moodle-plugin-ci.yml/badge.svg?branch=development)](https://github.com/ralferlebach/moodle-enrol_adele/actions?query=workflow%3A%22Moodle+Plugin+CI%22+branch%3Adevelopment)
 
-ADELE enrolment owns every course enrolment a learning path causes: it derives who belongs in which course from the learning path state, keeps that derivation correct when events are lost, and cleans up when an entitlement ends.
+AdeLe enrolment owns every course enrolment a learning path causes: it derives who belongs in which course from the learning path state, keeps that derivation correct when events are lost, and cleans up when an entitlement ends.
 
-ADELE is not a single plugin but a set of three that work as one system. They are developed together and declare each other as dependencies, so they can only be installed and updated as a set.
+AdeLe is not a single plugin but a set of three that work as one system. They are developed together and declare each other as dependencies, so they can only be installed and updated as a set.
 
 * **local_adele** is the learning path itself: the graphical editor, the node structure, the completion and restriction logic, and the Vue 3 frontend.
 * **mod_adele** is the in-course entry point: it embeds a learning path in an ordinary course and decides which of that course's participants the path applies to.
@@ -13,7 +13,7 @@ ADELE is not a single plugin but a set of three that work as one system. They ar
 
 This README documents **enrol_adele** - the third bullet point above. The other two plugins are documented in their own repositories.
 
-Because the responsibilities are split this way, no rule exists twice: the learning path is defined in one place, embedded in another, and every enrolment ADELE causes is created and removed by this plugin alone. That is also why a partial installation does not work - a missing sibling means a missing part of the mechanism.
+Because the responsibilities are split this way, no rule exists twice: the learning path is defined in one place, embedded in another, and every enrolment AdeLe causes is created and removed by this plugin alone. That is also why a partial installation does not work - a missing sibling means a missing part of the mechanism.
 
 
 Requirements
@@ -21,12 +21,12 @@ Requirements
 
 This plugin requires Moodle 4.5+
 
-It also requires the other ADELE plugins. All three are developed together and must be installed in matching versions:
+It also requires the other AdeLe plugins. All three are developed together and must be installed in matching versions:
 
-* **local_adele (ADELE learning paths)** - required dependency, declared in version.php\
-  https://github.com/ralferlebach/moodle-local_adele
-* **mod_adele (ADELE activity)** - part of the same set, required by local_adele\
-  https://github.com/ralferlebach/moodle-mod_adele
+* **local_adele (AdeLe learning paths)** - required dependency, declared in version.php\
+  https://github.com/Wunderbyte-GmbH/moodle_local_adele
+* **mod_adele (AdeLe activity)** - part of the same set, required by local_adele\
+  https://github.com/Wunderbyte-GmbH/moodle-mod_adele
 
 The three plugins declare each other as dependencies, and that graph is deliberately circular. Moodle installs them together without complaint; installing only one is not possible.
 
@@ -60,10 +60,10 @@ Site administration -> Plugins -> Enrolments -> Learning path enrolment
 
 There, you find settings for:
 
-* **Default role** - the role assigned through a learning path. Changing it migrates every existing ADELE role assignment in the background; roles assigned by hand are never touched.
+* **Default role** - the role assigned through a learning path. Changing it migrates every existing AdeLe role assignment in the background; roles assigned by hand are never touched.
 * **Remove suspended enrolments after** - how many days an enrolment may stay suspended before it is removed altogether. Default 90 days; `0` keeps suspended enrolments indefinitely.
 
-A management page under Site administration -> Plugins -> Enrolments -> Manage learning path enrolments lists every ADELE enrolment instance with server-side paging and filters by learning path, course, type and enrolment status. It also shows the outcome of the last full reconciliation, the repairs currently queued in the background, and what became of the ones that already ran.
+A management page under Site administration -> Plugins -> Enrolments -> Manage learning path enrolments lists every AdeLe enrolment instance with server-side paging and filters by learning path, course, type and enrolment status. It also shows the outcome of the last full reconciliation, the repairs currently queued in the background, and what became of the ones that already ran.
 
 
 Capabilities
@@ -71,8 +71,8 @@ Capabilities
 
 This plugin introduces these additional capabilities:
 
-* **enrol/adele:config** - configure ADELE enrolment instances and use the management page.
-* **enrol/adele:unenrol** - unenrol users from an ADELE enrolment instance.
+* **enrol/adele:config** - configure AdeLe enrolment instances and use the management page.
+* **enrol/adele:unenrol** - unenrol users from an AdeLe enrolment instance.
 
 Both are deliberately restrictive. This plugin owns its enrolments: manual enrolment and manual unenrolment through the participants page are refused, because an enrolment removed by hand would be recreated by the next reconciliation.
 
@@ -177,14 +177,13 @@ Maintainers
 -----------
 
 The plugin is maintained by\
-Wunderbyte GmbH\
-Ralf Erlebach
+Wunderbyte GmbH
 
 Copyright
 ---------
 
 The copyright of this plugin is held by\
 Wunderbyte GmbH\
-Ralf Erlebach
+Ralf Erlebach (as independent main-contributor)
 
 Individual copyrights of individual developers are tracked in PHPDoc comments and Git commits.
