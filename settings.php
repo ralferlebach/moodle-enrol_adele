@@ -38,13 +38,28 @@ if ($ADMIN->fulltree) {
         $options = get_default_enrol_roles(context_system::instance());
         $student = get_archetype_roles('student');
         $student = reset($student);
+        $roleid = new admin_setting_configselect(
+            'enrol_adele/roleid',
+            get_string('defaultrole', 'role'),
+            get_string('defaultrole_desc', 'enrol_adele'),
+            $student->id ?? null,
+            $options
+        );
+        // Without this, a deliberate role change would sit unapplied until
+        // the nightly reconcile, which makes the setting look broken to the
+        // administrator who just saved it (issue #4). The migration itself
+        // runs in the background - it touches every ADELE participant on the
+        // site, which a settings form must not block on.
+        $roleid->set_updatedcallback('enrol_adele_roleid_updated');
+        $settings->add($roleid);
+
         $settings->add(
-            new admin_setting_configselect(
-                'enrol_adele/roleid',
-                get_string('defaultrole', 'role'),
-                get_string('defaultrole_desc', 'enrol_adele'),
-                $student->id ?? null,
-                $options
+            new admin_setting_configtext(
+                'enrol_adele/suspendedretention',
+                get_string('suspendedretention', 'enrol_adele'),
+                get_string('suspendedretention_desc', 'enrol_adele'),
+                90,
+                PARAM_INT
             )
         );
     }

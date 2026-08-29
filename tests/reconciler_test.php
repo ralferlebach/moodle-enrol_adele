@@ -43,6 +43,47 @@ use enrol_adele\local\reconciler;
  */
 final class reconciler_test extends \advanced_testcase {
     /**
+     * Skip when the installed companion plugins are older than this plugin
+     * declares it needs.
+     *
+     * Host-course entitlement is derived by mod_adele and reached through
+     * local_adele\\enrol_state::get_host_entitlement(). version.php requires a
+     * local_adele that provides it; a job that installs an older one is
+     * testing a combination this plugin does not claim to support, and a
+     * green result from bending the tests to fit would be worth nothing.
+     * Skipping says so out loud instead.
+     *
+     * @return void
+     */
+    private static function require_local_adele(): void {
+        if (!class_exists('\\local_adele\\enrol_state')) {
+            self::markTestSkipped('local_adele is required.');
+        }
+    }
+
+    /**
+     * Skip when the installed companion plugins are older than this plugin
+     * declares it needs.
+     *
+     * Only the tests that let entitlement be DERIVED need this. Tests that
+     * hand reconcile_host_user() an explicit entitlement exercise this
+     * plugin's own mechanics and work against any local_adele.
+     *
+     * @return void
+     */
+    private static function require_host_support(): void {
+        if (!class_exists('\\local_adele\\enrol_state')) {
+            self::markTestSkipped('local_adele is required.');
+        }
+        if (!method_exists('\\local_adele\\enrol_state', 'get_host_entitlement')) {
+            self::markTestSkipped(
+                'The installed local_adele predates enrol_state::get_host_entitlement(); ' .
+                'see version.php for the required version.'
+            );
+        }
+    }
+
+    /**
      * Create a learning path with two nodes: node1 → course A+B (shared course
      * scenario uses A twice), node2 → course A.
      *
@@ -158,9 +199,7 @@ final class reconciler_test extends \advanced_testcase {
     public function test_reconcile_lifecycle_shared_course(): void {
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $coursea = $this->getDataGenerator()->create_course();
         $courseb = $this->getDataGenerator()->create_course();
@@ -222,9 +261,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $course = $this->getDataGenerator()->create_course();
         [$lpid1, $userid1] = $this->plant_state(
@@ -269,9 +306,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_host_support();
 
         $host = $this->getDataGenerator()->create_course();
         $target = $this->getDataGenerator()->create_course();
@@ -280,7 +315,7 @@ final class reconciler_test extends \advanced_testcase {
             ['dndnode_1' => [(int) $target->id]]
         );
         // Embed the learning path in the host course with option 1.
-        $adeleid = $DB->insert_record('adele', (object) [
+        $DB->insert_record('adele', (object) [
             'course' => $host->id,
             'name' => 'LP-Aktivität',
             'intro' => '',
@@ -292,19 +327,6 @@ final class reconciler_test extends \advanced_testcase {
             'timecreated' => time(),
             'timemodified' => time(),
         ]);
-        // The enrol_adele plugin no longer reads {adele} directly - it reads
-        // local_adele's own local_adele_host_courses index instead, which
-        // only mod_adele's
-        // real lifecycle hooks keep in sync in production. This fixture
-        // bypasses those hooks (it writes {adele} directly), so it must sync
-        // the index itself, exactly like adele_add_instance() does.
-        \local_adele\enrol_state::sync_host_course_index(
-            (int) $adeleid,
-            $lpid,
-            (int) $host->id,
-            '1'
-        );
-
         $this->getDataGenerator()->enrol_user($userid, $host->id, 'student', 'manual');
         // The mod_adele observer reacts to this enrolment (participantslist
         // option 1) and re-subscribes via local_adele, which synchronously
@@ -329,13 +351,33 @@ final class reconciler_test extends \advanced_testcase {
         enrol_get_plugin('manual')->unenrol_user($manual, $userid);
 
         $this->assertFalse(observer::is_user_carried($lpid, $userid));
+        // Access goes immediately; the user path record does NOT. Its removal
+        // is deferred to remove_user_path_adhoc, which re-checks whether the
+        // departure was durable before destroying the only copy of the
+        // learning history (issue #3). Assert both halves of that split.
+        $this->assertFalse($this->get_ue($lpid, (int) $target->id, $userid));
+        $this->assertTrue(
+            $DB->record_exists(
+                'local_adele_path_user',
+                ['learning_path_id' => $lpid, 'user_id' => $userid]
+            ),
+            'The snapshot must survive the observer; only the deferred task may delete it.'
+        );
+
+        // Core selects with nextruntime < :timestart, strictly less than, so
+        // the exact delay would filter the task out by one second.
+        $due = time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS + 1;
+        $task = \core\task\manager::get_next_adhoc_task($due);
+        $this->assertInstanceOf(\enrol_adele\task\remove_user_path_adhoc::class, $task);
+        $task->execute();
+        \core\task\manager::adhoc_task_complete($task);
+
         $this->assertFalse(
             $DB->record_exists(
                 'local_adele_path_user',
                 ['learning_path_id' => $lpid, 'user_id' => $userid]
             )
         );
-        $this->assertFalse($this->get_ue($lpid, (int) $target->id, $userid));
     }
 
     /**
@@ -351,9 +393,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $host = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
@@ -415,9 +455,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_host_support();
 
         $host1 = $this->getDataGenerator()->create_course();
         $host2 = $this->getDataGenerator()->create_course();
@@ -427,7 +465,7 @@ final class reconciler_test extends \advanced_testcase {
             ['dndnode_1' => [(int) $target->id]]
         );
         // Embedding 1: option 1 in host1 (the carrying, host1-triggering one).
-        $adeleid = $DB->insert_record('adele', (object) [
+        $DB->insert_record('adele', (object) [
             'course' => $host1->id,
             'name' => 'LP-Aktivität (Fall 1)',
             'intro' => '',
@@ -439,15 +477,6 @@ final class reconciler_test extends \advanced_testcase {
             'timecreated' => time(),
             'timemodified' => time(),
         ]);
-        // See the identical comment in
-        // test_host_course_removal_rules() above.
-        \local_adele\enrol_state::sync_host_course_index(
-            (int) $adeleid,
-            $lpid,
-            (int) $host1->id,
-            '1'
-        );
-
         $this->getDataGenerator()->enrol_user($userid, $host1->id, 'student', 'manual');
         $this->set_node_status($lpid, $userid, 'dndnode_1', 'accessible');
         reconciler::reconcile_user($lpid, $userid);
@@ -469,7 +498,10 @@ final class reconciler_test extends \advanced_testcase {
         $manual = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $host1->id]);
         enrol_get_plugin('manual')->unenrol_user($manual, $userid);
 
-        $this->assertFalse(
+        // The user path record outlives the observer on purpose: its removal
+        // is deferred to remove_user_path_adhoc (issue #3). Access, however,
+        // goes immediately — which is what this test is about.
+        $this->assertTrue(
             $DB->record_exists(
                 'local_adele_path_user',
                 ['learning_path_id' => $lpid, 'user_id' => $userid]
@@ -497,9 +529,7 @@ final class reconciler_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->preventResetByRollback();
-        if (!class_exists('\local_adele\enrol_state')) {
-            $this->markTestSkipped('local_adele >= 0.4.3 is required.');
-        }
+        self::require_local_adele();
 
         $host = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();

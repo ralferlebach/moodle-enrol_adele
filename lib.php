@@ -228,3 +228,20 @@ class enrol_adele_plugin extends enrol_plugin {
         return;
     }
 }
+
+/**
+ * Apply a changed enrol_adele/roleid to everything that already exists.
+ *
+ * Registered as the updated-callback of the setting. Queues the migration
+ * instead of running it inline: it touches every ADELE participant on the
+ * site, and a settings form must return promptly. The task is idempotent, so
+ * saving the same value twice costs nothing.
+ *
+ * @return void
+ */
+function enrol_adele_roleid_updated(): void {
+    if (!class_exists('\enrol_adele\task\migrate_roles_adhoc')) {
+        return;
+    }
+    \core\task\manager::queue_adhoc_task(new \enrol_adele\task\migrate_roles_adhoc(), true);
+}

@@ -99,4 +99,55 @@ class behat_enrol_adele extends behat_base {
         $plugin = enrol_get_plugin('adele');
         $plugin->enrol_user($instance, (int) $user->id, $instance->roleid, 0, 0, ENROL_USER_ACTIVE);
     }
+
+    /**
+     * Open the management page filtered to one learning path, found by name.
+     *
+     * The filter dropdown labels each option with the learning path id, which
+     * is not stable across scenarios — the sequence keeps counting even
+     * though the table is emptied. Selecting by visible text would therefore
+     * only work in whichever scenario happens to run first. The dropdown
+     * itself is covered by the course and type filter scenarios, which use
+     * fixed values.
+     *
+     * @Given /^I open the ADELE management page filtered to learning path "(?P<name>(?:[^"]|\\")*)"$/
+     * @param string $name The learning path name.
+     * @return void
+     */
+    public function i_open_the_management_page_filtered_to(string $name): void {
+        global $DB;
+
+        $lpid = $DB->get_field('local_adele_learning_paths', 'id', ['name' => $name], MUST_EXIST);
+        $this->i_directly_visit_the_url('enrol/adele/manage.php?learningpathid=' . (int) $lpid);
+    }
+
+    /**
+     * Create the given number of ADELE enrol instances, each in its own
+     * course, all belonging to one learning path.
+     *
+     * Used to push the management page past its page size so that pagination
+     * is exercised for real rather than asserted on an empty list.
+     *
+     * @Given /^(?P<count>\d+) ADELE enrol instances exist$/
+     * @param int $count How many instances (and courses) to create.
+     * @return void
+     */
+    public function adele_enrol_instances_exist(int $count): void {
+        global $DB;
+
+        $lpid = $DB->insert_record('local_adele_learning_paths', (object) [
+            'name' => 'Behat bulk path',
+            'description' => '',
+            'timecreated' => time(),
+            'timemodified' => time(),
+            'createdby' => 2,
+            'json' => json_encode(['tree' => ['nodes' => [], 'edges' => []]]),
+        ]);
+
+        $generator = \testing_util::get_data_generator();
+        for ($i = 1; $i <= $count; $i++) {
+            $course = $generator->create_course(['shortname' => 'BULK' . $i, 'fullname' => 'Bulk course ' . $i]);
+            \enrol_adele\local\instance_manager::ensure_instance((int) $lpid, (int) $course->id);
+        }
+    }
 }
