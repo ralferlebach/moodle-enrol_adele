@@ -609,8 +609,16 @@ class reconciler {
      * @return bool
      */
     private static function host_support_available(): bool {
+        // All three, not just the two the sweep obviously needs.
+        // get_host_candidate_userids() is what lets the sweep grant access to
+        // a user ADELE has never seen; without it the pass still runs but is
+        // half blind, revoking correctly while never granting. A pass that
+        // skips itself and says so is far easier to diagnose than one that
+        // quietly produces the wrong half of the answer — which is exactly
+        // what a version skew between the three plugins looks like.
         return method_exists('\\local_adele\\enrol_state', 'get_host_entitlement')
-            && method_exists('\\local_adele\\enrol_state', 'get_learningpaths_with_host_embeddings');
+            && method_exists('\\local_adele\\enrol_state', 'get_learningpaths_with_host_embeddings')
+            && method_exists('\\local_adele\\enrol_state', 'get_host_candidate_userids');
     }
 
     /**
