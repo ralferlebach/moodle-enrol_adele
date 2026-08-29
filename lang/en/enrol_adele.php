@@ -67,6 +67,7 @@ $string['manage_report_pass'] = 'Pass';
 $string['manage_report_roles'] = 'Role assignments repaired';
 $string['manage_report_targetactual'] = 'Target courses, actual to wanted';
 $string['manage_report_targetwanted'] = 'Target courses, wanted to actual';
+$string['manage_report_uncarried'] = 'Uncarried subscriptions queued for removal';
 $string['manage_report_when'] = 'Last run: {$a}';
 $string['manage_status_active'] = 'Active';
 $string['manage_status_suspended'] = 'Suspended';

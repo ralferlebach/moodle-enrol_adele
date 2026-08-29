@@ -182,7 +182,8 @@ class reconciler {
      * 5. target courses, actual -> wanted: every user holding an ADELE
      *    target enrolment WITHOUT an active user path,
      * 6. host courses, both directions at once,
-     * 7. hard-remove enrolments that have been suspended past the retention
+     * 7. drop subscriptions no embedding carries any more,
+     * 8. hard-remove enrolments that have been suspended past the retention
      *    period.
      *
      * Passes 5 and 6 are what make the run bidirectional. Before them the
@@ -211,6 +212,7 @@ class reconciler {
             'targetwanted' => self::sweep_target_wanted($trace),
             'targetactual' => self::sweep_target_actual($trace),
             'host' => self::sweep_host($trace),
+            'uncarried' => self::sweep_uncarried_subscriptions($trace),
             'expired' => self::purge_expired_suspensions($trace),
         ];
 
@@ -228,6 +230,7 @@ class reconciler {
                 "{$report['duplicates']} duplicates consolidated, {$report['roles']} roles migrated. " .
                 "Users: {$report['targetwanted']} target (wanted->actual), " .
                 "{$report['targetactual']} target (actual->wanted), {$report['host']} host, " .
+                "{$report['uncarried']} uncarried subscription(s) queued for removal, " .
                 "{$report['expired']} expired suspension(s) removed."
             );
         }
@@ -428,7 +431,84 @@ class reconciler {
     }
 
     /**
-     * Pass 7 — hard-remove enrolments that have been suspended for longer
+     * Pass 7 — subscriptions that no embedding carries any more.
+     *
+     * The missing subtraction path. Everything else in this class starts from
+     * an ENROLMENT and asks whether it is still justified. A subscription —
+     * the local_adele_path_user row — is created by mod_adele's observer when
+     * a user is enrolled into a course an activity embeds, and removed again
+     * by enrol_adele's observer when the last carrying enrolment goes away.
+     * Both are event-driven, and there are states no event ever describes:
+     *
+     * - an activity is moved from learning path A to B. No enrolment changes,
+     *   so no event fires, and A's subscription stays active forever. Pass 4
+     *   then keeps re-granting access to A's node courses on every run —
+     *   the user remains in a learning path nothing embeds any more.
+     * - the activity is deleted while the users stay enrolled in the course.
+     * - the last carrying enrolment is removed by ADELE itself, which the
+     *   observer skips deliberately (recursion guard on enrol = 'adele').
+     *
+     * Removal is deferred through the same task as issue #3 rather than done
+     * here: the subscription is the only copy of the learning history, and
+     * the task re-checks whether the user is carried again before deleting.
+     * A sweep that deleted directly would defeat the protection that task
+     * exists for.
+     *
+     * Learning paths with no embedding at all are handled without the
+     * per-user check — every subscription to them is uncarried by
+     * definition, and that is the common case (an activity was moved or
+     * deleted). Only paths that are still embedded somewhere pay for the
+     * per-user query.
+     *
+     * @param progress_trace|null $trace Optional progress trace.
+     * @return int Number of subscriptions queued for removal.
+     */
+    private static function sweep_uncarried_subscriptions(?progress_trace $trace = null): int {
+        global $DB;
+
+        if (!self::host_support_available()) {
+            if ($trace) {
+                $trace->output('  Uncarried subscriptions: skipped, the installed local_adele is too old.');
+            }
+            return 0;
+        }
+
+        $embedded = [];
+        $queued = 0;
+        $rs = $DB->get_recordset_select(
+            'local_adele_path_user',
+            "status = 'active'",
+            [],
+            'learning_path_id ASC',
+            'id, learning_path_id, user_id'
+        );
+        foreach ($rs as $row) {
+            $lpid = (int) $row->learning_path_id;
+            $userid = (int) $row->user_id;
+
+            if (!array_key_exists($lpid, $embedded)) {
+                $embedded[$lpid] = (bool) \local_adele\enrol_state::get_host_embeddings($lpid);
+            }
+            if ($embedded[$lpid] && \enrol_adele\observer::is_user_carried($lpid, $userid)) {
+                continue;
+            }
+
+            $task = new \enrol_adele\task\remove_user_path_adhoc();
+            $task->set_custom_data(['learningpathid' => $lpid, 'userid' => $userid]);
+            $task->set_next_run_time(time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS);
+            \core\task\manager::queue_adhoc_task($task, true);
+            $queued++;
+        }
+        $rs->close();
+
+        if ($trace) {
+            $trace->output("  Uncarried subscriptions: {$queued} queued for deferred removal.");
+        }
+        return $queued;
+    }
+
+    /**
+     * Pass 8 — hard-remove enrolments that have been suspended for longer
      * than the configured retention period.
      *
      * Suspend-not-delete is the right default: a suspended enrolment keeps

@@ -1134,6 +1134,136 @@ Keine Versionsanhebung: CI-Definitionen sind kein Plugincode.
 
 ---
 
+## Teil 14 — Playwright nicht mehr ausliefern
+
+`tests/playwright/` steht jetzt in allen drei `.gitattributes` unter
+`export-ignore`. Node-Abhängigkeiten, Lockdatei und Playwright-Konfiguration
+sind Entwicklungswerkzeug und gehören nicht in ein Moodle-Plugin-Release.
+
+Die CI ist davon nicht betroffen: `actions/checkout` klont das Repository und
+benutzt kein `git archive` — derselbe Grund, aus dem `.github/` seit jeher
+ausgeschlossen ist, ohne dass die Workflows ausfallen.
+
+Mit einem echten `git archive` gegengeprüft: `tests/playwright/` fehlt im
+Archiv, `tests/*_test.php` und `tests/behat/` sind vollständig enthalten.
+
+`tests/load/` bleibt vorerst ausgeliefert — dazu liegt keine Entscheidung vor.
+Die Lastpläne sind zwei Dateien ohne Node-Abhängigkeiten, also deutlich
+weniger Ballast als das Playwright-Verzeichnis; ausschließen ließe sich beides
+mit einer weiteren Zeile.
+
+---
+
+## Teil 15 — Externes Review gegengeprüft, #8 nachgearbeitet
+
+Ein externes Review bewertete die sieben Issues mit rund 90 % Erfüllungsgrad.
+Es hat den Code gelesen, aber ausdrücklich keinen Teststack ausgeführt. Hier
+die Gegenprüfung gegen die laufende Verifikationsumgebung.
+
+### Bestätigt
+
+**#2, #4, #5 (je 100 %), #3 (95 %), #6 (88 %), #7 (70 %)** — die Befunde
+stimmen mit dem Code überein. Die beiden #6-Lücken (kein Per-Task-Status, kein
+Skalierungstest) existieren so; das Grace-Window in #3 ist als Konstante
+`DELAY_SECONDS = 300` dokumentiert.
+
+### Korrigiert: #8 war schlechter als bewertet
+
+Das Review setzt 75 % an und vermutet, Host-Enrolments aus einem alten
+Lernpfad würden „später vom globalen Host-Sweep entdeckt". Das trifft für die
+Instanzen zu, verfehlt aber den eigentlichen Schaden.
+
+Beim Nachprüfen gefunden: wechselt eine `mod_adele`-Aktivität von Lernpfad A
+auf B, bleibt der `local_adele_path_user`-Satz für A **dauerhaft aktiv**.
+
+- Der Observer feuert nicht — es ändert sich kein einziges Enrolment.
+- Räumt der nächtliche Sweep A's Host-Instanz ab, ruft `delete_instance()`
+  zwar `unenrol_user()` und löst `user_enrolment_deleted` aus, doch
+  `enrol_adele\observer` steigt an der Rekursionssperre `enrol === 'adele'`
+  sofort wieder aus.
+- `get_learningpaths_embedded_in_course()` liefert für den Kurs dann ohnehin
+  nichts mehr.
+
+Folge: Durchgang 4 iteriert weiter über den aktiven Pfadsatz und **schreibt
+die Nutzer bei jedem Lauf erneut in A's Zielkurse ein**. Der Nutzer sitzt
+dauerhaft in einem Lernpfad, den nichts mehr einbettet. Das ist kein Randfall,
+sondern der Normalfall beim Umhängen einer Aktivität. Zutreffender wären
+etwa 60 % gewesen.
+
+### Umgesetzt (Entscheidung des Auftraggebers: löschen)
+
+**Neuer Durchgang 7, `sweep_uncarried_subscriptions()`.** Aktive
+Abonnements, die keine Einbettung mehr trägt, gehen über **dieselbe verzögerte
+Task wie in #3** — nicht über eine direkte Löschung. Der Pfadsatz ist die
+einzige Kopie der Lernhistorie; die Task prüft vor dem Löschen erneut, ob der
+Nutzer inzwischen wieder getragen wird. Ein Sweep, der direkt löscht, würde
+genau den Schutz aushebeln, für den diese Task existiert.
+
+Lernpfade ohne jede Einbettung werden ohne Nutzerprüfung behandelt: dort ist
+jedes Abonnement per Definition ungetragen, und das ist der häufige Fall.
+Nur noch eingebettete Pfade zahlen die Abfrage je Nutzer.
+
+**Sofortiger Auslöser mit dem alten Zustand.** `adele_update_instance()` liest
+den vorherigen Datensatz **vor** dem Update und reiht bei geänderter
+`learningpathid` zusätzlich einen Reconcile für den alten Lernpfad und den
+alten Kurs ein. Ohne das wüsste nach dem Update niemand mehr, dass A hier je
+eingebettet war.
+
+**Drei neue Tests**, alle grün:
+
+1. `test_switching_the_embedded_learning_path_removes_the_old_state` — der
+   vom Review vermisste End-to-End-Fall A→B
+2. `test_deleting_the_activity_removes_the_subscription`
+3. `test_carried_subscription_survives_the_sweep` — der Gegentest, damit der
+   Sweep kein allgemeiner Abonnement-Vernichter wird
+
+### #7 — Semantik festgelegt
+
+Entscheidung: deaktivierte Nutzer bleiben für die eingestellte Dauer in der
+Liste, aber als deaktiviert gekennzeichnet; gelöschte Nutzer verschwinden
+sofort. Das ist genau das aktuelle Verhalten — Moodle zeigt suspendierte
+Einschreibungen als „Suspendiert", und `purge_user()` entfernt sofort. #7 gilt
+damit als erfüllt; die 90 Tage sind gewollt, nicht geduldet.
+
+### Korrektur an einer eigenen Aussage: Jest läuft doch
+
+Ich hatte behauptet, Jest laufe nirgends in der CI. Falsch. `local_adele`s
+Workflow ruft es in beiden Jobs über `custom_steps` auf — aber mit
+`|| echo "Tests failed but continuing"`. Der Exit-Code wurde also verschluckt,
+und die 50 Spec-Dateien unter `vue3/tests/unit/` haben nie etwas abgesichert.
+Der Zusatz ist entfernt; ein fehlendes Test-Skript beendet den Schritt jetzt
+mit `exit 1` statt es zu überspringen.
+
+Dabei zusätzlich korrigiert: `on:` war in dieser Datei ungequotet — das
+Norway-Problem, das im Projekt seit Session 002 dokumentiert ist. GitHub
+verzeiht es, YAML liest es als Boolean.
+
+### Auslieferungsumfang
+
+`tests/load/` steht jetzt neben `tests/playwright/` unter `export-ignore`, in
+allen drei `.gitattributes`. Mit `git archive` gegengeprüft: beide
+Verzeichnisse fehlen im Archiv, 123 andere `tests/`-Einträge sind enthalten.
+Die YAML-Definitionen waren nie betroffen — `.github/` ist vollständig
+ausgeschlossen, weshalb `actions/checkout` (das klont) weiterhin alles sieht.
+
+### Verifikation
+
+PHPUnit: 100 Testdateien, alle grün. phpcs 0/0 über alle drei Plugins.
+Sprachstrings 56/56 mit EN/DE-Parität, alphabetisch.
+
+### Versionsstände
+
+| Plugin | Release | version |
+|---|---|---|
+| `enrol_adele` | 0.4.0 | 2026082900 |
+| `local_adele` | 0.5.5 | 2026082800 (unverändert) |
+| `mod_adele` | 0.4.0 | 2026082900 |
+
+`local_adele` bekommt keine Anhebung: dort haben sich nur die CI-Definition
+und `.gitattributes` geändert.
+
+---
+
 ## Sitzungsstand
 
 Alle sieben Upstream-Issues (#2–#8) sind bearbeitet. Alle in dieser Sitzung

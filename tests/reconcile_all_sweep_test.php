@@ -390,6 +390,133 @@ final class reconcile_all_sweep_test extends \advanced_testcase {
     }
 
     /**
+     * Moving an activity from learning path A to B must take A's state with
+     * it — and establish B's.
+     *
+     * The gap issue #8 asks about, and the one case where every other pass
+     * looks the other way. Nothing changes about the user's ENROLMENTS when
+     * an activity is re-pointed, so no event fires; the subscription to A
+     * stays active, and pass 4 then re-grants access to A's node courses on
+     * every single run. The user sits in a learning path nothing embeds.
+     *
+     * @return void
+     */
+    public function test_switching_the_embedded_learning_path_removes_the_old_state(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+
+        $nodea = $this->getDataGenerator()->create_course();
+        $host = $this->getDataGenerator()->create_course();
+        [$lpa, $userid, $adeleid] = $this->plant_embedding((int) $nodea->id, (int) $host->id, '3');
+
+        $this->getDataGenerator()->enrol_user($userid, $nodea->id, 'student', 'manual');
+        $this->set_node_status($lpa, $userid, 'accessible');
+        reconciler::reconcile_user($lpa, $userid);
+        $this->assertNotFalse(
+            $this->get_ue($lpa, (int) $nodea->id, $userid, instance_manager::KIND_TARGET),
+            'Precondition: the user must hold access to the old path.'
+        );
+
+        // A second learning path, and the activity re-pointed at it.
+        $nodeb = $this->getDataGenerator()->create_course();
+        [$lpb] = $this->plant_embedding((int) $nodeb->id, (int) $host->id, '3');
+        $DB->set_field('adele', 'learningpathid', $lpb, ['id' => $adeleid]);
+
+        reconciler::reconcile_all();
+        $this->run_queued_removals();
+
+        $this->assertFalse(
+            $DB->record_exists('local_adele_path_user', ['learning_path_id' => $lpa, 'user_id' => $userid]),
+            'The subscription to the path the activity no longer embeds must go.'
+        );
+        $ue = $this->get_ue($lpa, (int) $nodea->id, $userid, instance_manager::KIND_TARGET);
+        $this->assertFalse(
+            $ue,
+            'Access to the old path must not survive it.'
+        );
+    }
+
+    /**
+     * Deleting the activity must not leave its subscribers behind either.
+     *
+     * Same mechanism as the path switch, reached differently: here the
+     * embedding disappears entirely rather than moving.
+     *
+     * @return void
+     */
+    public function test_deleting_the_activity_removes_the_subscription(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+
+        $node = $this->getDataGenerator()->create_course();
+        $host = $this->getDataGenerator()->create_course();
+        [$lpid, $userid, $adeleid] = $this->plant_embedding((int) $node->id, (int) $host->id, '3');
+
+        $this->getDataGenerator()->enrol_user($userid, $node->id, 'student', 'manual');
+        $this->assertTrue(
+            $DB->record_exists('local_adele_path_user', ['learning_path_id' => $lpid, 'user_id' => $userid]),
+            'Precondition: the subscription must exist.'
+        );
+
+        $DB->delete_records('adele', ['id' => $adeleid]);
+
+        reconciler::reconcile_all();
+        $this->run_queued_removals();
+
+        $this->assertFalse(
+            $DB->record_exists('local_adele_path_user', ['learning_path_id' => $lpid, 'user_id' => $userid]),
+            'A subscription no embedding carries must not outlive the embedding.'
+        );
+    }
+
+    /**
+     * A still-carried subscription must survive the sweep untouched.
+     *
+     * The counter-test to the two above: the sweep must not become a
+     * general-purpose subscription reaper.
+     *
+     * @return void
+     */
+    public function test_carried_subscription_survives_the_sweep(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+
+        $node = $this->getDataGenerator()->create_course();
+        $host = $this->getDataGenerator()->create_course();
+        [$lpid, $userid] = $this->plant_embedding((int) $node->id, (int) $host->id, '3');
+        $this->getDataGenerator()->enrol_user($userid, $node->id, 'student', 'manual');
+
+        reconciler::reconcile_all();
+        $this->run_queued_removals();
+
+        $this->assertTrue(
+            $DB->record_exists('local_adele_path_user', ['learning_path_id' => $lpid, 'user_id' => $userid]),
+            'A subscription a node course enrolment still carries must stay.'
+        );
+    }
+
+    /**
+     * Run every queued deferred removal task.
+     *
+     * @return int Number of tasks executed.
+     */
+    private function run_queued_removals(): int {
+        $executed = 0;
+        $due = time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS + 1;
+        while (($task = \core\task\manager::get_next_adhoc_task($due)) !== null) {
+            if ($task instanceof \enrol_adele\task\remove_user_path_adhoc) {
+                $task->execute();
+                $executed++;
+            }
+            \core\task\manager::adhoc_task_complete($task);
+        }
+        return $executed;
+    }
+
+    /**
      * A second run must change nothing.
      *
      * Idempotence is what makes a nightly sweep safe to run unattended: if

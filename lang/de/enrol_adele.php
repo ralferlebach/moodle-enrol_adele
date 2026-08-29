@@ -67,6 +67,7 @@ $string['manage_report_pass'] = 'Durchgang';
 $string['manage_report_roles'] = 'Rollenzuweisungen repariert';
 $string['manage_report_targetactual'] = 'Zielkurse, Ist zu Soll';
 $string['manage_report_targetwanted'] = 'Zielkurse, Soll zu Ist';
+$string['manage_report_uncarried'] = 'Nicht mehr getragene Abonnements zur Entfernung eingereiht';
 $string['manage_report_when'] = 'Letzter Lauf: {$a}';
 $string['manage_status_active'] = 'Aktiv';
 $string['manage_status_suspended'] = 'Suspendiert';

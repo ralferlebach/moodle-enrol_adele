@@ -129,6 +129,7 @@ if (!is_array($report) || empty($report['timestamp'])) {
         'targetwanted' => 'manage_report_targetwanted',
         'targetactual' => 'manage_report_targetactual',
         'host' => 'manage_report_host',
+        'uncarried' => 'manage_report_uncarried',
         'expired' => 'manage_report_expired',
     ];
     foreach ($passes as $key => $stringid) {
