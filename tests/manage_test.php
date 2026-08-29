@@ -228,6 +228,59 @@ final class manage_test extends \advanced_testcase {
     }
 
     /**
+     * The cost of showing the first page must not depend on how much there is.
+     *
+     * The point of issue #6. The previous page aggregated every instance and
+     * every enrolment in one request, so it got slower with every learning
+     * path an installation ever created — the kind of regression that is
+     * invisible on a development site and fatal on a real one.
+     *
+     * Measured in DATABASE QUERIES, not in wall time: a timing assertion on a
+     * CI runner is a coin flip, while the query count is exactly what the
+     * change was about and is deterministic. Rendering one page must cost the
+     * same three queries whether there are 10 instances or 210, and must
+     * never return more rows than the page holds.
+     *
+     * @return void
+     */
+    public function test_first_page_cost_is_independent_of_total_size(): void {
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+
+        // The global goes inside the closure: a closure does not inherit the
+        // caller's globals.
+        $measure = function (): array {
+            global $DB;
+            $before = $DB->perf_get_reads();
+            [$where, $params] = manage::filter();
+            $total = manage::count_instances($where, $params);
+            $rows = manage::get_page($where, $params, manage::safe_sort(null), 0, 10);
+            manage::get_counts(array_keys($rows));
+            return ['reads' => $DB->perf_get_reads() - $before, 'total' => $total, 'rows' => count($rows)];
+        };
+
+        $this->plant_instances(10, 'SMALL');
+        $small = $measure();
+        $this->assertEquals(10, $small['total']);
+        $this->assertEquals(10, $small['rows']);
+
+        $this->plant_instances(200, 'LARGE');
+        $large = $measure();
+        $this->assertEquals(210, $large['total'], 'Precondition: the data set must really have grown.');
+
+        $this->assertEquals(
+            10,
+            $large['rows'],
+            'A page must never return more rows than its size, however large the table.'
+        );
+        $this->assertEquals(
+            $small['reads'],
+            $large['reads'],
+            'Rendering the first page must cost the same number of queries with 210 instances as with 10.'
+        );
+    }
+
+    /**
      * An orphaned instance — learning path gone — still appears, with a null
      * name, instead of quietly dropping out of the list.
      *

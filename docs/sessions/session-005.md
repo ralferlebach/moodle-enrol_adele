@@ -1264,6 +1264,86 @@ und `.gitattributes` geändert.
 
 ---
 
+## Teil 16 — #6 abgeschlossen, `vue3/` aus dem Release
+
+### `vue3/` nicht mehr ausliefern
+
+`vue3/` steht jetzt in `local_adele`s `.gitattributes` unter `export-ignore`.
+Vorher geprüft, dass keine PHP- oder Mustache-Datei zur Laufzeit auf `vue3/`
+verweist — geladen wird ausschließlich `amd/build/`, und das bleibt im Archiv.
+Mit `git archive` gegengeprüft: `vue3/` 0 Einträge, `amd/build/` 4 Einträge,
+`classes/` 88 Einträge.
+
+### #6, Rest-DoD 1: Per-Task-Status und -Ergebnis
+
+Die Seite zeigte bislang nur eine Zahl anstehender Tasks. Das beantwortet die
+Frage nicht, die ein Administrator tatsächlich hat: eine erfolgreich gelaufene
+und eine nie eingereihte Task hinterlassen beide eine leere Warteschlange.
+
+Zwei Tabellen ersetzen die Zahl:
+
+**Warteschlange.** `manage::get_queued_repairs()` liest `{task_adhoc}` und
+unterscheidet drei Zustände, die aus dem Datensatz selbst ableitbar sind:
+`running` (`timestarted` gesetzt), `retrying` (`faildelay > 0`) und `queued`.
+`retrying` ist der einzige Zustand, der sich nicht von selbst auflöst, und
+wird deshalb rot hervorgehoben.
+
+**Abgeschlossene Reparaturen.** Neue Klasse `enrol_adele\local\task_log`.
+Beide Ad-hoc-Tasks umschließen ihren Aufruf mit `try`/`catch` und halten
+Aktion, Lernpfad, Anzahl betroffener Datensätze, Ergebnis und Zeitpunkt fest —
+im Fehlerfall zusätzlich die Ausnahmemeldung, bevor die Ausnahme
+weitergeworfen wird.
+
+Gespeichert als **begrenzte** Liste (`KEEP = 25`) in der Plugin-Konfiguration,
+nicht in einer eigenen Tabelle. Ein rollierendes Fenster der letzten Läufe ist
+Betriebsrückmeldung, keine auswertbare Datenhaltung; es rechtfertigt kein
+Schema, keinen Upgradeschritt und keinen Eintrag im Privacy-Provider. Die
+Begrenzung ist genau das, was diese Ablage vertretbar macht: der Wert kann
+nicht wachsen, wie oft auch immer Reparaturen laufen. `task_log::record()`
+wirft nie — ein Fehler beim Schreiben der Rückmeldung darf aus einer
+erfolgreichen Reparatur keine fehlgeschlagene Task machen.
+
+### #6, Rest-DoD 2: Skalierungstest
+
+`test_first_page_cost_is_independent_of_total_size` misst in
+**Datenbankabfragen**, nicht in Laufzeit: eine Zeitmessung auf einem
+CI-Runner ist ein Münzwurf, die Abfragezahl ist deterministisch und genau
+das, worum es bei der Umstellung ging.
+
+Der Test rendert die erste Seite bei 10 Instanzen, legt 200 weitere an und
+rendert erneut. Zugesichert wird, dass die Abfragezahl **identisch** ist und
+die Seite nie mehr Zeilen liefert, als sie fasst. Beim ersten Lauf grün.
+
+### #6, Rest-DoD 3: Schwellwert dokumentieren
+
+Bleibt bei 200 und ist bewusst so: unterhalb davon läuft die Reparatur
+synchron, weil ein Administrator dann sofort das Ergebnis sieht, statt auf
+einen Cron-Lauf zu warten. Oberhalb wird eingereiht. Der Wert steht als
+`ADELE_MANAGE_ASYNC_THRESHOLD` mit Begründung im Code.
+
+### Verifikation
+
+PHPUnit: **101 Testdateien, alle grün** (vier neue in `task_status_test.php`,
+eine neue in `manage_test.php`). phpcs 0/0. Sprachstrings 67/67 mit
+EN/DE-Parität, alphabetisch; `manage_tasks_pending` entfernt, weil die
+Zahl-Anzeige entfallen ist.
+
+### Versionsstände
+
+| Plugin | Release | version |
+|---|---|---|
+| `enrol_adele` | 0.4.0 | 2026082901 |
+| `local_adele` | 0.5.5 | 2026082800 (unverändert) |
+| `mod_adele` | 0.4.0 | 2026082900 |
+
+### Stand der Issues
+
+Alle sieben Issues #2–#8 sind damit aus meiner Sicht abgearbeitet. Was das
+externe Review als Rest führte, ist geschlossen: #8 hatte die schwerste
+Lücke (Teil 15), #6 die drei DoD-Punkte, #7 war eine Semantikfrage.
+
+---
+
 ## Sitzungsstand
 
 Alle sieben Upstream-Issues (#2–#8) sind bearbeitet. Alle in dieser Sitzung

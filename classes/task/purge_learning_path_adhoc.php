@@ -26,6 +26,7 @@
 namespace enrol_adele\task;
 
 use enrol_adele\local\reconciler;
+use enrol_adele\local\task_log;
 
 /**
  * Queued by manage.php instead of running synchronously, when the
@@ -49,6 +50,16 @@ class purge_learning_path_adhoc extends \core\task\adhoc_task {
         if (!$learningpathid) {
             return;
         }
-        reconciler::purge_learning_path($learningpathid);
+        // The outcome is recorded either way. A task that succeeds vanishes
+        // from the queue, and a task that fails is retried and then vanishes
+        // too, so without this an administrator can never find out what
+        // happened to a repair they queued (issue #6).
+        try {
+            $affected = reconciler::purge_learning_path($learningpathid);
+            task_log::record('purge', $learningpathid, (int) $affected);
+        } catch (\Throwable $e) {
+            task_log::record('purge', $learningpathid, 0, 'failed', $e->getMessage());
+            throw $e;
+        }
     }
 }

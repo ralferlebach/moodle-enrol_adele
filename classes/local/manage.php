@@ -208,6 +208,56 @@ class manage {
     }
 
     /**
+     * The ADELE repairs currently sitting in the ad-hoc queue.
+     *
+     * Three states are distinguishable from {task_adhoc} itself, and they
+     * mean different things to whoever is waiting:
+     *
+     * - running: a worker has claimed it (timestarted is set);
+     * - retrying: it threw and cron will try again (faildelay > 0) — the one
+     *   state an administrator actually needs to see, because it will not
+     *   resolve itself;
+     * - queued: waiting for the next cron run.
+     *
+     * @return array List of ['classname', 'action', 'learningpathid',
+     *     'state', 'nextruntime', 'faildelay'], soonest first.
+     */
+    public static function get_queued_repairs(): array {
+        global $DB;
+
+        $records = $DB->get_records_select(
+            'task_adhoc',
+            'component = :component',
+            ['component' => 'enrol_adele'],
+            'nextruntime ASC',
+            'id, classname, customdata, nextruntime, faildelay, timestarted'
+        );
+
+        $result = [];
+        foreach ($records as $record) {
+            $data = json_decode((string) $record->customdata, true);
+            $parts = explode('\\', trim((string) $record->classname, '\\'));
+            $short = end($parts);
+            if ($record->timestarted) {
+                $state = 'running';
+            } else if ($record->faildelay > 0) {
+                $state = 'retrying';
+            } else {
+                $state = 'queued';
+            }
+            $result[] = [
+                'classname' => (string) $record->classname,
+                'action' => $short,
+                'learningpathid' => (int) ($data['learningpathid'] ?? 0),
+                'state' => $state,
+                'nextruntime' => (int) $record->nextruntime,
+                'faildelay' => (int) $record->faildelay,
+            ];
+        }
+        return $result;
+    }
+
+    /**
      * Number of distinct users a learning path currently holds an ADELE
      * enrolment for, across target and host courses.
      *

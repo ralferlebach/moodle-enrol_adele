@@ -145,14 +145,75 @@ if (!is_array($report) || empty($report['timestamp'])) {
     echo html_writer::table($reporttable);
 }
 
-// Repairs currently queued in the background.
-$pending = $DB->count_records('task_adhoc', ['component' => 'enrol_adele']);
-echo html_writer::tag(
-    'p',
-    $pending
-        ? get_string('manage_tasks_pending', 'enrol_adele', $pending)
-        : get_string('manage_tasks_none', 'enrol_adele')
-);
+// Repairs in the background: what is still queued, and what became of the
+// ones that already ran. A bare count answers neither question — a task that
+// succeeded and one that was never queued both leave the queue empty.
+echo $OUTPUT->heading(get_string('manage_tasks_heading', 'enrol_adele'), 3);
+$queued = manage::get_queued_repairs();
+if (!$queued) {
+    echo html_writer::tag('p', get_string('manage_tasks_none', 'enrol_adele'));
+} else {
+    $queuedtable = new html_table();
+    $queuedtable->attributes['class'] = 'generaltable';
+    $queuedtable->id = 'enroladelequeuedtasks';
+    $queuedtable->head = [
+        get_string('manage_tasks_action', 'enrol_adele'),
+        get_string('manage_col_learningpath', 'enrol_adele'),
+        get_string('manage_tasks_state', 'enrol_adele'),
+        get_string('manage_tasks_nextrun', 'enrol_adele'),
+    ];
+    foreach ($queued as $task) {
+        $state = get_string('manage_tasks_state_' . $task['state'], 'enrol_adele');
+        if ($task['state'] === 'retrying') {
+            // The only state that will not resolve on its own; say so where
+            // it is read, not only in the task log.
+            $state = html_writer::span($state, 'text-danger');
+        }
+        $queuedtable->data[] = [
+            s($task['action']),
+            $task['learningpathid'] ? '#' . $task['learningpathid'] : '-',
+            $state,
+            $task['nextruntime'] ? userdate($task['nextruntime']) : '-',
+        ];
+    }
+    echo html_writer::table($queuedtable);
+}
+
+$outcomes = \enrol_adele\local\task_log::all();
+if ($outcomes) {
+    $outcometable = new html_table();
+    $outcometable->attributes['class'] = 'generaltable';
+    $outcometable->id = 'enroladeletaskoutcomes';
+    $outcometable->head = [
+        get_string('manage_tasks_action', 'enrol_adele'),
+        get_string('manage_col_learningpath', 'enrol_adele'),
+        get_string('manage_tasks_outcome', 'enrol_adele'),
+        get_string('manage_report_count', 'enrol_adele'),
+        get_string('manage_tasks_finished', 'enrol_adele'),
+    ];
+    foreach ($outcomes as $entry) {
+        $failed = ($entry['outcome'] ?? '') === 'failed';
+        $outcome = get_string(
+            $failed ? 'manage_tasks_outcome_failed' : 'manage_tasks_outcome_succeeded',
+            'enrol_adele'
+        );
+        if ($failed) {
+            $outcome = html_writer::span($outcome, 'text-danger');
+            if (!empty($entry['message'])) {
+                $outcome .= html_writer::tag('div', s($entry['message']), ['class' => 'small text-muted']);
+            }
+        }
+        $outcometable->data[] = [
+            s($entry['action'] ?? ''),
+            !empty($entry['learningpathid']) ? '#' . (int) $entry['learningpathid'] : '-',
+            $outcome,
+            (int) ($entry['affected'] ?? 0),
+            !empty($entry['timefinished']) ? userdate($entry['timefinished']) : '-',
+        ];
+    }
+    echo html_writer::tag('p', get_string('manage_tasks_recent', 'enrol_adele'));
+    echo html_writer::table($outcometable);
+}
 
 // Filter form.
 $learningpaths = manage::get_filter_learningpaths();
