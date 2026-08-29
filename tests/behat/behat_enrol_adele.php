@@ -101,6 +101,27 @@ class behat_enrol_adele extends behat_base {
     }
 
     /**
+     * Open the management page filtered to one learning path, found by name.
+     *
+     * The filter dropdown labels each option with the learning path id, which
+     * is not stable across scenarios — the sequence keeps counting even
+     * though the table is emptied. Selecting by visible text would therefore
+     * only work in whichever scenario happens to run first. The dropdown
+     * itself is covered by the course and type filter scenarios, which use
+     * fixed values.
+     *
+     * @Given /^I open the ADELE management page filtered to learning path "(?P<name>(?:[^"]|\\")*)"$/
+     * @param string $name The learning path name.
+     * @return void
+     */
+    public function i_open_the_management_page_filtered_to(string $name): void {
+        global $DB;
+
+        $lpid = $DB->get_field('local_adele_learning_paths', 'id', ['name' => $name], MUST_EXIST);
+        $this->i_directly_visit_the_url('enrol/adele/manage.php?learningpathid=' . (int) $lpid);
+    }
+
+    /**
      * Create the given number of ADELE enrol instances, each in its own
      * course, all belonging to one learning path.
      *

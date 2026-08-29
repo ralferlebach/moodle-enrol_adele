@@ -268,6 +268,10 @@ $table->no_sorting('type');
 $table->no_sorting('active');
 $table->no_sorting('suspended');
 $table->no_sorting('actions');
+// The flexible_table class gives ids to rows and cells but not to the table itself,
+// so tests would have to match on a row id prefix. One stable id is
+// cheaper to depend on than that.
+$table->attributes['id'] = 'enroladelemanagetable';
 $table->attributes['class'] = 'generaltable';
 $table->setup();
 $table->pagesize(manage::PER_PAGE, $total);

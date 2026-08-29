@@ -821,6 +821,247 @@ aus.
 
 ---
 
+---
+
+## Teil 11 — Behat lokal aufgesetzt und ausgeführt
+
+In Teil 10 hatte ich Behat als „im Container nicht praktikabel" abgeschrieben.
+Das war falsch: Chrome for Testing und der passende chromedriver lassen sich
+direkt beziehen, ein Selenium-Server ist überflüssig, weil chromedriver
+WebDriver selbst spricht. Aufgesetzt, ausgeführt, und `environment-setup.md`
+§8 vollständig neu geschrieben — mit den vier Punkten, die je einen Anlauf
+gekostet haben (`PHP_CLI_SERVER_WORKERS`, `setsid`, `binary` in den
+chromeOptions, sterbender chromedriver).
+
+### Ergebnis
+
+`enrol_adele`: **8 Szenarien, 73 Schritte, alle grün.** Damit sind die
+Annahmen aus Teil 7, die ich ausdrücklich als Wackelkandidaten benannt hatte,
+geprüft — und zwei davon waren tatsächlich falsch.
+
+**1. `I should not see "Hard delete"` schlug fehl.** Nicht wegen der Seite,
+sondern weil `manage_intro` das Wort selbst enthält. Beim Nachsehen fiel auf,
+dass der Text die Seite ohnehin nicht mehr beschreibt: er spricht von „every
+learning path that currently owns at least one instance", während die Seite
+seit Teil 7 eine Zeile je **Instanz** zeigt und der Purge-Knopf erst nach
+Eingrenzung erscheint. EN und DE neu geschrieben. Die Zusicherung prüft jetzt
+das Element (`"Hard delete" "button" should not exist`) statt einen Text, der
+auch in einer Beschreibung vorkommen kann.
+
+**2. `I should see "Page: 1 2"` schlug fehl.** Diese Zeichenkette gibt es
+nicht; Moodles `paging_bar` rendert nummerierte Links mit einem
+`sr-only`-Text „Page 2". Statt die Markup-Annahme zu korrigieren, prüft das
+Szenario jetzt das Verhalten: `BULK60` ist auf Seite 1 nicht sichtbar, nach
+Klick auf „Page 2" schon.
+
+**3. Ein dritter Fehlschlag kam erst nach der Korrektur zum Vorschein:** die
+Auswahlliste beschriftet jede Option mit der Lernpfad-ID, und die ist
+zwischen Szenarien nicht stabil — die Sequenz zählt weiter, obwohl die Tabelle
+geleert wird. Ein Test, der `"Behat test path (#1)"` auswählt, funktioniert
+nur im jeweils ersten Szenario. Neuer Behat-Schritt
+`I open the ADELE management page filtered to learning path "<name>"`, der die
+ID aus der Datenbank auflöst. Die Auswahlliste selbst bleibt durch die
+Kurs- und Typ-Filterszenarien abgedeckt, die feste Werte verwenden.
+
+### `local_adele`: 9 von 12 grün
+
+Drei Szenarien in `adele_basic_usage.feature` scheitern an
+`I pan vue flow to "[data-id='dndnode_1']"`. **Gegenprobe mit dem
+unveränderten Repository-Stand: identischer Fehlschlag.** Also keine
+Regression aus dieser Sitzung, sondern die Kombination aus sehr neuem Chrome
+(152) und der HTML5-Drag-and-Drop-Emulation in die Vue-Flow-Leinwand. In der
+CI mit dem Selenium-Image laufen sie grün. Als bekannte Grenze in
+`environment-setup.md` §8 vermerkt.
+
+`mod_adele` hat keine Behat-Szenarien.
+
+### Gesamtstand der Verifikation
+
+| Prüfung | Ergebnis |
+|---|---|
+| phpcs `--standard=moodle --severity=1` | 0/0 über alle drei Plugins |
+| PHPUnit | 100 Testdateien, alle grün |
+| Behat `@enrol_adele` | 8/8 grün |
+| Behat `@local_adele` | 9/12, drei browserbedingt (auch unverändert rot) |
+| Neuinstallation aller drei Plugins | läuft durch, trotz zirkulärem Graphen |
+| Upgradepfad `drop_table` | läuft, Tabelle sauber entfernt |
+
+### Versionsstände
+
+| Plugin | Release | version |
+|---|---|---|
+| `enrol_adele` | 0.4.0 | 2026082802 |
+| `local_adele` | 0.5.5 | 2026082800 |
+| `mod_adele` | 0.4.0 | 2026082801 |
+
+---
+
+---
+
+## Teil 12 — Playwright- und Lasttests
+
+Auftrag: für alle drei Plugins eine Playwright-Strecke mit minimalem Umfang
+aufbauen, für `local_adele` zusätzlich k6 und JMeter — jeweils klein gehalten,
+um erst einmal die Funktionsweise sicherzustellen.
+
+Behat ist damit **nicht** ersetzt: Teil 11 hat es lokal aufgesetzt und
+ausgeführt (`enrol_adele` 8/8). Playwright tritt daneben, weil es die
+Vue3-Oberfläche von `local_adele` direkter erreicht und weil ein
+Browser-Treiber in der CI ohne Selenium-Image auskommt.
+
+Alles Folgende ist **lokal ausgeführt**, nicht nur geschrieben.
+
+---
+
+### Was angelegt wurde
+
+| Plugin | Neu |
+|---|---|
+| `enrol_adele` | `.github/workflows/playwright.yml`, `tests/playwright/` (Config, Seed, Helfer, 4 Tests) |
+| `local_adele` | `.github/workflows/playwright.yml`, `load-k6.yml`, `load-jmeter.yml`, `tests/playwright/` (3 Tests), `tests/load/` (Seed, k6-Plan, JMX) |
+| `mod_adele` | `.github/workflows/playwright.yml`, `tests/playwright/` (3 Tests) |
+
+Die Suiten prüfen bewusst wenig: dass die jeweilige Oberfläche gegen ein
+echtes Moodle überhaupt erscheint. `enrol_adele` deckt die Verwaltungsseite ab
+(Auflistung, Bericht, Filter, bedingte Löschschaltfläche), `local_adele` das
+Einhängen der Vue-Anwendung und das Ankommen des Lernpfads im Browser,
+`mod_adele` die Aktivität im Host-Kurs. Jede Suite prüft zusätzlich auf
+`.errorbox` und auf unbehandelte JavaScript-Ausnahmen — beides fällt sonst
+niemandem auf, weil Moodle Ausnahmen mit HTTP 200 ausliefert.
+
+### Messergebnisse
+
+| Suite | Ergebnis |
+|---|---|
+| `enrol_adele` Playwright | 4/4, dreimal in Folge, je ~9 s |
+| `local_adele` Playwright | 3/3, zweimal in Folge |
+| `mod_adele` Playwright | 3/3 |
+| `local_adele` k6 | 208 von 208 Checks, 0 fehlgeschlagene Requests |
+| `local_adele` JMeter | 186 Samples, 0 Fehler |
+
+Die Lastschwellen sind absichtlich weit gesetzt (`http_req_failed < 5 %`,
+`p95 < 5 s`). Ein vor der ersten Messung enger gezogener Schwellwert würde
+nur eine Vermutung festschreiben.
+
+### Der Login: zwei Fehldiagnosen, dann die Ursache
+
+Die Suite schlug anfangs in drei von vier Läufen fehl, mit „Invalid login,
+please try again" bei korrekten Zugangsdaten.
+
+**Erste Vermutung — Session-Race zwischen den Workern des eingebauten
+Servers.** Falsch. Gegenprobe mit `curl`: acht von acht Anmeldungen
+erfolgreich.
+
+**Zweite Vermutung — `cookiesecure`.** Moodles Installer setzt es auf 1, der
+Testserver läuft über HTTP, der Browser verwirft das Cookie. Das ist ein
+echter Fehler und ist behoben (`seed.php` schaltet es für nicht-HTTPS-Sites
+ab), war aber **nicht** die Ursache: die Fehlerrate blieb.
+
+**Tatsächliche Ursache, erst nach Instrumentierung sichtbar:** das
+Anmeldeformular wird zwischen Ausfüllen und Absenden neu gerendert. Das
+Passwortfeld ist beim Absenden leer (`pass-len=0`), Moodle lehnt korrekt ab
+und meldet „Invalid login".
+
+**Konsequenz — und eine Korrektur an einer eigenen früheren Entscheidung.**
+Im ersten Entwurf hatte ich das Formular bewusst durchlaufen lassen, „als
+kostenloser Rauchtest des ganzen Stapels". Das war falsch gedacht: der Login
+ist kein Prüfgegenstand dieser Suiten, und ein flackernder Schritt, der nichts
+absichert, ist schlechter als gar keiner. Die Anmeldung läuft jetzt über
+`page.context().request`, das seinen Cookie-Speicher mit dem Kontext teilt.
+Danach: dreimal 4/4 statt einmal 1/4.
+
+Die drei Fehlversuche mit Wiederholschleife, die dazwischen entstanden, sind
+wieder entfernt — Symptombekämpfung an der falschen Stelle.
+
+### Zwei Funde, die nichts mit den Tests zu tun haben
+
+**`manage.php` lieferte HTTP 404 mit „Section error".** Ursache: bei einem
+ausstehenden Plugin-Upgrade ist `is_installed_and_upgraded()` `false`, Moodle
+lädt `settings.php` gar nicht, und die Verwaltungsseite existiert damit
+schlicht nicht — auch die eigene Einstellungsseite des Plugins fehlt dann.
+Nach `admin/cli/upgrade.php` liefert sie HTTP 200.
+
+**Damit ist ein zweites Mal bestätigt, was seit Session 003 im Code als „noch
+nicht gegen eine echte Instanz geprüft" markiert war:** die Registrierung von
+`enrolsettingsadelemanage` unter der Kategorie `enrolments` funktioniert. Teil
+11 hatte das über Behat bereits gezeigt; hier fiel es erneut auf, weil ein
+ausstehendes Upgrade denselben Effekt erzeugt wie eine fehlende Registrierung.
+
+**Eigener Testfehler:** der Lernpfadname steht sowohl im Filter-Auswahlfeld als
+auch in der Tabellenzelle; die unbeschränkte Textzusicherung traf zwei
+Elemente. Behoben durch Beschränkung auf die Tabellenzeile — wozu die Tabelle
+in `manage.php` eine stabile `id` bekommen hat, weil `flexible_table` nur
+Zeilen und Zellen mit `id` versieht, nicht die Tabelle selbst.
+
+### Aufbau der Workflows
+
+Alle drei `playwright.yml` folgen demselben Muster:
+
+- Das Plugin unter Test kommt aus dem Checkout, **nie** aus einem Clone.
+- Die beiden Geschwister werden über `SIBLING_REF` geklont, das auf den Branch
+  des laufenden Workflows vorbelegt ist — ein Lauf testet damit immer einen
+  zusammenhängenden Stand. Nötig, weil der Abhängigkeitsgraph zirkulär ist und
+  Moodle sich mit nur einem der drei Plugins nicht installieren lässt.
+- Ein Schritt prüft, dass jedes Plugin-Verzeichnis **genau eine**
+  `version.php` enthält. Mehr bedeutet, dass ein Repository in ein bestehendes
+  Plugin-Verzeichnis kopiert wurde und das getestete Ökosystem nicht das ist,
+  das der Workflow zu testen behauptet.
+- Der Webserver startet **innerhalb** des Schritts, der ihn braucht: ein in
+  einem früheren Schritt gestarteter Hintergrundprozess überlebt nicht
+  zuverlässig.
+- Gebunden an `127.0.0.1`, nicht `localhost` — PHPs eingebauter Server lauscht
+  auf genau einer Adresse.
+- Bei Fehlschlag werden nur die fehlgeschlagenen Testverzeichnisse hochgeladen,
+  ohne Videos, plus das komprimierte Serverlog.
+
+Die beiden Lastworkflows kennen `selfcontained` (baut und seedet alles selbst)
+und `external` (zeigt auf eine vorhandene Instanz). Das JMeter-Archiv wird
+gegen Apaches SHA-512 geprüft; dabei wird nur das Hash-Feld übernommen, weil
+die Prüfsummendatei bereits einen Dateinamen mitbringt.
+
+### Verifikation
+
+`php -l` sauber, `phpcs --standard=moodle --severity=1` 0/0 über alle drei
+Plugins (die drei `seed.php` eingeschlossen). Alle fünf YAML-Dateien mit
+`yaml.safe_load` geparst, das JMX auf Wohlgeformtheit geprüft. PHPUnit erneut
+vollständig grün.
+
+### Keine Versionsanhebung
+
+Playwright- und Lastdateien sind Testartefakte, die Workflows reine CI. Nach
+der Projektkonvention rechtfertigt das keine Anhebung. Ich hatte alle drei
+Plugins zunächst trotzdem auf `2026082900` gehoben und das wieder
+zurückgenommen.
+
+Die Versionsstände bleiben damit die aus Teil 10 beziehungsweise die vom
+Auftraggeber vorgegebenen Release-Namen:
+
+| Plugin | Release | version |
+|---|---|---|
+| `enrol_adele` | 0.4.0 | 2026082802 |
+| `local_adele` | 0.5.5 | 2026082800 |
+| `mod_adele` | 0.4.0 | 2026082801 |
+
+### Was zu beachten ist
+
+- **`.gitattributes`**: `tests/` ist in keinem der drei Repositories
+  `export-ignore`, die neuen Testverzeichnisse landen also in den
+  Archiv-Downloads. `.github/` ist ausgeschlossen — das ist richtig so, weil
+  `actions/checkout` klont und nicht archiviert.
+- **`node_modules`**: je ein `.gitignore` unter `tests/playwright/` hält
+  `node_modules/`, `test-results/` und `playwright-report/` aus dem Repo.
+- **Vorhandene Workflow-Dateien** kann ich nicht sehen — `.github/` fehlt in
+  jedem Archiv-Download. Ob in einem der Repositories bereits eine
+  `playwright.yml` liegt, ist vor dem Einspielen zu prüfen.
+- **`workflow_dispatch`** erscheint erst dann in der Actions-Oberfläche, wenn
+  die Datei auf dem **Default-Branch** liegt.
+- **Behat** bleibt unangetastet und weiterhin gültig: die acht Szenarien aus
+  Teil 11 laufen grün. Die Playwright-Suite für `enrol_adele` deckt dieselbe
+  Seite ab; das ist bewusste Redundanz, keine Ablösung. Ob eine der beiden
+  Strecken langfristig entfällt, ist zu entscheiden.
+
+---
+
 ## Sitzungsstand
 
 Alle sieben Upstream-Issues (#2–#8) sind bearbeitet. Alle in dieser Sitzung
@@ -830,8 +1071,17 @@ gestellten Fragen Q1 bis Q9 sind beantwortet.
 Plugins, alle grün, gegen ein echtes Moodle 4.5.13 mit PostgreSQL 16. Der
 Lauf hat drei Fehler aufgedeckt, die weder phpcs noch die CI gezeigt hätten.
 
-**Offen bleibt Behat** — dafür fehlt im Container ein Browser-Treiber; die
-acht Szenarien aus Teil 7 sind weiterhin ungeprüft.
+**Behat ist seit Teil 11 ebenfalls belegt:** `enrol_adele` 8/8 grün, nachdem
+drei falsche Testannahmen korrigiert waren. In `local_adele` scheitern drei
+Vue-Flow-Szenarien browserversionsbedingt — nachweislich auch mit dem
+unveränderten Code.
+
+**Seit Teil 12 kommt eine Playwright-Strecke für alle drei Plugins dazu**
+(4/4, 3/3, 3/3) sowie je ein k6- und ein JMeter-Lastplan für `local_adele`
+(208/208 Checks beziehungsweise 186 Samples ohne Fehler). Alle fünf sind lokal
+gegen ein echtes Moodle ausgeführt worden. Für `enrol_adele` liegt damit
+bewusste Redundanz zu Behat vor; ob eine der beiden Strecken langfristig
+entfällt, ist zu entscheiden.
 
 **Und die Workflow-Änderung aus Teil 9.** Solange die CI die Begleit-Plugins
 aus dem Upstream zieht, sagt sie über `enrol_adele` wenig. Der grüne lokale

@@ -50,18 +50,19 @@ Feature: Manage ADELE enrolment instances
     Given an ADELE enrol instance exists in course "C1" for user "student1"
     And I log in as "admin"
     When I directly visit the url "enrol/adele/manage.php"
-    Then I should not see "Hard delete"
-    When I set the field "Learning path" to "Behat test path (#1)"
-    And I click on "Apply filter" "button"
-    Then I should see "Hard delete"
+    Then "Hard delete" "button" should not exist
+    When I open the ADELE management page filtered to learning path "Behat test path"
+    Then "Hard delete" "button" should exist
+    And I should see "C1"
 
   Scenario: The instance list is paginated
     Given 60 ADELE enrol instances exist
     And I log in as "admin"
     When I directly visit the url "enrol/adele/manage.php"
     Then I should see "BULK1"
-    And I should see "Page: 1 2"
     And I should not see "BULK60"
+    When I click on "Page 2" "link"
+    Then I should see "BULK60"
 
   Scenario: Filtering by course narrows the list
     Given 60 ADELE enrol instances exist

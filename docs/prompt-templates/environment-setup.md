@@ -12,11 +12,9 @@ Behat. Geschrieben für die Arbeit im Container.
 > (Wegwerf-Kopien im Moodle-Baum, gegen die getestet wird). Nie im Spiegel
 > entwickeln – er wird bei jedem Testlauf überschrieben.
 
-> **Verifikationsstand dieses Dokuments:** §0–§7 und §9–§11 sind am 2026-08-28
-> Schritt für Schritt im Container ausgeführt worden; die angegebenen Ausgaben
-> sind die tatsächlichen. Nur §8 (Behat) ist übertragen und **nicht
-> ausgeführt** — dafür fehlt ein Browser-Treiber. Wer ihn zum ersten Mal
-> aufsetzt, protokolliert Abweichungen und schreibt dieses Dokument fort.
+> **Verifikationsstand dieses Dokuments:** vollständig am 2026-08-28 im
+> Container ausgeführt, einschließlich Behat mit echtem Chrome. Die
+> angegebenen Ausgaben sind die tatsächlichen.
 
 ---
 
@@ -42,9 +40,9 @@ Behat. Geschrieben für die Arbeit im Container.
 | Moodle-Pfad | `/home/claude/moodle` |
 | dataroot | `/home/claude/moodledata` |
 | phpunit_dataroot | `/home/claude/moodledata_phpu`, `phpunit_prefix=phpu_` |
-| Ergebnis | 100 Testdateien über alle drei Plugins, alle grün |
-
-Nur **Behat** ist weiterhin nicht aufgebaut: dafür fehlt ein Browser-Treiber.
+| Behat | Chrome for Testing 152 + chromedriver 152, headless, PHP-Builtin-Server |
+| Ergebnis PHPUnit | 100 Testdateien über alle drei Plugins, alle grün |
+| Ergebnis Behat | `enrol_adele` 8/8 grün; `local_adele` 9 von 12 (drei Vue-Flow-Szenarien scheitern browserversionsbedingt, siehe §8) |
 
 Moodle **4.5** ist die Untergrenze, nicht 4.1: `enrol_adele` und `local_adele`
 verlangen zwar nur `2022112800`, `mod_adele` aber `2024100700`. Das gesamte
@@ -287,11 +285,78 @@ Fehlschlag ohne Fehlermeldung. Bei unerwartet grünen Tests zuerst
 
 ---
 
-## 8. Behat, Lint und moodle-plugin-ci
+## 8. Behat
 
-Behat braucht zusätzlich einen Browser-Treiber und die `behat_*`-Konfiguration.
-Im reinen CLI-Container ist ein lokaler Behat-Lauf in der Regel nicht
-praktikabel – dort wird Behat über `moodle-plugin-ci` in der CI ausgeführt.
+Entgegen einer früheren Fassung dieses Dokuments ist ein lokaler Behat-Lauf im
+Container **sehr wohl praktikabel**. Chrome for Testing und der passende
+chromedriver lassen sich direkt beziehen; ein Selenium-Server ist nicht nötig,
+chromedriver spricht WebDriver selbst.
+
+```bash
+cd /tmp && curl -sS \
+  "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" -o cft.json
+# Die linux64-URLs für "chrome" und "chromedriver" des Stable-Kanals entnehmen,
+# nach /opt entpacken, chmod +x, dann:
+apt-get install -y -qq libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
+    libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+    libgbm1 libasound2t64 libpango-1.0-0 libcairo2 fonts-liberation
+/opt/chrome-linux64/chrome --headless --no-sandbox --dump-dom about:blank | head -1
+```
+
+`config.php` um die Behat-Konfiguration ergänzen — **`binary` nicht
+vergessen**:
+
+```php
+$CFG->behat_prefix='beha_';
+$CFG->behat_dataroot='/home/claude/moodledata_behat';
+$CFG->behat_wwwroot='http://localhost:8000';
+$CFG->behat_profiles = [
+    'default' => [
+        'browser' => 'chrome',
+        'wd_host' => 'http://localhost:9515',
+        'capabilities' => ['extra_capabilities' => ['chromeOptions' => [
+            'binary' => '/opt/chrome-linux64/chrome',
+            'args' => ['--no-sandbox', '--headless=new', '--disable-gpu',
+                       '--disable-dev-shm-usage', '--window-size=1920,1080'],
+        ]]],
+    ],
+];
+```
+
+Starten und laufen lassen:
+
+```bash
+cd /home/claude/moodle
+php admin/tool/behat/cli/init.php
+(setsid /opt/chromedriver-linux64/chromedriver --port=9515 > /tmp/chromedriver.log 2>&1 &)
+(setsid env PHP_CLI_SERVER_WORKERS=8 php -S localhost:8000 -t /home/claude/moodle > /tmp/webserver.log 2>&1 &)
+vendor/bin/behat --config /home/claude/moodledata_behat/behatrun/behat/behat.yml --tags @enrol_adele
+```
+
+Vier Punkte, die je einen Anlauf gekostet haben:
+
+1. **`PHP_CLI_SERVER_WORKERS` ist Pflicht.** Der eingebaute PHP-Server ist
+   sonst einprozessig; Moodles Erreichbarkeitsprüfung löst eine Anfrage aus,
+   die selbst wieder eine Anfrage stellt, und blockiert sich. Symptom:
+   „`http://localhost:8000` is not available", obwohl `curl` 200 liefert.
+2. **`setsid` verwenden.** Ein einfaches `nohup … &` überlebt das Ende des
+   aufrufenden Kommandos hier nicht zuverlässig.
+3. **`binary` in den chromeOptions setzen.** Bringt eine Paketinstallation
+   nebenbei ein zweites Chrome mit (z. B. `/opt/google/chrome/chrome`), greift
+   chromedriver danach und bricht mit „only supports Chrome version N" ab.
+4. **chromedriver stirbt gelegentlich zwischen Läufen.** Vor jedem Lauf
+   `pgrep -f chromedriver` prüfen und bei Bedarf neu starten.
+
+**Bekannte Grenze:** Drei `local_adele`-Szenarien in
+`adele_basic_usage.feature` scheitern an
+`I pan vue flow to "[data-id='dndnode_1']"`. Der Schritt folgt auf eine
+HTML5-Drag-and-Drop-Emulation in die Vue-Flow-Leinwand, die stark von der
+Browserversion abhängt. Gegenprobe mit dem **unveränderten** Repository-Stand:
+identischer Fehlschlag — es ist keine Regression, sondern die Kombination aus
+sehr neuem Chrome und der Drag-Emulation. In der CI (Selenium-Image) laufen
+diese Szenarien grün.
+
+## 8a. Lint und moodle-plugin-ci
 
 ```bash
 cd /home/claude
@@ -311,6 +376,69 @@ Grunt muss aus dem **Moodle-Wurzelverzeichnis** laufen; das erzeugte
 `amd/build/` wird committet und darf nie in `.gitignore` stehen.
 
 ---
+
+## 8b. Playwright und Lasttests
+
+Playwright braucht weder Selenium noch die Behat-Konfiguration und bringt
+seinen eigenen Chromium mit. Es lebt je Plugin unter
+`tests/playwright/`; `local_adele` hat zusätzlich `tests/load/`.
+
+```bash
+cd /home/claude/moodle/enrol/adele/tests/playwright
+npm ci                                  # oder: npm install
+npx playwright install --with-deps chromium
+```
+
+Fixture erzeugen und Suite laufen lassen. `seed.php` schreibt
+`export KEY='value'`-Zeilen, ist also direkt sourcebar:
+
+```bash
+cd /home/claude/moodle
+ADELE_SEED_I_KNOW=1 php enrol/adele/tests/playwright/seed.php > /tmp/seed.env
+(setsid env PHP_CLI_SERVER_WORKERS=8 php -S 127.0.0.1:8000 -t /home/claude/moodle \
+    >/tmp/moodle-server.log 2>&1 &)
+cd enrol/adele/tests/playwright
+set -a; . /tmp/seed.env; set +a
+npx playwright test
+```
+
+Erwartung: `enrol_adele` 4/4, `local_adele` 3/3, `mod_adele` 3/3.
+
+**`ADELE_SEED_I_KNOW=1` ist Absicht.** Die Seed-Skripte setzen das
+Admin-Passwort zurück und schreiben Fixture-Daten; ohne die Bestätigung
+verweigern sie den Dienst. Nur auf Wegwerf-Instanzen benutzen.
+
+`$CFG->wwwroot` muss auf `http://127.0.0.1:8000` zeigen, sonst laufen die
+Tests gegen eine andere Adresse als der Server lauscht.
+
+### Lasttests (nur `local_adele`)
+
+```bash
+# k6
+curl -sSL https://github.com/grafana/k6/releases/download/v0.54.0/k6-v0.54.0-linux-amd64.tar.gz \
+  -o /tmp/k6.tgz && tar xzf /tmp/k6.tgz -C /tmp && cp /tmp/k6-v0.54.0-linux-amd64/k6 /usr/local/bin/
+
+cd /home/claude/moodle
+ADELE_SEED_I_KNOW=1 ADELE_LOAD_USERS=25 php local/adele/tests/load/seed_large.php > /tmp/seed-load.env
+set -a; . /tmp/seed-load.env; set +a
+k6 run -e BASE_URL="$ADELE_BASE_URL" -e COURSEID="$ADELE_COURSE_ID" \
+       -e ADMIN_USER="$ADELE_ADMIN_USER" -e ADMIN_PASSWORD="$ADELE_ADMIN_PASSWORD" \
+       -e VUS=10 -e DURATION=30s local/adele/tests/load/adele-read-endpoints.js
+
+# JMeter (braucht eine JRE)
+apt-get install -y -qq openjdk-17-jre-headless
+curl -sSL https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz -o /tmp/jmeter.tgz
+curl -sSL https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz.sha512 -o /tmp/jmeter.tgz.sha512
+(cd /tmp && echo "$(awk '{print $1}' jmeter.tgz.sha512)  jmeter.tgz" | sha512sum -c - && tar xzf jmeter.tgz)
+/tmp/apache-jmeter-5.6.3/bin/jmeter -n -t local/adele/tests/load/adele-read-endpoints.jmx \
+  -Jbase_url="$ADELE_BASE_URL" -Jcourseid="$ADELE_COURSE_ID" \
+  -Jadmin_user="$ADELE_ADMIN_USER" -Jadmin_password="$ADELE_ADMIN_PASSWORD" \
+  -Jthreads=10 -Jrampup=5 -Jduration=30 -l /tmp/results.jtl
+```
+
+Die Prüfsummendatei von Apache trägt bereits einen Dateinamen; hängt man einen
+zweiten an, sucht `sha512sum` nach der falschen Datei. Deshalb nur das
+Hash-Feld übernehmen.
 
 ## 9. Issues abrufen
 
@@ -376,6 +504,14 @@ vendor/bin/phpunit enrol/adele/tests/<test>.php
   annehmen, ihre Abwesenheit im entpackten Baum bedeute Abwesenheit im Repo.
 - **Docblock-Falle**: neue Methode vor einer privaten Methode eingefügt →
   verwaister Docblock → phpcs „Missing docblock". Nach Einfügungen phpcs laufen.
+- **„Invalid login, please try again" bei korrektem Passwort.** Nicht die
+  Zugangsdaten. Zwei bekannte Ursachen, beide gemessen: Moodles Installer
+  setzt `cookiesecure` auf 1, worauf der Browser das Session-Cookie einer
+  HTTP-Instanz verwirft (die Seed-Skripte schalten es für nicht-HTTPS-Sites
+  ab) — und das Anmeldeformular wird beim Ausfüllen durch Automatisierung
+  gelegentlich neu gerendert, sodass ein leeres Passwortfeld abgeschickt wird.
+  Deshalb meldet sich die Playwright-Suite über die Request-API an und nicht
+  über das Formular.
 - **Zone.Identifier-Dateien** wandern bei rohen Ordner-Exporten von Windows mit
   und stören `find`-basierte Läufe. Sie stammen aus dem Export, nicht aus dem
   Repo; mit `find . -iname '*Zone.Identifier*' -delete` wegräumen.
