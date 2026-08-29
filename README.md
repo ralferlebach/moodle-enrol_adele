@@ -1,7 +1,7 @@
 Adaptive e-Learning Paths enrolments (moodle-enrol_adele)
 ==================
 
-[![Moodle Plugin CI](https://github.com/ralferlebach/moodle-enrol_adele/actions/workflows/moodle-plugin-ci.yml/badge.svg?branch=development)](https://github.com/ralferlebach/moodle-enrol_adele/actions?query=workflow%3A%22Moodle+Plugin+CI%22+branch%3Adevelopment)
+[![Moodle Plugin CI](https://github.com/Wunderbyte-GmbH/moodle-enrol_adele/actions/workflows/moodle-plugin-ci.yml/badge.svg)](https://github.com/Wunderbyte-GmbH/moodle-enrol_adele/actions?query=workflow%3A%22Moodle+Plugin+CI%22)
 
 AdeLe enrolment owns every course enrolment a learning path causes: it derives who belongs in which course from the learning path state, keeps that derivation correct when events are lost, and cleans up when an entitlement ends.
 
