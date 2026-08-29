@@ -27,7 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
 $plugin->release = '0.4.0';
-$plugin->version = 2026082901;
+$plugin->version = 2026082902;
 $plugin->requires = 2022112800;
 $plugin->maturity = MATURITY_ALPHA;
 // The lower bound is 4.5, not 4.1: this plugin alone would run on 4.1,
@@ -40,5 +40,5 @@ $plugin->supported = [405, 502];
 // get_host_entitlement(), get_host_embeddings() and
 // get_learningpaths_with_host_embeddings(), which the host sweep calls.
 $plugin->dependencies = [
-    'local_adele' => 2026082800,
+    'local_adele' => 2026082901,
 ];

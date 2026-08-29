@@ -65,7 +65,12 @@ if ($action && $learningpathid) {
         if ($affected > ADELE_MANAGE_ASYNC_THRESHOLD) {
             $task = new \enrol_adele\task\reconcile_learning_path_adhoc();
             $task->set_custom_data(['learningpathid' => $learningpathid]);
-            \core\task\manager::queue_adhoc_task($task);
+            // Deduplicated: a double click, or an impatient second attempt
+            // while the first is still queued, must not enqueue the same
+            // repair twice. The operations are idempotent, so a duplicate
+            // would be harmless but wasteful — and confusing in the queue
+            // display, where it would look like something went wrong.
+            \core\task\manager::queue_adhoc_task($task, true);
             redirect($filteredurl, get_string('manage_action_queued', 'enrol_adele', $affected));
         }
         $n = reconciler::reconcile_learning_path($learningpathid);
@@ -96,7 +101,12 @@ if ($action && $learningpathid) {
         if ($affected > ADELE_MANAGE_ASYNC_THRESHOLD) {
             $task = new \enrol_adele\task\purge_learning_path_adhoc();
             $task->set_custom_data(['learningpathid' => $learningpathid]);
-            \core\task\manager::queue_adhoc_task($task);
+            // Deduplicated: a double click, or an impatient second attempt
+            // while the first is still queued, must not enqueue the same
+            // repair twice. The operations are idempotent, so a duplicate
+            // would be harmless but wasteful — and confusing in the queue
+            // display, where it would look like something went wrong.
+            \core\task\manager::queue_adhoc_task($task, true);
             redirect($pageurl, get_string('manage_action_queued', 'enrol_adele', $affected));
         }
         $n = reconciler::purge_learning_path($learningpathid);

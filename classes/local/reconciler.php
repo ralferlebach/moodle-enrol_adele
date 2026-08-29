@@ -391,8 +391,7 @@ class reconciler {
             return 0;
         }
 
-        $count = 0;
-        $rs = $DB->get_recordset_sql(
+        $known = $DB->get_fieldset_sql(
             "SELECT DISTINCT userid
                FROM (
                     SELECT lpu.user_id AS userid
@@ -415,8 +414,17 @@ class reconciler {
                 'courseid' => $hostcourseid,
             ]
         );
-        foreach ($rs as $row) {
-            $userid = (int) $row->userid;
+
+        // Third population: users an embedding COULD entitle but that ADELE
+        // has never recorded. Without them the sweep heals only revocations —
+        // a widened subscription option would depend forever on mod_adele's
+        // save-time sweep having run. Collected as an array rather than
+        // streamed because it has to be merged with the other two; the set is
+        // bounded by one (learning path, host course) pair.
+        $candidates = \local_adele\enrol_state::get_host_candidate_userids($learningpathid, $hostcourseid);
+
+        $count = 0;
+        foreach (array_unique(array_map('intval', array_merge($known, $candidates))) as $userid) {
             $entitlement = \local_adele\enrol_state::get_host_entitlement($learningpathid, $hostcourseid, $userid);
             if ($entitlement === null) {
                 continue;
@@ -425,7 +433,6 @@ class reconciler {
             self::reconcile_host_user($learningpathid, $hostcourseid, $userid, (bool) $entitled, (string) $mode);
             $count++;
         }
-        $rs->close();
 
         return $count;
     }
