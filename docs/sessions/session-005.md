@@ -1062,6 +1062,78 @@ Auftraggeber vorgegebenen Release-Namen:
 
 ---
 
+## Teil 13 — Zwei kaputte CI-Definitionen
+
+Beide Workflow-Dateien wurden von GitHub mit „Invalid workflow file"
+abgewiesen. Zwei verschiedene Ursachen, beide lokal mit `yaml.safe_load`
+reproduziert und nach der Korrektur als parsend nachgewiesen.
+
+### `mod_adele` — Kommentare innerhalb eines Blockskalars
+
+Gemeldet auf Zeile 12 (`with:`), verursacht in Zeile 19. In
+
+```yaml
+      extra_plugin_runners: |
+        moodle-plugin-ci add-plugin --branch main …wunderbyte_table
+      #   moodle-plugin-ci add-plugin --branch master …shortcodes
+      #   moodle-plugin-ci add-plugin --branch main …mocktesttime
+        moodle-plugin-ci add-plugin --branch development …local_adele
+```
+
+bestimmt die erste nicht-leere Zeile die Einrückung des Blocks: acht
+Leerzeichen. Die beiden Kommentarzeilen stehen auf sechs und **beenden den
+Block damit**. Die folgende, wieder acht Leerzeichen tiefe Zeile ist dann ein
+unerwarteter Skalar im Mapping — und YAML meldet das an der Stelle, an der
+das Mapping begann, also bei `with:`, elf Zeilen entfernt von der Ursache.
+
+Korrektur: die beiden Kommentare stehen jetzt **vor** dem Schlüssel, auf der
+Einrückung des Schlüssels, wo sie echte YAML-Kommentare sind. Ein Hinweis im
+Kommentar erklärt die Falle, damit sie nicht in der nächsten Sitzung
+zurückkehrt.
+
+### `enrol_adele` — Textfragment in Zeile 4
+
+Die Datei enthält direkt unter `"on": [push, pull_request]` die Zeile
+
+```text
+--branch development--branch development
+```
+
+Zwei aneinandergehängte Fragmente einer `add-plugin`-Zeile, offensichtlich
+Überbleibsel einer fehlgeschlagenen Textersetzung. YAML liest das als
+Mapping-Schlüssel ohne Doppelpunkt und bricht ab. Die Zeile ist ersatzlos
+entfernt.
+
+### Zusätzlich korrigiert: unerreichbare Matrix in `enrol_adele`
+
+Der zweite Job testete `MOODLE_401_STABLE MOODLE_405_STABLE`. Auf 4.1 kann er
+gar nicht durchlaufen: der Job installiert `mod_adele`, und das verlangt
+`2024100700`, also 4.5. Der Job wäre vor dem ersten Test an der Installation
+gescheitert. `$plugin->supported` steht seit Teil 2 aus demselben Grund auf
+`[405, 502]`. Der Job heißt jetzt `moodle405` und testet nur 4.5; die
+Begründung steht als Kommentar daneben, weil `$plugin->requires` weiterhin
+`2022112800` nennt und der Widerspruch sonst wie ein Versehen aussieht.
+
+### Nicht geändert
+
+`ralferlebach/moodle_local_adele` (mit Unterstrich) neben
+`ralferlebach/moodle-mod_adele` (mit Bindestrich) sieht nach einem Tippfehler
+aus, ist aber keiner: beide Namen liefern HTTP 200, GitHub leitet den alten
+Namen um. Angefasst habe ich es trotzdem nicht — eine Umbenennung in
+CI-Dateien ohne Not ist ein unnötiges Risiko.
+
+Die `add-plugin`-Ziele zeigen in beiden Dateien bereits auf
+`ralferlebach/…` und `--branch development`. Die in Teil 9 als Ursache 1
+beschriebene Fehlkonfiguration — Begleit-Plugins aus dem Upstream — ist damit
+erledigt; die elf übersprungenen Tests sollten wieder laufen.
+
+### Verifikation
+
+Alle sieben Workflow-Dateien der drei Plugins parsen mit `yaml.safe_load`.
+Keine Versionsanhebung: CI-Definitionen sind kein Plugincode.
+
+---
+
 ## Sitzungsstand
 
 Alle sieben Upstream-Issues (#2–#8) sind bearbeitet. Alle in dieser Sitzung
