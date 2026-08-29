@@ -18,9 +18,20 @@ jobs:
       #
       # All three plugins are co-developed on a shared "development" working
       # branch per repo (Session 001, Teil 4).
+      # Companion plugins come from the Wunderbyte upstream, deliberately.
+      # Note the inconsistent naming that this has to match exactly:
+      # local uses an underscore (moodle_local_adele) on branch "main",
+      # mod uses a hyphen on branch "master", enrol a hyphen on "main".
+      #
+      # PREREQUISITE: this only works once the corresponding changes are
+      # merged upstream. version.php declares hard dependencies on specific
+      # sibling versions, so an upstream that is behind makes Moodle refuse
+      # to install with "Dependencies check failed" - before a single test
+      # runs. If that happens, the branches here are ahead of upstream, not
+      # the code broken.
       extra_plugin_runners: |
-        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
-        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-mod_adele
+        moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle_local_adele
+        moodle-plugin-ci add-plugin --branch master Wunderbyte-GmbH/moodle-mod_adele
 
       # local_adele ships a Vue3 build tree; this plugin does not, so there is
       # nothing here for grunt to do.
@@ -46,9 +57,20 @@ jobs:
       moodle_branches: "MOODLE_405_STABLE"
       min_php: '8.1'
 
+      # Companion plugins come from the Wunderbyte upstream, deliberately.
+      # Note the inconsistent naming that this has to match exactly:
+      # local uses an underscore (moodle_local_adele) on branch "main",
+      # mod uses a hyphen on branch "master", enrol a hyphen on "main".
+      #
+      # PREREQUISITE: this only works once the corresponding changes are
+      # merged upstream. version.php declares hard dependencies on specific
+      # sibling versions, so an upstream that is behind makes Moodle refuse
+      # to install with "Dependencies check failed" - before a single test
+      # runs. If that happens, the branches here are ahead of upstream, not
+      # the code broken.
       extra_plugin_runners: |
-        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle_local_adele
-        moodle-plugin-ci add-plugin --branch development ralferlebach/moodle-mod_adele
+        moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle_local_adele
+        moodle-plugin-ci add-plugin --branch master Wunderbyte-GmbH/moodle-mod_adele
 
       disable_grunt: true
 
