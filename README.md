@@ -1,4 +1,4 @@
-moodle-enrol_adele
+Adaptive e-Learning Pahts enrolments (moodle-enrol_adele)
 ==================
 
 [![Moodle Plugin CI](https://github.com/ralferlebach/moodle-enrol_adele/actions/workflows/moodle-plugin-ci.yml/badge.svg?branch=development)](https://github.com/ralferlebach/moodle-enrol_adele/actions?query=workflow%3A%22Moodle+Plugin+CI%22+branch%3Adevelopment)
