@@ -224,6 +224,33 @@ final class settings_propagation_test extends \advanced_testcase {
         );
 
         $DB->set_field('adele', 'participantslist', '3', ['id' => $adeleid]);
+
+        // The chain from the stored setting to the granted enrolment, asserted
+        // link by link. Four things have to hold, and a single "no enrolment
+        // appeared" cannot say which of them did not: the learning path has to
+        // be found as embedded, the embedding has to report the widened
+        // option, the user has to be recognised as a candidate although ADELE
+        // has never seen them, and the entitlement has to come out true.
+        $this->assertContains(
+            $lpid,
+            \local_adele\enrol_state::get_learningpaths_with_host_embeddings(),
+            'The learning path must be found as embedded with option 2 or 3.'
+        );
+
+        $embeddings = \local_adele\enrol_state::get_host_embeddings($lpid);
+        $this->assertCount(1, $embeddings, 'Exactly one embedding is expected.');
+        $this->assertTrue((bool) $embeddings[0]['option3'], 'The embedding must report the widened option.');
+
+        $this->assertContains(
+            (int) $user->id,
+            \local_adele\enrol_state::get_host_candidate_userids($lpid, (int) $host->id),
+            'A user enrolled in a node course must be a candidate, even without a subscription.'
+        );
+
+        $entitlement = \local_adele\enrol_state::get_host_entitlement($lpid, (int) $host->id, (int) $user->id);
+        $this->assertNotNull($entitlement, 'The entitlement must be answerable, not "cannot tell".');
+        $this->assertTrue((bool) $entitlement[0], 'The widened option must make the user entitled.');
+
         reconciler::reconcile_all();
 
         $ue = $this->host_ue($lpid, (int) $host->id, (int) $user->id);
