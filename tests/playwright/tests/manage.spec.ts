@@ -40,12 +40,23 @@ test.describe('Learning path enrolment management', () => {
   test('filtering by host course empties the list', async ({ page }) => {
     await page.goto('/enrol/adele/manage.php');
 
+    // Filtered to THIS learning path as well as to the host type.
+    //
+    // The earlier version asserted the global empty state, which quietly
+    // depended on no host instance existing anywhere on the site. That held
+    // only as long as this was the only fixture; once another suite seeded a
+    // host embedding, the test failed while saying nothing about its own
+    // subject. An assertion that can be broken by an unrelated fixture is not
+    // an assertion about this plugin.
+    await page.selectOption('#adelefilterlp', env.learningPathId);
     await page.selectOption('#adelefilterkind', { label: 'Host course' });
     await page.getByRole('button', { name: 'Apply filter' }).click();
 
-    // The seed creates a target-course instance only, so the host filter must
-    // find nothing — and say so rather than showing an empty table.
-    await expect(page.getByText(/No learning path currently owns/i)).toBeVisible();
+    // The seed creates a target-course instance only, so this learning path
+    // must contribute no row under the host filter.
+    await expect(
+      page.locator('#enroladelemanagetable tbody tr').filter({ hasText: env.learningPathName })
+    ).toHaveCount(0);
   });
 
   test('hard delete appears only once a single learning path is selected', async ({ page }) => {
