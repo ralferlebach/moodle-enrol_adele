@@ -92,6 +92,16 @@ class remove_user_path_adhoc extends \core\task\adhoc_task {
             return;
         }
 
+        if (!reconciler::host_policy_reachable()) {
+            // The is_user_carried() check below reads embeddings that degrade
+            // to [] when mod_adele is unreachable - which would read as "not
+            // carried" and delete the only copy of the learner's progress.
+            // Deleting on uncertainty is the data loss this task exists to
+            // prevent: keep the record; a later sweep re-queues if the user
+            // is genuinely gone (PR #9 review, F1).
+            return;
+        }
+
         if (!$DB->record_exists('local_adele_learning_paths', ['id' => $learningpathid])) {
             // The whole learning path went away in the meantime; its own
             // purge path owns the cleanup, and there is nothing left to keep

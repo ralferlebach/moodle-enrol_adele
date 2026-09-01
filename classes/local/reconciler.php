@@ -47,6 +47,15 @@ use progress_trace;
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class reconciler {
+    /**
+     * Test-only override for host_policy_reachable(); null = real check.
+     * mod_adele is installed in every test run, so simulating an unloadable
+     * host_policy needs a seam - honoured only under PHPUNIT_TEST.
+     *
+     * @var bool|null
+     */
+    public static $hostpolicyreachableoverride = null;
+
     /** @var string Entitled => active host-course enrolment (default, 0.1.2 behaviour). */
     const MODE_VISIBLE = 'visible';
 
@@ -579,7 +588,39 @@ class reconciler {
             if (!$instances[$enrolid]) {
                 continue;
             }
-            $plugin->unenrol_user($instances[$enrolid], (int) $ue->userid);
+            $instance = $instances[$enrolid];
+            $lpid = (int) $instance->customint1;
+            $userid = (int) $ue->userid;
+            if ((int) $instance->customint2 === instance_manager::KIND_HOST) {
+                // Not every old suspension is unjustified (PR #9 review, F2):
+                // an ENTITLED hidden/none-mode host enrolment is suspended by
+                // design, forever - that record is what keeps the learner
+                // countable in reports. Only purge on an explicit "not
+                // entitled"; null (or an unanswerable question) keeps the row.
+                if (!self::host_support_available()) {
+                    continue;
+                }
+                $entitlement = \local_adele\enrol_state::get_host_entitlement(
+                    $lpid,
+                    (int) $instance->courseid,
+                    $userid
+                );
+                if ($entitlement === null || !empty($entitlement[0])) {
+                    continue;
+                }
+            } else if (
+                $DB->record_exists('local_adele_path_user', [
+                    'learning_path_id' => $lpid,
+                    'user_id' => $userid,
+                    'status' => 'active',
+                ])
+            ) {
+                // A suspended target enrolment of a user still ACTIVE on the
+                // path is a closed node, not a departed learner - reopening
+                // the node must find the record intact.
+                continue;
+            }
+            $plugin->unenrol_user($instance, $userid);
             $removed++;
         }
 
@@ -609,6 +650,9 @@ class reconciler {
      * @return bool
      */
     private static function host_support_available(): bool {
+        if (!self::host_policy_reachable()) {
+            return false;
+        }
         // All three, not just the two the sweep obviously needs.
         // get_host_candidate_userids() is what lets the sweep grant access to
         // a user ADELE has never seen; without it the pass still runs but is
@@ -619,6 +663,37 @@ class reconciler {
         return method_exists('\\local_adele\\enrol_state', 'get_host_entitlement')
             && method_exists('\\local_adele\\enrol_state', 'get_learningpaths_with_host_embeddings')
             && method_exists('\\local_adele\\enrol_state', 'get_host_candidate_userids');
+    }
+
+    /**
+     * Whether mod_adele's host_policy - the far end of every embeddings and
+     * entitlement question - is actually loadable.
+     *
+     * local_adele's enrol_state degrades to an EMPTY answer when it is not,
+     * and an empty embeddings list is indistinguishable from "nothing is
+     * embedded anywhere": acting on it destructively would delete every host
+     * instance site-wide and queue every subscription for removal. The
+     * entitlement channel already carries this distinction (null = cannot
+     * tell); this is the same rule for the embeddings channel. The skip is
+     * loud on purpose.
+     *
+     * @return bool
+     */
+    public static function host_policy_reachable(): bool {
+        if (self::$hostpolicyreachableoverride !== null && defined('PHPUNIT_TEST') && PHPUNIT_TEST) {
+            $reachable = self::$hostpolicyreachableoverride;
+        } else {
+            $reachable = class_exists('\\mod_adele\\local\\host_policy');
+        }
+        if (!$reachable) {
+            debugging(
+                'enrol_adele: mod_adele\\local\\host_policy is not reachable. ' .
+                'Host-course passes and deferred removals are skipped - an empty ' .
+                'embeddings answer must not be mistaken for "nothing is embedded".',
+                DEBUG_NORMAL
+            );
+        }
+        return $reachable;
     }
 
     /**
