@@ -1,7 +1,7 @@
-Adaptive e-Learning Paths enrolments (moodle-enrol_adele)
-==================
+Adaptive e-Learning Paths Enrolment (moodle-enrol_adele)
+========================================================
 
-[![Moodle Plugin CI](https://github.com/Wunderbyte-GmbH/moodle-enrol_adele/actions/workflows/moodle-plugin-ci.yml/badge.svg)](https://github.com/Wunderbyte-GmbH/moodle-enrol_adele/actions?query=workflow%3A%22Moodle+Plugin+CI%22)
+[![Moodle Plugin CI](https://github.com/Wunderbyte-GmbH/moodle-enrol_adele/actions/workflows/moodle-plugin-ci.yml/badge.svg?branch=main)](https://github.com/Wunderbyte-GmbH/moodle-enrol_adele/actions?query=workflow%3A%22Moodle+Plugin+CI%22+branch%3Amain)
 
 AdeLe enrolment owns every course enrolment a learning path causes: it derives who belongs in which course from the learning path state, keeps that derivation correct when events are lost, and cleans up when an entitlement ends.
 
@@ -87,8 +87,8 @@ This plugin also introduces these additional scheduled tasks:
 Repairs started from the management page run as ad-hoc tasks once more than 200 users are affected; below that they run immediately, so the administrator sees the result without waiting for cron.
 
 
-How this plugin works / Pitfalls
---------------------------------
+How this plugin works
+---------------------
 
 Two kinds of enrolment exist, and they are decided differently.
 
@@ -97,10 +97,6 @@ A **target course** belongs to a node of the learning path. Entitlement follows 
 A **host course** contains a mod_adele activity. Entitlement follows the activity's subscription options: course membership, membership of a starting node course, or membership of any node course. Several activities may embed the same learning path in the same course; the most generous setting wins.
 
 Losing an entitlement suspends the enrolment rather than removing it, so that reports, certificates and grades keep working. Removal happens after the configured retention, or immediately when the user genuinely leaves the learning path.
-
-**Pitfall:** the learning path subscription record is the only copy of a learner's progress through the path. Losing the last carrying enrolment therefore does **not** delete it straight away - a deferred task re-checks a few minutes later whether the removal proved durable. A cohort resynchronisation that removes and re-adds a user within that window leaves the record, and the progress, untouched.
-
-**Pitfall:** an enrolment instance belongs to a (course, learning path, kind) triple, not to a mod_adele activity. Removing one of several activities that embed the same path in the same course therefore does not remove the instance - the remaining activity still justifies it.
 
 
 Theme support
@@ -116,7 +112,7 @@ Plugin repositories
 This plugin is not published in the Moodle plugins repository.
 
 The latest development version can be found on Github:
-https://github.com/ralferlebach/moodle-enrol_adele
+https://github.com/Wunderbyte-GmbH/moodle-enrol_adele
 
 
 Bug and problem reports / Support requests
@@ -177,13 +173,14 @@ Maintainers
 -----------
 
 The plugin is maintained by\
-Wunderbyte GmbH
+Wunderbyte GmbH\
+Ralf Erlebach (independent contributor)
 
 Copyright
 ---------
 
 The copyright of this plugin is held by\
 Wunderbyte GmbH\
-Ralf Erlebach (as independent main-contributor)
+Ralf Erlebach
 
 Individual copyrights of individual developers are tracked in PHPDoc comments and Git commits.
