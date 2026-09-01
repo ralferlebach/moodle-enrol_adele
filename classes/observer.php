@@ -58,7 +58,7 @@ class observer {
             return;
         }
         $dbman = $DB->get_manager();
-        if (!$dbman->table_exists('local_adele_host_courses') || !$dbman->table_exists('local_adele_path_user')) {
+        if (!$dbman->table_exists('local_adele_path_user')) {
             return;
         }
 
@@ -77,13 +77,19 @@ class observer {
             if (self::is_user_carried($lpid, $userid)) {
                 continue;
             }
-            // Remove the user path record entirely. Course-derived progress
-            // re-derives on re-subscription; the documented caveats (manual
-            // master overrides, first_enrolled for timed windows) are accepted.
-            $DB->delete_records(
-                'local_adele_path_user',
-                ['learning_path_id' => $lpid, 'user_id' => $userid]
-            );
+            // Withdraw access NOW — that part is correct and wanted the
+            // moment entitlement ends — but do not destroy the learning
+            // history yet. The user path record is the only copy of node
+            // progress, teacher-set overrides and first_enrolled, and this
+            // observer cannot tell a genuine departure from a cohort resync
+            // that will re-add the user seconds later. A deferred task
+            // re-asks the same question once the removal has had time to
+            // prove durable (issue #3).
+            $task = new \enrol_adele\task\remove_user_path_adhoc();
+            $task->set_custom_data(['learningpathid' => $lpid, 'userid' => $userid]);
+            $task->set_next_run_time(time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS);
+            \core\task\manager::queue_adhoc_task($task, true);
+
             reconciler::purge_user($lpid, $userid);
             // Leaving the learning path must also clear every option-2/3
             // host-course enrolment it created, not just target-course ones:

@@ -8,6 +8,7 @@ jobs:
     uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
     with:
       disable_release: true
+
       moodle_branches: "MOODLE_500_STABLE MOODLE_501_STABLE"
       min_php: '8.2'
 
@@ -16,8 +17,18 @@ jobs:
       # plugin can install at all.
       #
       # All three plugins are co-developed on a shared "development" working
-      # branch per repo (Session 001, Teil 4). enrol_adele 0.1.1 depends on
-      # local_adele 0.4.3 / mod_adele 0.1.5.
+      # branch per repo (Session 001, Teil 4).
+      # Companion plugins come from the Wunderbyte upstream, deliberately.
+      # Note the inconsistent naming that this has to match exactly:
+      # local uses an underscore (moodle_local_adele) on branch "main",
+      # mod uses a hyphen on branch "master", enrol a hyphen on "main".
+      #
+      # PREREQUISITE: this only works once the corresponding changes are
+      # merged upstream. version.php declares hard dependencies on specific
+      # sibling versions, so an upstream that is behind makes Moodle refuse
+      # to install with "Dependencies check failed" - before a single test
+      # runs. If that happens, the branches here are ahead of upstream, not
+      # the code broken.
       extra_plugin_runners: |
         moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle_local_adele
         moodle-plugin-ci add-plugin --branch master Wunderbyte-GmbH/moodle-mod_adele
@@ -31,14 +42,32 @@ jobs:
       # No warnings tolerated. Keep it that way.
       codechecker_max_warnings: 0
 
-  # Moodle 4.1 LTS / 4.5, the lower bound declared in version.php ($plugin->requires).
-  moodle401to405:
+  # Floor: Moodle 4.5 on PHP 8.1.
+  #
+  # NOT 4.1, even though $plugin->requires still names 2022112800. This plugin
+  # alone would run on 4.1, but the job installs mod_adele, which requires
+  # 2024100700 — so on MOODLE_401_STABLE the site cannot be installed and the
+  # job fails before reaching a single test. $plugin->supported is [405, 502]
+  # for exactly that reason.
+  moodle405:
     uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
     with:
       disable_release: true
-      moodle_branches: "MOODLE_401_STABLE MOODLE_405_STABLE"
+
+      moodle_branches: "MOODLE_405_STABLE"
       min_php: '8.1'
 
+      # Companion plugins come from the Wunderbyte upstream, deliberately.
+      # Note the inconsistent naming that this has to match exactly:
+      # local uses an underscore (moodle_local_adele) on branch "main",
+      # mod uses a hyphen on branch "master", enrol a hyphen on "main".
+      #
+      # PREREQUISITE: this only works once the corresponding changes are
+      # merged upstream. version.php declares hard dependencies on specific
+      # sibling versions, so an upstream that is behind makes Moodle refuse
+      # to install with "Dependencies check failed" - before a single test
+      # runs. If that happens, the branches here are ahead of upstream, not
+      # the code broken.
       extra_plugin_runners: |
         moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle_local_adele
         moodle-plugin-ci add-plugin --branch master Wunderbyte-GmbH/moodle-mod_adele

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Background "Hard delete" for a single learning path.
+ * Background re-derivation of host-course access for one embedding.
  *
  * @package     enrol_adele
  * @copyright   2026 Wunderbyte GmbH
@@ -26,40 +26,40 @@
 namespace enrol_adele\task;
 
 use enrol_adele\local\reconciler;
-use enrol_adele\local\task_log;
 
 /**
- * Queued by manage.php instead of running synchronously, when the
- * number of affected users exceeds the responsiveness threshold. The
- * confirmation step itself already happened synchronously in manage.php
- * before this task was queued.
+ * Queued by mod_adele whenever an activity that embeds a learning path is
+ * created, saved or deleted.
+ *
+ * Saving an activity changes who is entitled to the host course — a
+ * deselected subscription option, a narrowed visibility mode, or the removal
+ * of the activity altogether all revoke access that used to be justified.
+ * None of that reached existing participants before: the live observers only
+ * fire on enrolment events, so a settled cohort would have waited for the
+ * next nightly sweep, and a deleted activity was never cleaned up at all.
+ *
+ * Queued rather than run inline because a popular host course can hold
+ * thousands of enrolments and saving a form must not block on them. The
+ * operation is idempotent, so a duplicate queue entry costs nothing.
  *
  * @package     enrol_adele
  * @copyright   2026 Ralf Erlebach
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class purge_learning_path_adhoc extends \core\task\adhoc_task {
+class reconcile_host_embedding_adhoc extends \core\task\adhoc_task {
     /**
-     * Run the hard delete for the learning path in custom data.
+     * Re-derive host access for the (learning path, host course) pair in
+     * custom data.
      *
      * @return void
      */
     public function execute(): void {
         $data = $this->get_custom_data();
         $learningpathid = (int) ($data->learningpathid ?? 0);
-        if (!$learningpathid) {
+        $hostcourseid = (int) ($data->hostcourseid ?? 0);
+        if (!$learningpathid || !$hostcourseid) {
             return;
         }
-        // The outcome is recorded either way. A task that succeeds vanishes
-        // from the queue, and a task that fails is retried and then vanishes
-        // too, so without this an administrator can never find out what
-        // happened to a repair they queued (issue #6).
-        try {
-            $affected = reconciler::purge_learning_path($learningpathid);
-            task_log::record('purge', $learningpathid, (int) $affected);
-        } catch (\Throwable $e) {
-            task_log::record('purge', $learningpathid, 0, 'failed', $e->getMessage());
-            throw $e;
-        }
+        reconciler::reconcile_host_embedding($learningpathid, $hostcourseid);
     }
 }
