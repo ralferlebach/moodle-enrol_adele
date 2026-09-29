@@ -12,7 +12,7 @@ export function required(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `Environment variable ${name} is not set. It is produced by tests/playwright/seed.php; ` +
+      `Environment variable ${name} is not set. It is produced by tests/playwright/seed.php or seed_fixtures.php; ` +
       `check that the seeding step ran and that its output reached the job environment.`
     );
   }
@@ -25,7 +25,21 @@ export const env = {
   get adminPassword() { return required('ADELE_ADMIN_PASSWORD'); },
   get learningPathName() { return required('ADELE_LP_NAME'); },
   get learningPathId() { return required('ADELE_LP_ID'); },
-  get courseShortname() { return required('ADELE_COURSE_SHORTNAME'); },
+
+  // Fixture users and objects for the regression specs. All identifiers are
+  // fixed, never randomised: several assertions are about the exact title.
+  get fixturePassword() { return required('ADELE_FIXTURE_PASSWORD'); },
+  get managerUsername() { return required('ADELE_MANAGER_USERNAME'); },
+  get assistantUsername() { return required('ADELE_ASSISTANT_USERNAME'); },
+  get visiblePathTitle() { return required('ADELE_VISIBLE_PATH_TITLE'); },
+  get invisiblePathTitle() { return required('ADELE_INVISIBLE_PATH_TITLE'); },
+  get visiblePathId() { return required('ADELE_VISIBLE_PATH_ID'); },
+  get invisiblePathId() { return required('ADELE_INVISIBLE_PATH_ID'); },
+  get visiblePathBTitle() { return required('ADELE_VISIBLE_PATH_B_TITLE'); },
+  get invisiblePathBTitle() { return required('ADELE_INVISIBLE_PATH_B_TITLE'); },
+  get collaboratorUsername() { return required('ADELE_COLLABORATOR_USERNAME'); },
+  get t0Username() { return required('ADELE_T0_USERNAME'); },
+  get navCourseUrl() { return required('ADELE_NAV_COURSE_URL'); },
 };
 
 /**
@@ -60,9 +74,16 @@ export async function loginAsAdmin(page: Page): Promise<void> {
  * @param password The password.
  */
 export async function loginAs(page: Page, username: string, password: string): Promise<void> {
-  // Leave the current page first: requests it still has in flight can set
-  // the previous session's cookie after this login and silently undo it
-  // (page and API share one cookie jar). See tests/e2e/support/env.ts.
+  // Leave the current page FIRST. A page that is still open keeps requests in
+  // flight - Moodle pages fire AJAX calls after load (media_videojs language
+  // strings, for one) - and the response of such a late request sets the
+  // previous session's cookie. Page and API share one cookie jar, so that
+  // cookie overwrites the session this function has just created: the login
+  // succeeds, the next page lands back on /login/index.php?loginredirect=1,
+  // and the test reports a rejected login for correct credentials.
+  // Observed in the E2E chains that switch users several times per test,
+  // roughly one run in three; about:blank cancels everything the old page
+  // still had running.
   await page.goto('about:blank');
   const api = page.context().request;
   await page.context().clearCookies();
