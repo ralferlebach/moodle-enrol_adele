@@ -43,6 +43,7 @@ import { env, loginAs } from '../support/env';
 import {
   drainTaskQueue,
   expectCourseClosed,
+  expectCourseClosedAfterTasks,
   expectCourseOpenAfterTasks,
   fixture,
   fixtureCourse,
@@ -182,7 +183,7 @@ test.describe('ADELE-E2E-C2 — a course that leaves the path takes its access w
 
     await test.step('the entitlement ends where the course left the path', async () => {
       await loginAs(page, referencePath.learner, fixturePassword());
-      await expectCourseClosed(
+      await expectCourseClosedAfterTasks(
         page,
         entry,
         'the course is no longer part of the path, so the enrolment it caused must end'
@@ -220,7 +221,7 @@ test.describe('ADELE-E2E-C2 — a course that leaves the path takes its access w
       drainTaskQueue();
 
       await loginAs(page, referencePath.learner, fixturePassword());
-      await expectCourseClosed(
+      await expectCourseClosedAfterTasks(
         page,
         second,
         'with the path gone, the enrolment it caused must go too'

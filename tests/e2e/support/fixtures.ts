@@ -118,6 +118,29 @@ export async function expectCourseOpenAfterTasks(
 }
 
 /**
+ * Assert that access is gone once the queued work has been done.
+ *
+ * The counterpart to expectCourseOpenAfterTasks: a withdrawal is produced by
+ * tasks as well, so the check runs the queue until the access is gone,
+ * bounded. Used after a change that should REMOVE access - never for a
+ * person who never had it, where an immediate check is the honest one.
+ *
+ * @param page The page, authenticated as the person under test.
+ * @param courseid The course.
+ * @param because What this proves, for the failure message.
+ */
+export async function expectCourseClosedAfterTasks(
+  page: Page,
+  courseid: string,
+  because: string
+): Promise<void> {
+  await expect.poll(async () => {
+    drainTaskQueue();
+    return await courseAccess(page, courseid);
+  }, { message: because, timeout: 60_000, intervals: [1000, 2000, 3000, 5000] }).not.toBe('open');
+}
+
+/**
  * Assert that this person really can work in this course.
  *
  * @param page The page, authenticated as the person under test.
