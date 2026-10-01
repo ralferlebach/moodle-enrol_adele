@@ -145,10 +145,11 @@ test.describe('ADELE-E2E-C2 — a course that leaves the path takes its access w
       // the completion one. Only the access canvas holds the criterion the
       // refusal is about.
       const node2 = app(page).locator('[data-testid="learningpath-node-dndnode_2"]');
-      // Addressed by its icon: the control is a button whose only name is a
-      // title attribute, which is not exposed as an accessible name here, and
-      // the icon is the same in every language.
-      await node2.locator('button:has(.fa-lock)').click();
+      // By its name, not by its icon: the card's controls carry an aria-label
+      // since #575 B2, which also distinguishes them from the identical
+      // controls of every other card.
+      await node2.getByRole('button', { name: /^(Edit access criteria|Zugangskriterien bearbeiten):/ })
+        .click();
 
       const criterion = page.locator('.vue-flow__node').filter({ hasText: /Vorgänger|predecessor/i });
       await expect(criterion.first()).toBeVisible({ timeout: 30_000 });
@@ -165,7 +166,8 @@ test.describe('ADELE-E2E-C2 — a course that leaves the path takes its access w
         .toBeVisible({ timeout: 30_000 });
 
       // Verify the removal where it counts: reopen the access criteria.
-      await node2.locator('button:has(.fa-lock)').click();
+      await node2.getByRole('button', { name: /^(Edit access criteria|Zugangskriterien bearbeiten):/ })
+        .click();
       await expect(page.locator('.vue-flow__node').filter({ hasText: /Vorgänger|predecessor/i }),
         'the removed access criterion must stay removed after reopening').toHaveCount(0);
       await page.getByRole('button', { name: /^(Save|Speichern)$/ }).click();

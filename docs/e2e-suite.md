@@ -73,10 +73,11 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
   falsche bearbeitet, löscht klaglos die falsche Bedingung.
   (`restriction/RestrictionControls.vue` ist toter Code und wird nirgends
   eingebunden — nicht als Vorlage lesen.)
-- **Symbole statt Rollen bei den Kachel-Schaltflächen.** Diese vier Knöpfe
-  tragen ihren Namen nur im `title`; über die Rolle sind sie nicht
-  auffindbar. Bis ein `aria-label` ergänzt ist, greifen die Ketten sie über
-  ihr Symbol (`button:has(.fa-lock)`).
+- **Kachel-Schaltflächen heißen jetzt etwas.** Schloss, Checkliste, Stift und
+  Papierkorb tragen seit `local_adele` 2026100101 ein `aria-label` aus
+  Funktion und Kursname (#575 B2); vorher stand der Name nur im `title` und
+  war über die Rolle nicht auffindbar. Die Ketten greifen sie darüber, nicht
+  über Symbolklassen.
 - **Bedienelemente ohne Zusage.** Moodles Teilnehmerliste bindet ihren
   Abmelde-Klick per AMD-Modul erst nach dem Markup; ein früher Klick bleibt
   wirkungslos, und keine Wartezeit repariert das. H2 folgt deshalb dem Link
