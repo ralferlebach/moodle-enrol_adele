@@ -64,6 +64,23 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
   weil Teile der Kette bewusst verzögert eingeplant werden (`local_adele`
   120 s, `enrol_adele` 300 s beim Entzug).
 - **Jede Kette hat eine Negativkontrolle** (Plan §2 G).
+- **Zwei Leinwände, die gleich aussehen.** Die Knotenkachel führt über das
+  Schloss-Symbol zu den ZUGANGSkriterien und über die Checkliste zu den
+  ABSCHLUSSkriterien; der Kachelkörper öffnet die Abschlusskriterien. Beide
+  Leinwände werden von derselben Komponente gerendert
+  (`completion/CompletionControls.vue`, unterschieden über `props.condition`),
+  sehen identisch aus und speichern den ganzen Lernpfad selbst. Wer die
+  falsche bearbeitet, löscht klaglos die falsche Bedingung.
+  (`restriction/RestrictionControls.vue` ist toter Code und wird nirgends
+  eingebunden — nicht als Vorlage lesen.)
+- **Symbole statt Rollen bei den Kachel-Schaltflächen.** Diese vier Knöpfe
+  tragen ihren Namen nur im `title`; über die Rolle sind sie nicht
+  auffindbar. Bis ein `aria-label` ergänzt ist, greifen die Ketten sie über
+  ihr Symbol (`button:has(.fa-lock)`).
+- **Bedienelemente ohne Zusage.** Moodles Teilnehmerliste bindet ihren
+  Abmelde-Klick per AMD-Modul erst nach dem Markup; ein früher Klick bleibt
+  wirkungslos, und keine Wartezeit repariert das. H2 folgt deshalb dem Link
+  (Moodles Weg ohne JavaScript), statt zu klicken.
 
 ## 4. Fixtures
 
@@ -92,14 +109,16 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §3 R1 | Admin verwaltet alle Lernpfade (anlegen, umbenennen, duplizieren, löschen, je mit Neuladen) + Negativkontrolle | local | **umgesetzt**, 2 Tests |
 | §27 Freigabeteil | Berechtigung → Einschreibung → realer Zugriff; gesperrter Knoten ohne Zugriff; Kontrollperson ohne Effekt; Persistenz; Kursübersicht | enrol | **umgesetzt**, 5 Tests |
 | §16 H1 | Aktivität über das Formular anlegen → Hostkurs-Mitglieder im Eingangskurs, Außenstehende nicht; Pfad in der Aktivität sichtbar | mod | **umgesetzt**, 1 Test |
+| §16/§27 H2 | Austritt aus dem Hostkurs → Zugriff entzogen, und zwar nur für die abgemeldete Person | mod | **umgesetzt**, 1 Test |
+| §27 Entzugsteil C2 | Eingangsknoten löschen → Speicherverweigerung; Zugangskriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen → Zugriff endet endgültig; je mit Negativkontrolle | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
 | §18 Accessibility | Tastaturroute, Live-Region, Namen, axe-core | local (Smoke) | als `issue574-575-accessibility.spec.ts` in der Smoke-Suite |
 | §3 R2–R6 | Manager, Lehrkraft→Assistent, Kollaboratoren | local | offen |
 | §4–5 E1, E2 | Referenzpfad per echtem Drag&Drop | local | offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
-| §16 H2–H4, §17 | weitere Teilnehmerquellen, Host-Modi, Result Visibility, Datenschutz | mod | offen |
-| §27 Entzugsteil | Bedingung entfällt → Zugriff entzogen | enrol | offen |
+| §16 H3–H4, §17 | weitere Teilnehmerquellen, Host-Modi, Result Visibility, Datenschutz | mod | offen |
+
 
 ## 6. Lokal ausführen
 
