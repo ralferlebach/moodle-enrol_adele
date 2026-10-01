@@ -69,6 +69,11 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
   erkennt Lernpfade am Namen; eine Kette, die einen Pfad umbenennt und so
   liegen lässt, erzeugt beim nächsten Seed-Lauf eine zweite Kopie. R2 und R3
   stellen den Namen deshalb in einem `finally` wieder her.
+- **Der letzte Bearbeiter ist geschützt.** Die Entfernen-Schaltfläche
+  erscheint erst, wenn mindestens zwei Personen eingetragen sind; ein Pfad
+  soll nicht ohne Bearbeiter zurückbleiben. Eine Kette, die ein Recht vergibt,
+  kann es daher nicht immer vollständig zurücknehmen — der Seed leert die
+  Bearbeitertabelle der Fixture-Pfade deshalb bei jedem Lauf.
 - **Lernpfade nie roh aus der Datenbank löschen.** Die zugehörigen
   ADELE-Einschreibungen bleiben dann verwaist zurück, und spätere Ketten
   scheitern an Zugriffen, die niemand mehr erklären kann. Löschen gehört in
@@ -121,12 +126,13 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §3 R1 | Admin verwaltet alle Lernpfade (anlegen, umbenennen, duplizieren, löschen, je mit Neuladen) + Negativkontrolle | local | **umgesetzt**, 2 Tests |
 | §3 R2 | Manager benennt einen fremden Lernpfad um; Lernende sehen keine Verwaltung | local | **umgesetzt**, 2 Tests |
 | §3 R3 | Assistent bearbeitet genau den Pfad, für den er Bearbeiter ist; beim anderen nur Ansehen | local | **umgesetzt**, 2 Tests |
+| §3 R4 | Bearbeitungsrecht über die Suche im Editor vergeben → Assistent kann speichern; letzter Bearbeiter ist nicht entfernbar; nach Entzug wieder gesperrt | local | **umgesetzt**, 1 Test mit 6 Schritten |
 | §27 Freigabeteil | Berechtigung → Einschreibung → realer Zugriff; gesperrter Knoten ohne Zugriff; Kontrollperson ohne Effekt; Persistenz; Kursübersicht | enrol | **umgesetzt**, 5 Tests |
 | §16 H1 | Aktivität über das Formular anlegen → Hostkurs-Mitglieder im Eingangskurs, Außenstehende nicht; Pfad in der Aktivität sichtbar | mod | **umgesetzt**, 1 Test |
 | §16/§27 H2 | Austritt aus dem Hostkurs → Zugriff entzogen, und zwar nur für die abgemeldete Person | mod | **umgesetzt**, 1 Test |
 | §27 Entzugsteil C2 | Eingangsknoten löschen → Speicherverweigerung; Zugangskriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen → Zugriff endet endgültig; je mit Negativkontrolle | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
 | §18 Accessibility | Tastaturroute, Live-Region, Namen, axe-core | local (Smoke) | als `issue574-575-accessibility.spec.ts` in der Smoke-Suite |
-| §3 R4–R6 | Lehrkraft vergibt Bearbeitungsrechte über die Oberfläche, Kollaboratoren | local | offen |
+| §3 R5–R6 | Lehrkraft-Rolle im Kurskontext, Kollaboratoren | local | offen |
 | §4–5 E1, E2 | Referenzpfad per echtem Drag&Drop | local | offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
