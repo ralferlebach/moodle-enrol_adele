@@ -111,6 +111,7 @@ durch `seed_fixtures.php`:
 | Hostkurs-Außenstehender | `student08` | nicht in `E2EHOST` |
 | Adele-Manager | `fx_adele_manager` | Systemrolle `adelemanager` |
 | Adele-Assistent | `fx_adele_assistant` | Systemrolle `adeleassistant`, Bearbeiter **nur** an „Linear A2" |
+| Lehrkraft | `fx_teacher` | ohne Rolle und ohne Einschreibung; die Einstellung `enrollassistant` steht auf der Lehrkraft-Rolle |
 
 Ein Lernender je Pfad, nicht einer auf allen: Die Berechtigung vereinigt sich
 über die Pfade, ein Lernender auf allen vier wäre über einen zweiten Pfad in
@@ -123,22 +124,29 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 
 | Plan | Kette | Plugin | Stand |
 |---|---|---|---|
-| §3 R1 | Admin verwaltet alle Lernpfade (anlegen, umbenennen, duplizieren, löschen, je mit Neuladen) + Negativkontrolle | local | **umgesetzt**, 2 Tests |
-| §3 R2 | Manager benennt einen fremden Lernpfad um; Lernende sehen keine Verwaltung | local | **umgesetzt**, 2 Tests |
-| §3 R3 | Assistent bearbeitet genau den Pfad, für den er Bearbeiter ist; beim anderen nur Ansehen | local | **umgesetzt**, 2 Tests |
-| §3 R4 | Bearbeitungsrecht über die Suche im Editor vergeben → Assistent kann speichern; letzter Bearbeiter ist nicht entfernbar; nach Entzug wieder gesperrt | local | **umgesetzt**, 1 Test mit 6 Schritten |
-| §27 Freigabeteil | Berechtigung → Einschreibung → realer Zugriff; gesperrter Knoten ohne Zugriff; Kontrollperson ohne Effekt; Persistenz; Kursübersicht | enrol | **umgesetzt**, 5 Tests |
-| §16 H1 | Aktivität über das Formular anlegen → Hostkurs-Mitglieder im Eingangskurs, Außenstehende nicht; Pfad in der Aktivität sichtbar | mod | **umgesetzt**, 1 Test |
-| §16/§27 H2 | Austritt aus dem Hostkurs → Zugriff entzogen, und zwar nur für die abgemeldete Person | mod | **umgesetzt**, 1 Test |
-| §27 Entzugsteil C2 | Eingangsknoten löschen → Speicherverweigerung; Zugangskriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen → Zugriff endet endgültig; je mit Negativkontrolle | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
-| §18 Accessibility | Tastaturroute, Live-Region, Namen, axe-core | local (Smoke) | als `issue574-575-accessibility.spec.ts` in der Smoke-Suite |
-| §3 R5–R6 | Lehrkraft-Rolle im Kurskontext, Kollaboratoren | local | offen |
+| §6 R1 | Administrator verwaltet alle Lernpfade (anlegen, umbenennen, duplizieren, löschen, je mit Neuladen) + Negativkontrolle | local | **umgesetzt**, 2 Tests |
+| §6 R2 | Manager bearbeitet einen fremden Lernpfad; Lernende sehen keine Verwaltung | local | **umgesetzt**, 2 Tests |
+| §6 R3 | Lehrkraft-Rolle im Kurs → Editorzugriff als Assistent, eigener Pfad anlegbar | local | **umgesetzt**, 1 Test; Entzug des Zugriffs siehe „Offen" |
+| §6 R4a | Kollaborator bearbeitet genau den freigegebenen Pfad, beim anderen nur Ansehen | local | **umgesetzt**, 2 Tests |
+| §6 R4b | Recht über die Suche im Editor vergeben und entziehen; letzter Bearbeiter geschützt | local | **umgesetzt**, 1 Test mit 6 Schritten |
+| §6 R5 | mehrere parallele Berechtigungsgründe | local | offen |
+| §6 R6 | Eigentümerschaft übertragen (Kronen-Schaltfläche im Editor) | local | offen |
 | §4–5 E1, E2 | Referenzpfad per echtem Drag&Drop | local | offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H3–H4, §17 | weitere Teilnehmerquellen, Host-Modi, Result Visibility, Datenschutz | mod | offen |
 
+
+## 5a. Offener Punkt aus R3
+
+Die Kette prüft bisher nur die Hinzunahme: Kursrolle vergeben → Editorzugriff.
+Der Plan verlangt zusätzlich, dass der Zugriff beim Entfernen der Kursrolle
+wieder entfällt, sofern keine andere Quelle existiert. Im Code legt
+`enrollment::assign_assistant_to_role()` die Systemrolle `adeleassistant` nur
+an; ein Gegenstück zum `role_unassigned`-Ereignis gibt es in `db/events.php`
+nicht. Bevor daraus ein Test oder eine Fehlermeldung wird, ist zu klären, ob
+der Entzug gewollt ist — bisher **nicht geprüft**, also auch nicht behauptet.
 
 ## 6. Lokal ausführen
 
