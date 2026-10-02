@@ -130,6 +130,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §6 R3 | Lehrkraft-Rolle im Kurs → Editorzugriff als Assistent, eigener Pfad anlegbar | local | **umgesetzt**, 1 Test; Entzug des Zugriffs siehe „Offen" |
 | §6 R4a | Kollaborator bearbeitet genau den freigegebenen Pfad, beim anderen nur Ansehen | local | **umgesetzt**, 2 Tests |
 | §6 R4b | Recht über die Suche im Editor vergeben und entziehen; letzter Bearbeiter geschützt | local | **umgesetzt**, 1 Test mit 6 Schritten |
+| §7 E1 (Teil) | Pfad im Editor anlegen, Kurs per echtem Drag&Drop ablegen, speichern, verlassen, erneut öffnen; Lernende ohne Editor | local | **umgesetzt**, 2 Tests; Verketten weiterer Knoten siehe §5c |
 | §6 R5 | parallele Berechtigungsgründe: 3 von 6 Zeilen der Matrix (Manager + Kollaboration, Assistent + Kollaboration, nur Kollaboration) | local | **umgesetzt**, 2 Tests; die übrigen Zeilen siehe §5a |
 | §6 R6 | Eigentümerschaft über die Kronen-Schaltfläche übertragen, Bestand nach Neuladen, alter Eigentümer als Manager behält Zugriff | local | **umgesetzt**, 1 Test mit 5 Schritten |
 | §4–5 E1, E2 | Referenzpfad per echtem Drag&Drop | local | offen |
@@ -197,6 +198,35 @@ Gegenprobe zu #575 B2.
 **Noch nie gelaufen.** Diese Suite ist in der Linux-Umgebung der Entwicklung
 nicht ausführbar; geprüft sind bisher nur Typen, Konfiguration und Workflow
 (actionlint). Der erste echte Lauf muss auf einem Windows-Runner erfolgen.
+
+## 5c. Drag&Drop: was geht und was nicht
+
+Echtes HTML5-Drag&Drop ist mit Playwright möglich — anders als seinerzeit mit
+Behat. Es funktioniert aber nur in einer Form:
+
+- **`locator.dragTo(ziel)` wirkt**, wenn das Ziel ein echtes Element ist und
+  in dessen Mitte abgelegt wird. So entsteht der erste Knoten auf der leeren
+  Leinwand (Ziel: der Startmarker `starting_node`).
+- **Die Maus-API wirkt nicht.** `mouse.down/move/up` löst hier kein
+  HTML5-Ziehen aus, weil die Sidebar-Einträge `draggable`-Elemente sind. Es
+  entstehen weder Ablagezonen noch ein Knoten.
+- **`targetPosition` außerhalb des Zielelements bricht ab** (Playwright
+  wartet auf einen Punkt, den es nicht treffen kann).
+
+Dadurch ist das **Anhängen an einen vorhandenen Knoten noch ungelöst**: Die
+Ablagezonen (`dropzone_parent`, `dropzone_child`, `dropzone_and`,
+`dropzone_or`) entstehen erst *während* des Ziehens in `SidebarPath.onDrag()`
+und nur, wenn der Zeiger zugleich den Startmarker schneidet. Ein Ziel, das
+beim Start des Ziehens noch nicht existiert, kann `dragTo` nicht ansteuern.
+
+Offen ist damit der größere Teil von E1 (mehrere Knoten, Verbindungen,
+Bedingungen, Zeitwerte, UND/ODER, Feedback) und ganz E2. Für die Verkettung
+gibt es zwei Wege, zwischen denen zu entscheiden ist:
+
+1. eine stabile Testkennung an den Ablagezonen, damit ein Ablegen gezielt
+   angesteuert werden kann (passt zu #574), oder
+2. die Geometrie nachbilden, also den Zeiger so führen, dass die Zonen
+   entstehen — fragil und von Fenstergröße und Zoomstufe abhängig.
 
 ## 6. Lokal ausführen
 
