@@ -9,6 +9,7 @@ Zwei Playwright-Suiten je Plugin, bewusst getrennt:
 |---|---|---|---|
 | Smoke | `tests/playwright/`, `playwright.yml` | wie bisher | schnelle Rauchprobe |
 | **E2E** | `tests/e2e/`, **`e2e.yml`** | **nur manuell** | ganze Ketten über alle drei Plugins |
+| **Screenreader** | `local_adele/tests/a11y-screenreader/`, **`a11y-screenreader.yml`** | **nur manuell**, Windows | was NVDA tatsächlich vorliest |
 
 ## 1. Starten
 
@@ -129,8 +130,8 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §6 R3 | Lehrkraft-Rolle im Kurs → Editorzugriff als Assistent, eigener Pfad anlegbar | local | **umgesetzt**, 1 Test; Entzug des Zugriffs siehe „Offen" |
 | §6 R4a | Kollaborator bearbeitet genau den freigegebenen Pfad, beim anderen nur Ansehen | local | **umgesetzt**, 2 Tests |
 | §6 R4b | Recht über die Suche im Editor vergeben und entziehen; letzter Bearbeiter geschützt | local | **umgesetzt**, 1 Test mit 6 Schritten |
-| §6 R5 | mehrere parallele Berechtigungsgründe | local | offen |
-| §6 R6 | Eigentümerschaft übertragen (Kronen-Schaltfläche im Editor) | local | offen |
+| §6 R5 | parallele Berechtigungsgründe: 3 von 6 Zeilen der Matrix (Manager + Kollaboration, Assistent + Kollaboration, nur Kollaboration) | local | **umgesetzt**, 2 Tests; die übrigen Zeilen siehe §5a |
+| §6 R6 | Eigentümerschaft über die Kronen-Schaltfläche übertragen, Bestand nach Neuladen, alter Eigentümer als Manager behält Zugriff | local | **umgesetzt**, 1 Test mit 5 Schritten |
 | §4–5 E1, E2 | Referenzpfad per echtem Drag&Drop | local | offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
@@ -138,7 +139,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §16 H3–H4, §17 | weitere Teilnehmerquellen, Host-Modi, Result Visibility, Datenschutz | mod | offen |
 
 
-## 5a. Offener Punkt aus R3
+## 5a. Offene Punkte aus R3 und R5
 
 Die Kette prüft bisher nur die Hinzunahme: Kursrolle vergeben → Editorzugriff.
 Der Plan verlangt zusätzlich, dass der Zugriff beim Entfernen der Kursrolle
@@ -147,6 +148,55 @@ wieder entfällt, sofern keine andere Quelle existiert. Im Code legt
 an; ein Gegenstück zum `role_unassigned`-Ereignis gibt es in `db/events.php`
 nicht. Bevor daraus ein Test oder eine Fehlermeldung wird, ist zu klären, ob
 der Entzug gewollt ist — bisher **nicht geprüft**, also auch nicht behauptet.
+
+Dieselbe Lücke betrifft drei Zeilen der R5-Matrix: „Assistent + Kollaborator,
+Assistent entzogen", „nur Assistent, Assistent entzogen" und „Eigentümer +
+Kollaborator". Die ersten beiden setzen den Entzug einer Systemrolle voraus,
+den das Plugin nicht als Gegenstück zur automatischen Vergabe anbietet; die
+dritte verlangt einen Eigentümer ohne Managerrolle, den die Fixtures derzeit
+nicht vorsehen. Umgesetzt sind die drei Zeilen, die sich ohne diese Klärung
+eindeutig entscheiden lassen.
+
+## 5b. Screenreader-Suite (NVDA)
+
+Die einzige Suite, die prüft, was ein Screenreader **sagt**. Jest belegt das
+Attribut im Markup, axe-core belegt, dass keine Regel verletzt ist — beides
+sagt nichts darüber, ob der Name auch vorgelesen wird. Hier liest NVDA die
+Seite, und der Test liest NVDAs Sprachprotokoll.
+
+- **Nur Windows.** `@guidepup/playwright` wirft beim Import auf jeder anderen
+  Plattform „No available supported screen readers", noch bevor ein Test
+  eingesammelt wird. Ein `skip` hilft deshalb nicht; das Verzeichnis darf
+  niemals in den `testDir` einer anderen Suite geraten.
+- **Eigene Playwright-Version:** Guidepup verlangt 1.57 oder neuer, die
+  übrigen Suiten sind auf 1.49.1 festgelegt. Eigenes Verzeichnis, eigenes
+  Lockfile, keine Wechselwirkung.
+- **Kein Headless, ein Worker.** Ein Screenreader hängt an einer sichtbaren
+  Sitzung und existiert nur einmal.
+- **Keine Wiederholungen.** Ein Lauf, der erst im zweiten Anlauf grün wird,
+  sagt nichts darüber, was eine Person beim ersten Mal gehört hätte.
+
+**Der Workflow baut keine Moodle-Instanz.** Service-Container gibt es nur
+unter Linux, und NVDA nur unter Windows. Der Lauf richtet sich deshalb gegen
+eine **bestehende** Instanz:
+
+| Eingabe/Geheimnis | Bedeutung |
+|---|---|
+| `base_url` | Adresse der Instanz, auf der die drei Plugins und die Fixtures liegen |
+| `ADELE_A11Y_USER`, `ADELE_A11Y_PASSWORD` | Konto auf dieser Instanz (Repository-Secrets) |
+
+Im Artefakt liegt neben Report und Video das **Sprachprotokoll** je Test
+(`nvda-spoken-phrases.txt`, als Anhang im HTML-Report). Es ist das, was eine
+Durchsicht zuerst lesen sollte; das Video zeigt denselben Lauf von außen.
+
+Umgesetzt ist bisher `ADELE-SR-01`: Die Übersicht wird vorgelesen, und die
+Bedienelemente werden mit ihrem Namen angesagt — der Sichtbarkeitsschalter
+zusätzlich mit seinem Zustand (gedrückt/nicht gedrückt). Das ist die
+Gegenprobe zu #575 B2.
+
+**Noch nie gelaufen.** Diese Suite ist in der Linux-Umgebung der Entwicklung
+nicht ausführbar; geprüft sind bisher nur Typen, Konfiguration und Workflow
+(actionlint). Der erste echte Lauf muss auf einem Windows-Runner erfolgen.
 
 ## 6. Lokal ausführen
 
