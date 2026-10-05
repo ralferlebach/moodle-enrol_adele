@@ -136,7 +136,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §6 R3 | Lehrkraft-Rolle im Kurs → Editorzugriff als Assistent, eigener Pfad anlegbar | local | **umgesetzt**, 1 Test; Entzug des Zugriffs siehe „Offen" |
 | §6 R4a | Kollaborator bearbeitet genau den freigegebenen Pfad, beim anderen nur Ansehen | local | **umgesetzt**, 2 Tests |
 | §6 R4b | Recht über die Suche im Editor vergeben und entziehen; letzter Bearbeiter geschützt | local | **umgesetzt**, 1 Test mit 6 Schritten |
-| §7 E1 (Teil) | Pfad im Editor anlegen, Kurs per echtem Drag&Drop ablegen, speichern, verlassen, erneut öffnen; Lernende ohne Editor | local | **umgesetzt**, 2 Tests; Verketten weiterer Knoten siehe §5c |
+| §7 E1 | Referenzpfad T01 → T02 → T03 ausschließlich per Drag&Drop, nach erneutem Öffnen Knoten **und Kanten** unverändert; Einzelknoten; Lernende ohne Editor | local | **umgesetzt**, 3 Tests |
 | §6 R5 | parallele Berechtigungsgründe: 3 von 6 Zeilen der Matrix (Manager + Kollaboration, Assistent + Kollaboration, nur Kollaboration) | local | **umgesetzt**, 2 Tests; die übrigen Zeilen siehe §5a |
 | §6 R6 | Eigentümerschaft über die Kronen-Schaltfläche übertragen, Bestand nach Neuladen, alter Eigentümer als Manager behält Zugriff | local | **umgesetzt**, 1 Test mit 5 Schritten |
 | §16 H1 | Aktivität über das Formular anlegen → Hostkurs-Mitglieder im Eingangskurs, Außenstehende nicht; Pfad in der Aktivität sichtbar | mod | **umgesetzt**, 1 Test |
@@ -144,7 +144,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §16 H2 | zweite Teilnehmerquelle „Einschreibung im Startknoten-Kurs": Person aus dem Eingangskurs wird in den Hostkurs getragen, Außenstehende nicht | mod | **umgesetzt**, 1 Test |
 | §27 C1 | Berechtigung → Einschreibung → realer Kurszugriff, Negativkontrolle, Persistenz | enrol | **umgesetzt**, 5 Tests |
 | §27 C2 | Eingangsknoten löschen → Speicherverweigerung; Kriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
-| §7 E2 | logische Kombinationen (UND, ODER, Klammerung) per Drag&Drop | local | offen – siehe §5c |
+| §7 E2 | A ODER B (Stapel), A UND B (paralleler Knoten, Struktur) per Drag&Drop | local | **umgesetzt**, 2 Tests; Zugangsbedingung des Nachfolgers als `fixme` offen (`issues/local_adele-issue-parallel-node-criterion.md`); Klammerungen offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
@@ -214,47 +214,33 @@ Gegenprobe zu #575 B2.
 nicht ausführbar; geprüft sind bisher nur Typen, Konfiguration und Workflow
 (actionlint). Der erste echte Lauf muss auf einem Windows-Runner erfolgen.
 
-## 5c. Drag&Drop: was geht und was nicht
+## 5c. Drag&Drop im Editor
 
-Echtes HTML5-Drag&Drop ist mit Playwright möglich — anders als seinerzeit mit
-Behat. Es funktioniert aber nur in einer Form:
+Echtes HTML5-Drag&Drop läuft mit Playwright, auch das Anhängen an
+bestehende Knoten. Die Technik steckt in `local_adele/tests/e2e/support/editor.ts`
+(`dropFirstCourse`, `dropCourseAt`, `fitCanvas`). Was gemessen wurde:
 
-- **`locator.dragTo(ziel)` wirkt**, wenn das Ziel ein echtes Element ist und
-  in dessen Mitte abgelegt wird. So entsteht der erste Knoten auf der leeren
-  Leinwand (Ziel: der Startmarker `starting_node`).
-- **Die Maus-API wirkt nicht.** `mouse.down/move/up` löst hier kein
-  HTML5-Ziehen aus, weil die Sidebar-Einträge `draggable`-Elemente sind. Es
-  entstehen weder Ablagezonen noch ein Knoten.
-- **`targetPosition` außerhalb des Zielelements bricht ab** (Playwright
-  wartet auf einen Punkt, den es nicht treffen kann).
+- **Rohe Maus-API** (`mouse.down/move/up`): löst kein HTML5-Ziehen aus, kein
+  einziges Drag-Ereignis kommt an.
+- **`locator.dragTo()`**: wirkt nur auf Ziele, die vor dem Ziehen
+  existieren — reicht für den ersten Knoten (Startmarker), nicht für die
+  Zonen eines bestehenden Knotens.
+- **Was trägt:** Ziehen mit `locator.hover()` + `mouse.down()` beginnen und
+  mit `pane.hover({ position, force: true })` führen. Dann kommen echte
+  Drag-Ereignisse mit richtigen Koordinaten an, die Zonen erscheinen, und
+  die Trefferprüfung des Editors arbeitet korrekt.
+- **Drei Stolpersteine**, alle in der Hilfsfunktion behandelt: Die Ansicht
+  wird nach dem Ablegen nicht neu eingepasst (daher vor jedem Ziehen
+  „Ansicht einpassen" plus Herauszoomen); die Zonen bleiben am zuerst
+  passierten Knoten hängen (daher Sprung direkt auf das Ziel und Prüfung,
+  dass die Zone auf der richtigen Seite **dieses** Knotens liegt); und die
+  Seite darf nicht scrollen (daher Fenster 1920 × 1800).
+- `locator.boundingBox()` **wartet**, bis ein Element existiert — für eine
+  noch nicht gezeichnete Zone bis zum Testende. Die Hilfsfunktion fragt
+  deshalb vorher `count()` ab.
 
-- **Chromes Drag-Schnittstelle hilft auch nicht.** Mit
-  `Input.setInterceptDrags` und `Input.dispatchDragEvent` liesse sich mitten
-  im Ziehen zielen, aber `Input.dragIntercepted` feuert nicht: Playwright
-  fängt das Ziehen bereits selbst ab.
-
-Dadurch ist das **Anhängen an einen vorhandenen Knoten noch ungelöst**: Die
-Ablagezonen (`dropzone_parent`, `dropzone_child`, `dropzone_and`,
-`dropzone_or`) entstehen erst *während* des Ziehens in `SidebarPath.onDrag()`
-und nur, wenn der Zeiger zugleich den Startmarker schneidet. Ein Ziel, das
-beim Start des Ziehens noch nicht existiert, kann `dragTo` nicht ansteuern.
-
-Offen ist damit der größere Teil von E1 (mehrere Knoten, Verbindungen,
-Bedingungen, Zeitwerte, UND/ODER, Feedback) und ganz E2. Für die Verkettung
-gibt es zwei Wege, zwischen denen zu entscheiden ist:
-
-Erfasst als local_adele #580
-([`issues/local_adele-issue-dropzones-only-during-drag.md`](issues/local_adele-issue-dropzones-only-during-drag.md)).
-
-1. **Produktseitig**: die Ablagezonen einblenden, sobald ein Ziehen beginnt,
-   statt erst bei Schnittmenge mit dem Startmarker. Dann existiert das Ziel
-   vor dem Ziehen und `dragTo` trifft es. Das hilft auch Nutzern, die heute
-   raten müssen, wohin sie ziehen dürfen — eine Testkennung allein genügt
-   **nicht**, weil die Zonen im DOM ohnehin ein `data-id` tragen; das Problem
-   ist der Zeitpunkt, nicht die Benennung.
-2. **Testseitig**: die Verkettung über die Tastaturroute aus #575 B5 abdecken
-   und für Drag&Drop nur das Ablegen auf der leeren Leinwand prüfen. Dann
-   bleibt die Drop-Verarbeitung bei bestehenden Knoten ungetestet.
+Zu #580: Die Testbarkeit ist damit **kein** Grund mehr; Kommentarentwurf
+zur Korrektur: `issues/local_adele-issue-580-comment.md`.
 
 ## 5d. Zeit in Tests (Vorbereitung der Kette T)
 

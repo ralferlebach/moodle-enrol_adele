@@ -27,7 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
 $plugin->release = '0.5.0';
-$plugin->version = 2026100503;
+$plugin->version = 2026100504;
 // Moodle 4.5 (2024100700) is the lowest supported version; 4.4 and older
 // are no longer supported. The trio could not be installed below 4.5 anyway,
 // because mod_adele requires 2024100700.

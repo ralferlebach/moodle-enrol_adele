@@ -210,3 +210,34 @@ Speichern als Zahl abgelegt; E2E local 13/13, mod 3/3, enrol 6/6.
 
 **Prüfstand:** PHPUnit local 316 (5 übersprungen, catquiz), Jest 338,
 E2E local 13/13, mod 3/3, enrol 6/6, phpcs 0/0.
+
+
+## Teil 8 — #580 und die E2E-Ketten E1/E2
+
+- **#580, Begründung widerlegt:** Echtes Drag&Drop auf bestehende Knoten ist
+  ohne Produktänderung testbar (Technik in `tests/e2e/support/editor.ts`,
+  Messungen in `docs/e2e-suite.md` §5c). Kommentarentwurf zur Korrektur des
+  Issues: `issues/local_adele-issue-580-comment.md`. Als Bedienpunkte bleiben
+  „Zonen hängen am zuerst passierten Knoten" und „Ansicht wird nach dem
+  Ablegen nicht eingepasst".
+- **E1 vollständig:** Referenzpfad T01 → T02 → T03 per Drag&Drop, geprüft
+  nach erneutem Öffnen über Knoten **und** Kanten.
+- **Eigener Fehler, rechtzeitig gesehen:** Die erste E1-Fassung lief grün,
+  obwohl T03 an T01 statt an T02 hing — die Kanten waren nur ausgegeben, nicht
+  geprüft. Jetzt geprüft, und die Hilfsfunktion kontrolliert, an welchem
+  Knoten die Zonen liegen.
+- **E2:** A ODER B (Stapel) und A UND B (paralleler Knoten) grün. **Befund:**
+  Der gemeinsame Nachfolger bekommt den parallelen Knoten nicht in seine
+  Vorgänger-Bedingung (`addAutoRestrictions()` gibt ihn für `and` unverändert
+  zurück, ein Jest-Test hält das fest). Nicht festgeschrieben, sondern als
+  `test.fixme` sichtbar gehalten; Issue-Entwurf
+  `issues/local_adele-issue-parallel-node-criterion.md`. Dazu widersprechen
+  sich Zonenname (`and`) und Beschriftung („Alternative node").
+- **Werkzeugfehler:** `pkill -f "<muster>"` traf die eigene Befehlszeile und
+  beendete den Aufruf selbst; Abhilfe: Klammer-Schreibweise (`[n]ode_modules`).
+- **Regelverstoß:** Einen Probe-Lernpfad (ohne Abonnenten) direkt per SQL
+  gelöscht, entgegen der eigenen Regel; kein Schaden, der Folgepfad blieb
+  stehen.
+
+**Prüfstand:** E2E local 16 grün + 1 `fixme`, zweimal hintereinander; E1-Datei
+dreimal grün. Produktcode unverändert.
