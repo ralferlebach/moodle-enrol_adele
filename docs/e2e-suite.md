@@ -60,6 +60,10 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
 - **Realer Zugriff statt Datenbankeintrag.** `expectCourseOpen` /
   `expectCourseClosed` rufen die Kursseite auf; eine Zeile in der
   Teilnehmerliste gilt nicht als Beweis (Plan §2).
+- **Ein Artefakt je Lauf, immer.** Auch die Smoke-Workflows laden seit
+  `2026100202` Report und Videos bei grünem **und** rotem Lauf hoch; vorher
+  gab es bei Fehlschlag nur die fehlgeschlagenen Verzeichnisse ohne Video —
+  also genau dann keine Aufnahme, wenn sie gebraucht wird.
 - **Warteschlange abarbeiten statt warten.** `expectCourseOpenAfterTasks` und
   `expectCourseClosedAfterTasks`
   ruft `admin/cli/adhoc_task.php` begrenzt wiederholt auf (höchstens 60 s),
@@ -213,6 +217,11 @@ Behat. Es funktioniert aber nur in einer Form:
 - **`targetPosition` außerhalb des Zielelements bricht ab** (Playwright
   wartet auf einen Punkt, den es nicht treffen kann).
 
+- **Chromes Drag-Schnittstelle hilft auch nicht.** Mit
+  `Input.setInterceptDrags` und `Input.dispatchDragEvent` liesse sich mitten
+  im Ziehen zielen, aber `Input.dragIntercepted` feuert nicht: Playwright
+  fängt das Ziehen bereits selbst ab.
+
 Dadurch ist das **Anhängen an einen vorhandenen Knoten noch ungelöst**: Die
 Ablagezonen (`dropzone_parent`, `dropzone_child`, `dropzone_and`,
 `dropzone_or`) entstehen erst *während* des Ziehens in `SidebarPath.onDrag()`
@@ -223,10 +232,15 @@ Offen ist damit der größere Teil von E1 (mehrere Knoten, Verbindungen,
 Bedingungen, Zeitwerte, UND/ODER, Feedback) und ganz E2. Für die Verkettung
 gibt es zwei Wege, zwischen denen zu entscheiden ist:
 
-1. eine stabile Testkennung an den Ablagezonen, damit ein Ablegen gezielt
-   angesteuert werden kann (passt zu #574), oder
-2. die Geometrie nachbilden, also den Zeiger so führen, dass die Zonen
-   entstehen — fragil und von Fenstergröße und Zoomstufe abhängig.
+1. **Produktseitig**: die Ablagezonen einblenden, sobald ein Ziehen beginnt,
+   statt erst bei Schnittmenge mit dem Startmarker. Dann existiert das Ziel
+   vor dem Ziehen und `dragTo` trifft es. Das hilft auch Nutzern, die heute
+   raten müssen, wohin sie ziehen dürfen — eine Testkennung allein genügt
+   **nicht**, weil die Zonen im DOM ohnehin ein `data-id` tragen; das Problem
+   ist der Zeitpunkt, nicht die Benennung.
+2. **Testseitig**: die Verkettung über die Tastaturroute aus #575 B5 abdecken
+   und für Drag&Drop nur das Ablegen auf der leeren Leinwand prüfen. Dann
+   bleibt die Drop-Verarbeitung bei bestehenden Knoten ungetestet.
 
 ## 6. Lokal ausführen
 
