@@ -154,6 +154,9 @@ an; ein Gegenstück zum `role_unassigned`-Ereignis gibt es in `db/events.php`
 nicht. Bevor daraus ein Test oder eine Fehlermeldung wird, ist zu klären, ob
 der Entzug gewollt ist — bisher **nicht geprüft**, also auch nicht behauptet.
 
+Für diesen Punkt liegt bereits ein Entwurf vor:
+[`issues/local_adele-issue-assistant-role-no-revocation.md`](issues/local_adele-issue-assistant-role-no-revocation.md).
+
 Dieselbe Lücke betrifft drei Zeilen der R5-Matrix: „Assistent + Kollaborator,
 Assistent entzogen", „nur Assistent, Assistent entzogen" und „Eigentümer +
 Kollaborator". Die ersten beiden setzen den Entzug einer Systemrolle voraus,
@@ -231,6 +234,10 @@ beim Start des Ziehens noch nicht existiert, kann `dragTo` nicht ansteuern.
 Offen ist damit der größere Teil von E1 (mehrere Knoten, Verbindungen,
 Bedingungen, Zeitwerte, UND/ODER, Feedback) und ganz E2. Für die Verkettung
 gibt es zwei Wege, zwischen denen zu entscheiden ist:
+
+Dazu liegt ein Issue-Entwurf bereit:
+[`issues/local_adele-issue-dropzones-only-during-drag.md`](issues/local_adele-issue-dropzones-only-during-drag.md).
+Die Umsetzung wartet, bis er im System ist.
 
 1. **Produktseitig**: die Ablagezonen einblenden, sobald ein Ziehen beginnt,
    statt erst bei Schnittmenge mit dem Startmarker. Dann existiert das Ziel
