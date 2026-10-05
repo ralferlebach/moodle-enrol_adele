@@ -124,3 +124,34 @@ Nachbildung der Workflows ohne `setup-php`, Service-Container und Upload.
   `eslint.config.js`).
 - Die Lernendenansicht im Test ist nur über eine `mod_adele`-Aktivität
   erreichbar; ein Test dafür gehört in `mod_adele`.
+
+
+## Teil 5 — Zeit: Moodle 4.5, `\core\clock`, Issues #580–#583
+
+**Issues:** local_adele #580 (Ablagezonen), #581 (Zeitstempel), #582 (Core-Uhr),
+#583 (Mindestversion); enrol_adele #11, mod_adele #36 (Core-Uhr).
+
+- **#583 umgesetzt (`2026100500`):** `$plugin->requires = 2024100700` in
+  `local_adele` und `enrol_adele`; die alte Begründung für 4.1 entfernt.
+- **#582, enrol #11, mod #36 umgesetzt (`2026100501`):** Alle drei Plugins
+  lesen „jetzt" über `\core\di::get(\core\clock::class)`, auch in
+  `db/install.php` und `db/upgrade.php` (nur Zeitstempel, verhaltensneutral).
+  Je Plugin ein Wächtertest gegen direkte Uhrzugriffe und Verhaltenstests mit
+  eingefrorener Uhr.
+- **Herkunft:** Der Umbau lag bei Wiederaufnahme der Arbeit bereits in den
+  Arbeitskopien, ohne dass er einem in dieser Session sichtbaren Schritt
+  zuzuordnen war. Er wurde deshalb wie fremde Arbeit geprüft: Diff gegen die
+  Lieferung `2026100500` gelesen, Wächtertest mit eingeschleustem `time()`
+  gegengeprüft (schlägt an), unabhängige Suche ohne Treffer, vollständige
+  PHPUnit-Suiten und alle E2E-Ketten grün.
+- **Fixture-Seed:** ein doppelt eingefügter Block (Kontrollperson und
+  Hostkurs-Mitglieder) entfernt; er stammte aus einer Blockverschiebung in
+  Teil 4 und verschob die Rollenzuordnung um eine Person. In `2026100500`
+  noch enthalten, ohne Testfolgen, weil die Ketten die Rollen aus den
+  Variablen lesen.
+
+**Offen:** #581 (Zeitstempel, Grenzwertsemantik — Vorschlag halboffenes
+Intervall, Entscheidung im Issue nicht abrufbar), #580 (Ablagezonen).
+
+**Prüfstand:** PHPUnit enrol 53, mod 11, local 309 (5 übersprungen: catquiz
+nicht installiert); E2E local 13/13, mod 3/3, enrol 6/6; phpcs 0/0.

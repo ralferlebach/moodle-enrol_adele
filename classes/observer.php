@@ -87,7 +87,9 @@ class observer {
             // prove durable (issue #3).
             $task = new \enrol_adele\task\remove_user_path_adhoc();
             $task->set_custom_data(['learningpathid' => $lpid, 'userid' => $userid]);
-            $task->set_next_run_time(time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS);
+            $runat = \core\di::get(\core\clock::class)->time()
+                + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS;
+            $task->set_next_run_time($runat);
             \core\task\manager::queue_adhoc_task($task, true);
 
             reconciler::purge_user($lpid, $userid);
@@ -202,7 +204,7 @@ class observer {
             return false;
         }
         [$insql, $inparams] = $DB->get_in_or_equal(array_unique($courseids), SQL_PARAMS_NAMED);
-        $now = time();
+        $now = \core\di::get(\core\clock::class)->time();
         $sql = "SELECT 1
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON e.id = ue.enrolid

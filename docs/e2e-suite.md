@@ -243,9 +243,8 @@ Offen ist damit der größere Teil von E1 (mehrere Knoten, Verbindungen,
 Bedingungen, Zeitwerte, UND/ODER, Feedback) und ganz E2. Für die Verkettung
 gibt es zwei Wege, zwischen denen zu entscheiden ist:
 
-Dazu liegt ein Issue-Entwurf bereit:
-[`issues/local_adele-issue-dropzones-only-during-drag.md`](issues/local_adele-issue-dropzones-only-during-drag.md).
-Die Umsetzung wartet, bis er im System ist.
+Erfasst als local_adele #580
+([`issues/local_adele-issue-dropzones-only-during-drag.md`](issues/local_adele-issue-dropzones-only-during-drag.md)).
 
 1. **Produktseitig**: die Ablagezonen einblenden, sobald ein Ziehen beginnt,
    statt erst bei Schnittmenge mit dem Startmarker. Dann existiert das Ziel
@@ -273,13 +272,16 @@ Geprüft am 2026-10-05, zwei sich ergänzende Wege:
 - **Systemuhr stellen (`date -s`)** — technisch möglich, aber **ungeeignet**:
   Mit verstellter Uhr bricht TLS sofort („certificate has expired"), damit
   auch Git, npm, die GitHub-API und der Artefakt-Upload.
-- **Moodle-Uhr im Code (`\core\clock`)** — für Komponententests mit
-  `\frozen_clock`. Entwürfe: `issues/local_adele-issue-core-clock.md`,
-  `issues/enrol_adele-issue-core-clock.md`, `issues/mod_adele-issue-core-clock.md`.
+- **Moodle-Uhr im Code (`\core\clock`)** — **umgesetzt** in `2026100501`:
+  local_adele #582, enrol_adele #11, mod_adele #36. Alle drei Plugins lesen
+  „jetzt" nur noch über `\core\di::get(\core\clock::class)`; je ein
+  Wächtertest (`tests/clock_usage_test.php`) verhindert Rückfälle, Tests mit
+  `mock_clock_with_frozen()` prüfen die zeitabhängigen Entscheidungen.
 
 Dabei gemessen: Das Ende eines Zeitfensters wirkt heute **ausschließlich**,
 obwohl der Code `>=` prüft — eine Folge des Vergleichs geparster
-Zeichenketten. Dazu: `issues/local_adele-issue-timed-condition-timestamps.md`.
+Zeichenketten. Erfasst als local_adele #581
+(`issues/local_adele-issue-timed-condition-timestamps.md`).
 Die Kette T soll die Grenzwertsemantik erst festschreiben, wenn sie dort
 entschieden ist.
 
