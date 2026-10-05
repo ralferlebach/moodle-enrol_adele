@@ -278,12 +278,17 @@ Geprüft am 2026-10-05, zwei sich ergänzende Wege:
   Wächtertest (`tests/clock_usage_test.php`) verhindert Rückfälle, Tests mit
   `mock_clock_with_frozen()` prüfen die zeitabhängigen Entscheidungen.
 
-Dabei gemessen: Das Ende eines Zeitfensters wirkt heute **ausschließlich**,
-obwohl der Code `>=` prüft — eine Folge des Vergleichs geparster
-Zeichenketten. Erfasst als local_adele #581
-(`issues/local_adele-issue-timed-condition-timestamps.md`).
-Die Kette T soll die Grenzwertsemantik erst festschreiben, wenn sie dort
-entschieden ist.
+**#581 umgesetzt (`local_adele` 2026100502):** Die Zeitbedingung `timed`
+speichert und vergleicht Unix-Zeitstempel; Altbestand wird beim Upgrade in
+der Site-Zeitzone umgerechnet. Das Fenster ist **halboffen**
+(`Beginn ≤ jetzt < Ende`) und damit sekundengenau prüfbar
+(`tests/timed_timestamps_test.php`). Die Kette T kann diese Semantik jetzt
+festschreiben.
+
+Bewusst **nicht** angeglichen: Die relative Bedingung `timed_duration`
+schließt ihre letzte Sekunde weiterhin **ein** (siehe
+`tests/clock_frozen_test.php`). Ob beide Bedingungen dieselbe Semantik
+bekommen sollen, ist eine fachliche Entscheidung außerhalb von #581.
 
 ## 6. Lokal ausführen
 

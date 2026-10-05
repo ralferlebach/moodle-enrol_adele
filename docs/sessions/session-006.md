@@ -155,3 +155,36 @@ Intervall, Entscheidung im Issue nicht abrufbar), #580 (Ablagezonen).
 
 **Prüfstand:** PHPUnit enrol 53, mod 11, local 309 (5 übersprungen: catquiz
 nicht installiert); E2E local 13/13, mod 3/3, enrol 6/6; phpcs 0/0.
+
+
+## Teil 6 — local_adele #581: Zeitstempel statt Zeichenketten
+
+- **Neu:** `classes/helper/time_value.php` — Umrechnung gespeicherter Werte
+  (Ganzzahl, numerische Zeichenkette, Altformat `Y-m-d\TH:i` in der
+  Site-Zeitzone mit `!`-Format, also Sekunden = 0), Fensterzustand,
+  Anzeige über `userdate()` in der Zeitzone der betroffenen Person,
+  Migration eines Baums.
+- **Bewertung** (`timed.php`): ein Uhrzugriff je Knoten, Ganzzahlvergleich,
+  halboffenes Intervall. `inbetween_info` trägt jetzt Zeitstempel statt
+  formatierter Zeichenketten. `isvaliddate()` bleibt als öffentliche Methode
+  unverändert stehen, wird aber nicht mehr verwendet.
+- **Neuplanung** (`adhoc_task_helper.php`) und **Rückmeldetext**
+  (`relation_update.php`) lesen dieselben Zeitstempel; `strtotime()` und
+  `date()` entfallen dort.
+- **Frontend:** `composables/timeValue.js`; `timed_dates.vue` speichert
+  Sekunden, zeigt Ortszeit des Browsers; `DateInfo.vue` und
+  `NodeInformation.vue` formatieren Zeitstempel (vorher: Serverzeit als UTC
+  gelesen bzw. Sekunden als Millisekunden).
+- **Upgrade 2026100502:** migriert Lernpfade und Nutzerpfadkopien,
+  idempotent. Hinweis im README von `local_adele` (Abschnitt „Upgrade notes").
+- **Nebenfund:** `timed_test.php` setzte voraus, dass das echte Datum
+  zwischen 2024 und Ende 2026 liegt, und wäre am 2027-01-01 rot geworden;
+  jetzt mit eingefrorener Uhr.
+- **Entscheidung ohne Rückmeldung aus dem Issue:** halboffenes Intervall, wie
+  im Issue vorgeschlagen; entspricht dem bisher beobachteten Verhalten.
+
+**Prüfstand:** PHPUnit local 315 (5 übersprungen, catquiz); neu
+`timed_timestamps_test.php` 6 Tests/51 Zusicherungen; Jest 72 Suiten/338
+Tests, `timeValue.spec.js` grün in UTC, Europe/Berlin, America/New_York und
+Asia/Tokyo; Durchstich im Browser: Altbestand korrekt angezeigt, nach dem
+Speichern als Zahl abgelegt; E2E local 13/13, mod 3/3, enrol 6/6.
