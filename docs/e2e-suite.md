@@ -257,6 +257,32 @@ Die Umsetzung wartet, bis er im System ist.
    und für Drag&Drop nur das Ablegen auf der leeren Leinwand prüfen. Dann
    bleibt die Drop-Verarbeitung bei bestehenden Knoten ungetestet.
 
+## 5d. Zeit in Tests (Vorbereitung der Kette T)
+
+Geprüft am 2026-10-05, zwei sich ergänzende Wege:
+
+- **Prozesszeit verschieben (`libfaketime`)** — für die E2E-Ketten. Nur die
+  PHP-Prozesse (Webserver, CLI-Task-Runner) laufen unter `LD_PRELOAD`; die
+  Zeit lässt sich zur Laufzeit über eine Datei umstellen
+  (`FAKETIME_TIMESTAMP_FILE`, `FAKETIME_NO_CACHE=1`). Gemessen: `time()` und
+  `new DateTime()` folgen, Moodles Task-Manager hält eingeplante Aufträge
+  unter verschobener Zeit für fällig, die Zeitbedingung `timed` ist
+  sekundengenau steuerbar. PostgreSQL und Browser bleiben auf echter Zeit;
+  die Plugins nutzen kein `NOW()` in SQL, und das Frontend liest die Uhr nur
+  für die Bedienung.
+- **Systemuhr stellen (`date -s`)** — technisch möglich, aber **ungeeignet**:
+  Mit verstellter Uhr bricht TLS sofort („certificate has expired"), damit
+  auch Git, npm, die GitHub-API und der Artefakt-Upload.
+- **Moodle-Uhr im Code (`\core\clock`)** — für Komponententests mit
+  `\frozen_clock`. Entwürfe: `issues/local_adele-issue-core-clock.md`,
+  `issues/enrol_adele-issue-core-clock.md`, `issues/mod_adele-issue-core-clock.md`.
+
+Dabei gemessen: Das Ende eines Zeitfensters wirkt heute **ausschließlich**,
+obwohl der Code `>=` prüft — eine Folge des Vergleichs geparster
+Zeichenketten. Dazu: `issues/local_adele-issue-timed-condition-timestamps.md`.
+Die Kette T soll die Grenzwertsemantik erst festschreiben, wenn sie dort
+entschieden ist.
+
 ## 6. Lokal ausführen
 
 ```bash

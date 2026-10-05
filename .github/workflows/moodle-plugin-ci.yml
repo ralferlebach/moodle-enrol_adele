@@ -44,11 +44,8 @@ jobs:
 
   # Floor: Moodle 4.5 on PHP 8.1.
   #
-  # NOT 4.1, even though $plugin->requires still names 2022112800. This plugin
-  # alone would run on 4.1, but the job installs mod_adele, which requires
-  # 2024100700 — so on MOODLE_401_STABLE the site cannot be installed and the
-  # job fails before reaching a single test. $plugin->supported is [405, 502]
-  # for exactly that reason.
+  # $plugin->requires is 2024100700: Moodle 4.4 and older are no longer
+  # supported. $plugin->supported is [405, 502].
   moodle405:
     uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
     with:
