@@ -285,10 +285,10 @@ der Site-Zeitzone umgerechnet. Das Fenster ist **halboffen**
 (`tests/timed_timestamps_test.php`). Die Kette T kann diese Semantik jetzt
 festschreiben.
 
-Bewusst **nicht** angeglichen: Die relative Bedingung `timed_duration`
-schließt ihre letzte Sekunde weiterhin **ein** (siehe
-`tests/clock_frozen_test.php`). Ob beide Bedingungen dieselbe Semantik
-bekommen sollen, ist eine fachliche Entscheidung außerhalb von #581.
+Seit `2026100503` folgt auch die relative Bedingung `timed_duration`
+derselben Regel (`Beginn ≤ jetzt < Ende`, Entscheidung des Auftraggebers)
+und liefert ebenfalls Zeitstempel. Beide Zeitbedingungen haben damit eine
+gemeinsame Semantik.
 
 ## 6. Lokal ausführen
 

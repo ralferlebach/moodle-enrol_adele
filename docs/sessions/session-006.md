@@ -188,3 +188,25 @@ nicht installiert); E2E local 13/13, mod 3/3, enrol 6/6; phpcs 0/0.
 Tests, `timeValue.spec.js` grün in UTC, Europe/Berlin, America/New_York und
 Asia/Tokyo; Durchstich im Browser: Altbestand korrekt angezeigt, nach dem
 Speichern als Zahl abgelegt; E2E local 13/13, mod 3/3, enrol 6/6.
+
+
+## Teil 7 — #581 Nachtrag: `timed_duration` angeglichen, Testdaten bereinigt
+
+- **Angleichung (Entscheidung des Auftraggebers):** `timed_duration` ist
+  jetzt ebenfalls halboffen (`Beginn ≤ jetzt < Ende`), über
+  `time_value::window_state()`; `inbetween_info` trägt Zeitstempel, Anzeige
+  über `time_value::display()`.
+- **Regression aus Teil 6 behoben:** `relation_update::inbetweenfeedback()`
+  las das Fensterende seit #581 über `time_value::to_timestamp()`,
+  `timed_duration` lieferte aber noch `d.m.Y H:i`-Text, den die Hilfsklasse
+  nicht als Zeit erkennt — der Rückmeldetext „Zugang bis …" wäre für
+  relative Fristen leer geblieben. Abgesichert durch
+  `test_feedback_names_the_end_for_both_kinds_of_window`; Gegenprobe mit dem
+  alten Zustand schlägt an.
+- **`timed_test.php`:** Die festen Jahreszahlen (2024–2026, 2099) waren reine
+  Testdaten, die nur deshalb nötig erschienen, weil der Test gegen die echte
+  Uhr lief. Jetzt relativ zu einem eingefrorenen Bezugszeitpunkt formuliert;
+  keine Datumsbegrenzung mehr.
+
+**Prüfstand:** PHPUnit local 316 (5 übersprungen, catquiz), Jest 338,
+E2E local 13/13, mod 3/3, enrol 6/6, phpcs 0/0.
