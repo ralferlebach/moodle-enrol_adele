@@ -110,10 +110,12 @@ durch `seed_fixtures.php`:
 
 | Rolle | Konto | Zweck |
 |---|---|---|
-| je Lernpfad ein Lernender | `student01`–`student04` | Linear A1, Linear A2, Verzweigt B1, Äquivalenzumformung |
-| Negativkontrolle | `student05` | auf keinem Pfad |
-| Hostkurs-Mitglieder | `student06`, `student07` | Kurs `E2EHOST` |
-| Hostkurs-Außenstehender | `student08` | nicht in `E2EHOST` |
+| je Lernpfad ein Lernender | `ADELE_FIXTURE_LEARNER_<PFAD>` | Linear A1, Linear A2, Verzweigt B1, Äquivalenzumformung |
+| Negativkontrolle | `ADELE_FIXTURE_CONTROL_USER` | auf keinem Pfad |
+| Hostkurs-Mitglieder | `ADELE_FIXTURE_HOST_MEMBER_1/2` | Kurs `E2EHOST` |
+| Hostkurs-Außenstehender | `ADELE_FIXTURE_HOST_OUTSIDER` | in keinem Host- und keinem Knotenkurs |
+| Eingangskurs-Lernende | `ADELE_FIXTURE_ENTRY_LEARNER` | nur im Eingangskurs T01, auf keinem Pfad |
+| zweiter Hostkurs | `E2EHOST2` (`ADELE_FIXTURE_HOST_COURSE_2`) | bewusst leer, für die Quelle „Startknoten-Kurs" |
 | Adele-Manager | `fx_adele_manager` | Systemrolle `adelemanager` |
 | Adele-Assistent | `fx_adele_assistant` | Systemrolle `adeleassistant`, Bearbeiter **nur** an „Linear A2" |
 | Lehrkraft | `fx_teacher` | ohne Rolle und ohne Einschreibung; die Einstellung `enrollassistant` steht auf der Lehrkraft-Rolle |
@@ -137,11 +139,17 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §7 E1 (Teil) | Pfad im Editor anlegen, Kurs per echtem Drag&Drop ablegen, speichern, verlassen, erneut öffnen; Lernende ohne Editor | local | **umgesetzt**, 2 Tests; Verketten weiterer Knoten siehe §5c |
 | §6 R5 | parallele Berechtigungsgründe: 3 von 6 Zeilen der Matrix (Manager + Kollaboration, Assistent + Kollaboration, nur Kollaboration) | local | **umgesetzt**, 2 Tests; die übrigen Zeilen siehe §5a |
 | §6 R6 | Eigentümerschaft über die Kronen-Schaltfläche übertragen, Bestand nach Neuladen, alter Eigentümer als Manager behält Zugriff | local | **umgesetzt**, 1 Test mit 5 Schritten |
-| §4–5 E1, E2 | Referenzpfad per echtem Drag&Drop | local | offen |
+| §16 H1 | Aktivität über das Formular anlegen → Hostkurs-Mitglieder im Eingangskurs, Außenstehende nicht; Pfad in der Aktivität sichtbar | mod | **umgesetzt**, 1 Test |
+| §16/§27 H1b | Austritt aus dem Hostkurs → Zugriff entzogen, und nur für die abgemeldete Person | mod | **umgesetzt**, 1 Test |
+| §16 H2 | zweite Teilnehmerquelle „Einschreibung im Startknoten-Kurs": Person aus dem Eingangskurs wird in den Hostkurs getragen, Außenstehende nicht | mod | **umgesetzt**, 1 Test |
+| §27 C1 | Berechtigung → Einschreibung → realer Kurszugriff, Negativkontrolle, Persistenz | enrol | **umgesetzt**, 5 Tests |
+| §27 C2 | Eingangsknoten löschen → Speicherverweigerung; Kriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
+| §7 E2 | logische Kombinationen (UND, ODER, Klammerung) per Drag&Drop | local | offen – siehe §5c |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
-| §16 H3–H4, §17 | weitere Teilnehmerquellen, Host-Modi, Result Visibility, Datenschutz | mod | offen |
+| §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" und Kombinationen | mod | offen |
+| §16 H3, §17 | Host-Modi (sichtbar, verborgen, keine), Result Visibility, Datenschutz | mod | offen |
 
 
 ## 5a. Offene Punkte aus R3 und R5
