@@ -262,3 +262,22 @@ dreimal grün. Produktcode unverändert.
   E2E-Vertrag, Plan §27); `C` bleibt der Plan-Kette „Zugangsbedingungen".
 
 **Prüfstand:** Jest 341; E2E local 16/16; E2-Gegenprobe rot→grün.
+
+
+## Teil 10 — CI-Prüfung nach der Umbenennung
+
+Echte Läufe in den Forks (`development`, Stand `2026100600`):
+
+| Plugin | Plugin-CI | Playwright smoke |
+|---|---|---|
+| local_adele | grün (vorher rot) | **rot**: 1 Kontrastverstoß (axe `color-contrast`) |
+| enrol_adele | grün (vorher rot) | grün |
+| mod_adele | grün | grün |
+
+Der Kontrastverstoß tritt nur auf dem Runner auf: lokal grün, isoliert wie
+auch in der vollständigen Suite in CI-Reihenfolge. Das CI-Bildschirmfoto zeigt
+nichts Auffälliges; der Trace enthält nur die bestandenen axe-Prüfungen. Der
+Test meldet deshalb jetzt Selektor, Markup, gemessene Farben, Verhältnis,
+Anforderung und Schrift — gegengeprüft mit einem erzwungenen Verstoß. Ein
+erneuter Lauf über die API war nicht möglich (Token ohne Actions-Schreibrecht,
+HTTP 403).
