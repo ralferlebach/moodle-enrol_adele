@@ -57,7 +57,7 @@ const otherLearner = () => fixture('ADELE_FIXTURE_LEARNER_LINEAR_A2');
 /** The Vue application's mount point. */
 const app = (page: Page) => page.locator('[id^="local-adele-app"]');
 
-test.describe('ADELE-E2E-C2 — a course that leaves the path takes its access with it', () => {
+test.describe('ADELE-E2E-V2 — a course that leaves the path takes its access with it', () => {
   test('refused save, removed condition, moved entitlement, deleted path', async ({ page }) => {
     const entry = fixtureCourse('T01');
     const second = fixtureCourse('T02');

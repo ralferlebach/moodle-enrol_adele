@@ -70,9 +70,9 @@ jobs:
             local sib="$1" dest="$2" src="/tmp/src_$1"
             rm -rf "$src" "moodle/$dest"
             git clone --depth 1 --branch "$SIBLING_REF" \
-              "https://github.com/ralferlebach/moodle-${sib}_adele.git" "$src" \
+              "https://github.com/${GITHUB_REPOSITORY_OWNER}/moodle-${sib}_adele.git" "$src" \
               || git clone --depth 1 \
-                 "https://github.com/ralferlebach/moodle-${sib}_adele.git" "$src"
+                 "https://github.com/${GITHUB_REPOSITORY_OWNER}/moodle-${sib}_adele.git" "$src"
             mkdir -p "$(dirname "moodle/$dest")"
             cp -a "$src" "moodle/$dest"
             rm -rf "moodle/$dest/.git"

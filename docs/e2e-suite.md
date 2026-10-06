@@ -20,12 +20,18 @@ kein Zeitplan.
 
 | Eingabe | Bedeutung | Vorgabe |
 |---|---|---|
-| `grep` | nur Tests, deren Titel passt, z. B. `ADELE-E2E-C1` | alle |
+| `grep` | nur Tests, deren Titel passt, z. B. `ADELE-E2E-V1` | alle |
 | `php_version` | 8.1, 8.2, 8.3 | 8.3 |
 | `sibling_ref` | Branch/Tag/Commit der beiden anderen Plugins | gleichnamiger Branch, sonst Default |
 | `retention_days` | Aufbewahrung des Artefakts | 30 |
 
 Moodle ist fest 4.5 (`MOODLE_405_STABLE`), Datenbank PostgreSQL 16.
+
+**Begleit-Plugins:** Alle Workflows holen die beiden anderen Plugins vom
+selben Eigentümer wie das laufende Repository (Wunderbyte-Upstream oder
+Fork), vom gleichnamigen Branch, sonst von `main`. Alle drei Repositories
+heißen `moodle-<typ>_adele` und haben `main` als Standard-Branch (seit
+`2026100600`; vorher `moodle_local_adele` und für `mod_adele` `master`).
 
 **Wichtig:** Die E2E-Suiten von `mod_adele` und `enrol_adele` nutzen den
 Fixture-Seed aus `local_adele`. Bis die Änderungen dieser Session in
@@ -142,9 +148,9 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §16 H1 | Aktivität über das Formular anlegen → Hostkurs-Mitglieder im Eingangskurs, Außenstehende nicht; Pfad in der Aktivität sichtbar | mod | **umgesetzt**, 1 Test |
 | §16/§27 H1b | Austritt aus dem Hostkurs → Zugriff entzogen, und nur für die abgemeldete Person | mod | **umgesetzt**, 1 Test |
 | §16 H2 | zweite Teilnehmerquelle „Einschreibung im Startknoten-Kurs": Person aus dem Eingangskurs wird in den Hostkurs getragen, Außenstehende nicht | mod | **umgesetzt**, 1 Test |
-| §27 C1 | Berechtigung → Einschreibung → realer Kurszugriff, Negativkontrolle, Persistenz | enrol | **umgesetzt**, 5 Tests |
-| §27 C2 | Eingangsknoten löschen → Speicherverweigerung; Kriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
-| §7 E2 | A ODER B (Stapel), A UND B (paralleler Knoten, Struktur) per Drag&Drop | local | **umgesetzt**, 2 Tests; Zugangsbedingung des Nachfolgers als `fixme` offen (`issues/local_adele-issue-parallel-node-criterion.md`); Klammerungen offen |
+| §27 V1 | Berechtigung → Einschreibung → realer Kurszugriff, Negativkontrolle, Persistenz | enrol | **umgesetzt**, 5 Tests |
+| §27 V2 | Eingangsknoten löschen → Speicherverweigerung; Kriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
+| §7 E2 | A ODER B (Stapel), A UND B (paralleler Knoten, geteilter Nachfolger nennt beide Vorgänger, #584) per Drag&Drop | local | **umgesetzt**, 2 Tests; Klammerungen offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |

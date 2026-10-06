@@ -123,13 +123,13 @@ jobs:
           # and the dependency graph is circular, so Moodle cannot install
           # one of them alone.
           #
-          # Companions come from the Wunderbyte upstream. The naming there is
-          # inconsistent and has to be matched exactly: local_adele uses an
-          # underscore.
+          # Companions come from the SAME owner as the repository under test
+          # (Wunderbyte upstream or a fork); all three are named
+          # moodle-<type>_adele and default to "main".
           declare -A REPO=(
-            [local]=Wunderbyte-GmbH/moodle_local_adele
-            [enrol]=Wunderbyte-GmbH/moodle-enrol_adele
-            [mod]=Wunderbyte-GmbH/moodle-mod_adele
+            [local]="${GITHUB_REPOSITORY_OWNER}/moodle-local_adele"
+            [enrol]="${GITHUB_REPOSITORY_OWNER}/moodle-enrol_adele"
+            [mod]="${GITHUB_REPOSITORY_OWNER}/moodle-mod_adele"
           )
           {
             echo "| Plugin | Repository | Ref | Commit |"

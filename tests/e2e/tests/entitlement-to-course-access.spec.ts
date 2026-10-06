@@ -47,7 +47,7 @@ import {
   referencePath,
 } from '../support/fixtures';
 
-test.describe('ADELE-E2E-C1 — entitlement reaches the real course', () => {
+test.describe('ADELE-E2E-V1 — entitlement reaches the real course', () => {
   test('the learner can open the reachable course of their path', async ({ page }) => {
     await loginAs(page, referencePath.learner, fixturePassword());
 

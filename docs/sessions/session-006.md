@@ -241,3 +241,24 @@ E2E local 13/13, mod 3/3, enrol 6/6, phpcs 0/0.
 
 **Prüfstand:** E2E local 16 grün + 1 `fixme`, zweimal hintereinander; E1-Datei
 dreimal grün. Produktcode unverändert.
+
+
+## Teil 9 — CI nach Umbenennung, #584, Benennung der Ketten
+
+- **CI:** Upstream heißt `local_adele` jetzt `moodle-local_adele`, `mod_adele`
+  hat `main` statt `master`. `moodle-plugin-ci add-plugin --branch master …`
+  brach damit die Plugin-CI von `local_adele` und `enrol_adele`. Alle
+  Workflows (Plugin-CI, Smoke, E2E) holen die Begleiter jetzt einheitlich vom
+  Eigentümer des laufenden Repositorys, gleichnamiger Branch, sonst `main`.
+  Geprüft: Auflösung für Wunderbyte und Fork über `development`, `main` und
+  einen unbekannten Branch; Klonen beider Eigentümer; actionlint ohne Befund.
+- **#584 umgesetzt:** Zone „Alternative node" — jeder geteilte Nachfolger
+  nimmt den parallelen Knoten in seine Vorgänger-Bedingung auf; `min_courses`
+  bleibt unverändert (Voreinstellung 1, wie im Bedingungs-Editor). Gegenprobe:
+  E2E mit altem Bündel rot (`dndnode_3` fehlt), mit neuem grün. Die Prüfung
+  liest die **gespeicherte** Bedingung, weil `parent_courses.vue` beim Öffnen
+  ohnehin alle Vorgänger einsetzt und die Anzeige daher nichts beweist.
+- **Umbenennung:** Die `enrol`-Ketten heißen jetzt V1/V2 (zentraler
+  E2E-Vertrag, Plan §27); `C` bleibt der Plan-Kette „Zugangsbedingungen".
+
+**Prüfstand:** Jest 341; E2E local 16/16; E2-Gegenprobe rot→grün.
