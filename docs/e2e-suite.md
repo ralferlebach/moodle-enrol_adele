@@ -166,7 +166,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §11 L1 | Linearer Pfad mit vier Schritten, echter Kursabschluss je Schritt: 0/4 bis 4/4 je mit Routenstand, exaktem Prozentwert (`aria-valuenow`), Beschriftung des Balkens und Balkenbreite; dazu Status des abgeschlossenen und des nächsten Knotens | local | **umgesetzt**, 1 Test (5 Zustände) |
 | §11 L2 | Alternativknoten senken den Prozentwert nicht, 100 % auf dem gültigen Weg erreichbar | local | **abgedeckt durch Kette A** (`alternative-routes.spec.ts`) |
 | §11 L3 / §12 O1 | Manueller Abschluss: regulär → von der Lehrkraft gesetzt → zurückgenommen; Knotenstatus, Folgeknoten, Routenstand/Prozent, realer Zugriff, Einschreibung (– → Active → Suspended) | local | **umgesetzt**, 1 Test (5 Schritte); Wortlaut der Meldung offen → Kette F |
-| §11 L4 / §12 O3 | Master-Abschluss setzen und zurücknehmen | local | offen – gemeinsam umzusetzen |
+| §11 L4 / §12 O3 | Master-Abschluss: an Knoten 1 (abgeschlossen, Folgeknoten frei, 1/3, Zugriff, Einschreibung Active), an allen Knoten (Gesamtabschluss 3/3, 100 %), überall entfernt (0/3, Zugriff weg, Einschreibung Suspended) | local | **umgesetzt**, 1 Test (4 Schritte); Aktivitätsabschluss von mod_adele nicht prüfbar (Regel wirkungslos, Issue-Entwurf) |
 | §13 D | Diagnose über ein CAT-Ergebnis: Fähigkeit x−ε / x / x+ε (x = 2,5) gegen die Schwelle einer echten catquiz-Skala; je Lernende Knotenstatus, realer Zugriff auf den Folgeknoten, Routenfortschritt | local | **umgesetzt**, 3 Tests (nur mit catquiz-Ökosystem, sonst übersprungen); PHPUnit-Grenzwerttest in `uc09` für beide Prüfmodi; Feedbacktexte → Kette F |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
@@ -402,3 +402,19 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   catquiz-Datensatz.
 - **Nur mit catquiz:** Der Seed legt Kette D nur an, wo das Ökosystem
   installiert ist; die Kette überspringt sich sonst ausdrücklich.
+
+## Nachtrag `2026100613`: Speichern, Editor-Laden, Seed-Identität
+
+- **`saveLearningPath(page, button)`** (support/fixtures): klickt „Speichern"
+  und wartet auf die Antwort von `local_adele_save_learningpath`, verlangt
+  `error: false`. „Übersicht wieder sichtbar" beweist nichts: Der Editor fordert
+  die Liste an, bevor das Speichern geantwortet hat.
+- **`waitForEditorLoaded(page)`**: vor jedem Eintippen in den Editor. Der
+  Editor lädt einen Pfad beim Öffnen zweimal; eine späte zweite Antwort
+  überschreibt den eingetippten Titel (Produktfehler, sichtbar gehalten durch
+  `editor-title-overwrite.spec.ts` als `test.fixme`, Issue-Entwurf
+  `issues/local_adele-issue-editor-title-overwritten.md`).
+- **Seed-Identität der Fixture-Pfade:** gemerkte IDs in
+  `$CFG->dataroot/local_adele_e2e_fixturemap.json`, dann exakter Name, dann
+  „Name mit Suffix" — ein abgebrochener Umbenennungslauf vergiftet die
+  folgenden Läufe nicht mehr.

@@ -557,3 +557,83 @@ werden nur als Tatsache genannt, wenn sie belegt sind.
 - **Eigene Umwege unterwegs:** großes Fenster und Fokus als Ersatz für den
   Klick ausprobiert, beides wirkungslos; erst der Blick in die Komponente
   zeigte, dass nur der Klick die Karte öffnet.
+
+## Teil 25 — Arbeitsumgebung zurückgesetzt, Neuaufbau
+
+- **Befund (2026-10-06, 23:12):** Der Container war zurückgesetzt:
+  Arbeitskopien, Moodle, Datenbank, catquiz, phpcs, Playwright und alle
+  Hilfsskripte in `/tmp` fehlten. Erhalten waren nur die Lieferungen
+  `2026100612` und die Präsentation.
+- **Wiederherstellung:** Arbeitskopien aus den vollständigen Archiven
+  `2026100612` (inkl. `.github/`, `docs/`). Moodle neu geklont — jetzt
+  **4.5.15 (Build 20261005)** statt 4.5.14+. catquiz-Ökosystem aus
+  `ralferlebach/*` Zweig `ALiSe-v-1.2.0-legacy` mit Submodulen,
+  `local_wunderbyte_table` von Wunderbyte `main`. `faketime`, `php8.3-soap`,
+  Locale `en_AU.UTF-8` nachinstalliert.
+- **Stolperstein Composer:** Archiv-Downloads von GitHub scheitern hinter dem
+  Proxy („Could not authenticate against github.com"). Abhilfe:
+  `composer install --prefer-source --no-plugins` (Git statt Archiv), Standards
+  für phpcs von Hand registrieren.
+- **Stolperstein Datenbank:** PostgreSQL läuft nach einer Pause der Umgebung
+  nicht weiter; vor jedem Schritt `service postgresql start`.
+- **Basismessung vor Weiterarbeit:** phpcs 0/0 in allen drei Plugins;
+  E2E-Gesamtlauf auf 4.5.15 vor jeder neuen Kette, damit Abweichungen durch
+  die neue Moodle-Version nicht neuen Tests zugeschrieben werden.
+
+## Teil 26 — L4/O3 Master-Abschluss
+
+- **Basismessung nach dem Neuaufbau:** E2E enrol 6, mod 7, local 33 grün auf
+  Moodle 4.5.15; PHPUnit mod 14, enrol 53 grün. Composer für Moodle brauchte
+  einen zweiten Anlauf: „fatal: cannot repack to clean up" beim automatischen
+  Aufräumen von Git; mit `git config --global gc.auto 0` und ohne parallelen
+  E2E-Lauf vollständig.
+- **L4 und O3 gemeinsam**, eigener Pfad „E2E Master-Abschluss" (linear, die
+  Lernende schließt nichts selbst ab): regulär → Master-Abschluss an Knoten 1
+  (abgeschlossen, Knoten 2 frei, 1/3, T02 offen, Einschreibung Active) → an
+  allen drei Knoten (3/3, 100 %) → überall entfernt (0/3, T02 zu,
+  Einschreibung Suspended). Zweimal grün, auf Anhieb.
+- **Befund (mod_adele):** Die Abschlussregel „Lernpfad abgeschlossen"
+  (`completionlearningpathfinished`) wird angeboten, aber nie ausgewertet: keine
+  `custom_completion`-Klasse, kein `update_state()` beim Pfadende; Moodle 4.5
+  überspringt die Regel stillschweigend (`completionlib.php`, belegt im Core).
+  Issue-Entwurf `issues/mod_adele-issue-completion-rule-learningpath-finished.md`.
+  Der Plan-Punkt „mod_adele-Completion, falls gekoppelt" (O3) ist damit nicht
+  prüfbar; nicht ungefragt implementiert.
+
+## Teil 27 — Zufällig scheiternde Rollen-Ketten: Ursache im Produkt
+
+- **Befund im Gesamtlauf:** R4a, R5, R6 rot, im Basislauf eine Stunde vorher
+  grün. Gemeinsames Muster: Umbenennen und Speichern, danach zeigt die
+  Übersicht den alten Namen.
+- **Folgeschaden:** Der Seed erkannte Fixture-Pfade nur am Namen; ein Lauf,
+  der beim Zurückbenennen scheiterte, hinterließ einen Pfad mit Suffix samt
+  übertragenem Eigentum, und der Seed legte daneben einen Doppelgänger an.
+  Jetzt dreistufig: gemerkte ID (`$CFG->dataroot/local_adele_e2e_fixturemap.json`),
+  exakter Name, Name mit Suffix; der gefundene Pfad wird vollständig
+  zurückgesetzt.
+- **Erster Erklärungsversuch, unzureichend:** Seitenwechsel bricht das
+  Speichern ab. Wartebedingung „Übersicht sichtbar" eingebaut — half nicht.
+  Danach `saveLearningPath()`: wartet auf die Serverantwort und verlangt
+  `error: false`. Bestand ebenfalls — der Server meldete Erfolg mit dem
+  ALTEN Namen.
+- **Ursache, belegt:** Der Editor lädt den Pfad beim Öffnen zweimal
+  (`LearningPathList.editLearningpath` und `LearningpathsEdit.showForm`); eine
+  verspätete zweite Antwort überschreibt den eingetippten Titel. Mit
+  künstlich verzögerter zweiter Antwort deterministisch: erwartet „Neuer Name",
+  erhalten „Linear A2". Produktfehler mit stillem Datenverlust.
+- **Umgang:** Issue-Entwurf `issues/local_adele-issue-editor-title-overwritten.md`;
+  Test `editor-title-overwrite.spec.ts` als `test.fixme` (Nachweis: als
+  regulärer Test rot). Die Rollen- und Editor-Ketten warten vor dem Eintippen
+  auf das Ende des Ladens (`waitForEditorLoaded`), damit der Fehler ihre
+  eigentliche Prüfung nicht zufällig rot macht. Produkt nicht geändert.
+
+**Offene Beobachtung:** Im Gesamtlauf nach Teil 27 scheiterte einmal die
+H2-Kombinationskette (`mod`): Die Eingangskurs-Lernende erreichte den Hostkurs
+nicht („enrolment-page"). Nicht reproduzierbar: Basislauf zweimal grün,
+danach `mod` allein zweimal grün. Ursache nicht belegt; die Kette wird in den
+folgenden Gesamtläufen beobachtet.
+
+**Prüfstand `2026100613`:** PHPUnit local 322 (1 übersprungen, 1
+unvollständig), enrol 53, mod 14; E2E enrol 6, mod 7 (zweimal allein; einmal
+im Gesamtlauf rot, siehe oben), local 34 + 1 `fixme`; Rollen-/Editor-/M-Ketten
+zweimal 17/17; phpcs 0/0.

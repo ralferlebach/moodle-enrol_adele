@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { Page, expect } from '@playwright/test';
+import { Locator, Page, expect } from '@playwright/test';
 
 /**
  * Helpers for the E2E chains.
@@ -310,4 +310,39 @@ export function catquizSignal(username: string, ability: number): void {
     ],
     { cwd: fixture('ADELE_MOODLE_ROOT'), encoding: 'utf8', env: { ...process.env, ...serverTimeEnv(), ADELE_SEED_I_KNOW: '1' } }
   );
+}
+
+/**
+ * Click a learning path's save button and wait for the SERVER's answer.
+ *
+ * The editor goes back to the overview and requests the list before the save
+ * has answered, so "the overview is visible again" is no proof that the save
+ * is through - a list loaded too early shows the old state for good. This
+ * waits for the response of local_adele_save_learningpath itself and
+ * requires it to report no error.
+ *
+ * @param page The page.
+ * @param save The save button.
+ */
+export async function saveLearningPath(page: Page, save: Locator): Promise<void> {
+  const response = page.waitForResponse((r) => r.url().includes('local_adele_save_learningpath'), { timeout: 30_000 });
+  await save.click();
+  const body = JSON.parse(await (await response).text());
+  expect(body?.[0]?.error, `the server must accept the save: ${JSON.stringify(body?.[0]?.exception ?? '')}`).toBe(false);
+}
+
+/**
+ * Wait until the learning path editor has finished loading.
+ *
+ * The editor loads the path twice when it is opened from the overview
+ * (LearningPathList.editLearningpath, then LearningpathsEdit.showForm), and a
+ * late second answer overwrites what was typed into the title meanwhile -
+ * a product defect, kept visible by its own fixme test
+ * (editor-title-overwrite.spec.ts). Chains about something else wait here,
+ * so that defect cannot turn them red at random.
+ *
+ * @param page The page.
+ */
+export async function waitForEditorLoaded(page: Page): Promise<void> {
+  await page.waitForLoadState('networkidle');
 }
