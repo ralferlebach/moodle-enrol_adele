@@ -1337,3 +1337,27 @@ kein Frontend-Code geändert.
 - **Noch offen:** „Rolle wechseln zu …" (Bedeutung), #592 (Wortlaut),
   Host-Modus ohne Einschreibung, Moodles Rolle „Manager", Löschen statt
   Suspendieren beim Verlassen (#587).
+
+## Teil 43 — local_adele #591: i-Symbol und Sprechblase per Tastatur
+
+Version `2026100711`.
+
+- **Umsetzung:** Auslöser als benannte Schaltflächen mit Zustand
+  (`NodeInformation.vue`, `UserInformation.vue`), `Escape` schließt; Details im
+  Issue-Entwurf, Abschnitt „Umsetzung". Bündel neu gebaut.
+- **Über das Issue hinaus:** `ExpandNodeInformation.vue` (i-Symbol an den
+  Kurskarten eines Stapels) hatte dasselbe Muster und ist mitbehoben — nur mit
+  Jest geprüft, nicht im Browser. `NodeFeedbackArea.vue` hat es ebenfalls,
+  wird aber nirgends eingebunden; nicht angefasst.
+- **Tests:** Jest 361/361 in 74 Suiten (neu: 15); E2E-Test aus den bekannten
+  Fehlern in einen regulären überführt, auf Anhieb grün; Smoke-Suite samt axe
+  14/14.
+- **Eigener Fehler unterwegs:** Ein Jest-Fall („ohne Kursnamen") übergab
+  `undefined` an einen Parameter mit Vorgabewert und prüfte deshalb den Fall
+  mit Namen; an der Fehlermeldung gesehen, korrigiert.
+- **Offen:** Screenreader-Abnahme (NVDA unter Windows).
+
+**Prüfstand `2026100711`:** E2E enrol 6, mod 13, local 53 — 72 Tests, ein
+Gesamtlauf vollständig grün, kein übersprungener Test; PHPUnit local 368
+(1 übersprungen, 1 unvollständig, wie zuvor), enrol 57, mod 22; Jest 361/361
+(74 Suiten); Smoke-Suite local 14/14.

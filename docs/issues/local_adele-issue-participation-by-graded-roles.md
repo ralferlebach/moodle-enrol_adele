@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele` (betrifft auch `enrol_adele`, `mod_adele`)
 **Labels (Vorschlag):** `improvement`, `roles`
 **Stand:** 2026-10-07, Session 006 — Entscheidung des Auftraggebers vom 2026-10-07, Folge aus #587
-**GitHub:** noch nicht angelegt
+**GitHub:** local_adele #593
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 

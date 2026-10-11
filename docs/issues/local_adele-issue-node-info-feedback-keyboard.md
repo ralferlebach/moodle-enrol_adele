@@ -50,3 +50,30 @@ Karte dem Auslöser zuordnen (`aria-controls`).
 1. Der genannte E2E-Test läuft als regulärer Test grün.
 2. Screenreader sagen Namen und Zustand (auf-/zugeklappt) beider Auslöser an.
 3. Die axe-Prüfung der Lernpfad-Ansicht bleibt ohne Befund.
+
+## Umsetzung (Stand 2026100711)
+
+- `NodeInformation.vue` (i-Symbol) und `UserInformation.vue` (Sprechblase):
+  Der Auslöser ist ein `<button type="button">` mit zugänglichem Namen
+  („Access and completion criteria: <Kursname>" / „Feedback on your progress:
+  <Kursname>", deutsch „Zugangs- und Abschlusskriterien" / „Rückmeldung zum
+  eigenen Stand"), `aria-expanded` und `aria-controls`; das Symbol selbst ist
+  `aria-hidden`. `Enter` und Leertaste öffnen und schließen, `Escape`
+  schließt. Der umgebende Container ist nicht mehr selbst fokussierbar — ein
+  Tabstopp statt zwei.
+- Zusätzlich, im Issue nicht genannt: `ExpandNodeInformation.vue`, dasselbe
+  i-Symbol an den Kurskarten innerhalb eines Stapels — gleich behoben. **Nur
+  mit Jest geprüft, nicht im Browser** (Kette F hat keinen Stapel).
+- Neue Sprachstrings `a11y_node_information`, `a11y_node_feedback`.
+- Die Tasten erreichen die Zeichenfläche nicht (`keydown.stop` für `Enter`
+  und Leertaste), damit die Tastaturbedienung der Knoten nicht dazwischenkommt.
+
+**Tests:** Jest `issue591_keyboard_toggles.spec.js` (15 Tests); E2E
+`feedback-texts.spec.ts`, „F2 keyboard: …" — im echten Browser: Schaltfläche
+über Rolle und Namen gefunden, `Enter` öffnet, `Escape` schließt, Leertaste
+öffnet und schließt, Fokus bleibt auf der Schaltfläche. Derselbe Test war vor
+der Änderung rot (als bekannter Fehler geführt). Smoke-Suite mit den
+axe-Prüfungen: 14 bestanden.
+
+**Nicht umgesetzt:** Screenreader-Abnahme (Akzeptanzkriterium 2) — der
+NVDA-Lauf unter Windows steht weiterhin aus.
