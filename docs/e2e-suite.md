@@ -170,7 +170,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §12 O2 | Master-Zugang: Bedingung falsch/wahr × Master aus/an, Ausschalten mit Rückfall auf die Bedingung, Kombination mit Zeitbedingung; Master-Zugang erzeugt nie einen Abschluss (Knotenstatus, Fortschritt), Einschreibung Active/Suspended, realer Zugriff | local | **umgesetzt**, 2 Tests |
 | §12 O4 | Beide Master-Haken in allen vier Kombinationen: Knotenstatus, Route, realer Zugriff auf T02/T03; Zeile „nur Abschluss": schließt gesperrten Knoten ab, öffnet Nachfolger — so gewollt (Entscheidung 2026-10-07: Master-Abschluss wirkt unabhängig von Voraussetzungen) | local | **umgesetzt**, 1 Test (5 Schritte) |
 | §13 D | Diagnose über ein CAT-Ergebnis: Fähigkeit x−ε / x / x+ε (x = 2,5) gegen die Schwelle einer echten catquiz-Skala; je Lernende Knotenstatus, realer Zugriff auf den Folgeknoten, Routenfortschritt | local | **umgesetzt**, 3 Tests (nur mit catquiz-Ökosystem, sonst übersprungen); PHPUnit-Grenzwerttest in `uc09` für beide Prüfmodi; Feedbacktexte → Kette F |
-| §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
+| §10 F1–F3 | Was Lernende am Knoten **lesen**, Zustand für Zustand: i-Symbol (Informationskarte), Sprechblase (Feedback) und deren Farbe. Vorgänger 1 von 1 und 2 von 2 (vorher, teilweise, erfüllt), manuelle Freigabe und manueller Abschluss (vorher, gesetzt, zurückgenommen), eigener Text der Autorin, Lernende mit Sprache Deutsch; mit Server-Testuhr: festes Zeitfenster vor/im/nach, offen an einem Ende, dieselben Zeiten für eine Lernende in UTC+9; F3 Zeitfenster UND/ODER Vorgänger (beide fehlen, nur A, nur B, erfüllt, Fenster vorbei). Keine Rohplatzhalter in irgendeinem gelesenen Text | local | **umgesetzt**, 8 Tests (`feedback-texts.spec.ts` 6, `zz-time-feedback.spec.ts` 2); dazu 6 Tests zu **bekannten Fehlern**, im Normallauf übersprungen (siehe Nachtrag `2026100709`); verschachtelte Kombinationen offen (brauchen die E2-Klammern) |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
 | §16 H3 | Host-Modi `hidden` (Teilnehmerliste: gesperrt, kein Zugang) und `none` (nicht eingeschrieben); `visible` über H2 | mod | **umgesetzt**, 2 Tests |
 | §17 P1–P4 | Lernerdaten in der Kurseinbindung, ein Pfad zweifach eingebunden („Only own results" / „Results of all other participants"), zwei Lernende mit 1/3 und 2/3: P1 eigene Zeile, Status, Prozent — fremde Lernende weder auf der Seite noch in den Serverantworten; P2 beide Lernende mit korrekten Werten, Lehrkraft erreicht die Detailansicht; P3 Sichtbarkeit je Rolle wie implementiert (Admin, Lehrkraft mit/ohne Bearbeitungsrecht, Kollaborator, AdeLe-Manager, AdeLe-Assistent, Teilnehmer, Teilnehmer und Lehrkraft eines fremden Kurses); P4 fremde Zeile, fremde Detailansicht, direkte URL über jeden nennbaren Kontext | mod | **umgesetzt**, 4 Tests; drei Umgehungen gefunden und in `local_adele` behoben (Issue-Entwurf), PHPUnit `learner_data_embedding_test`; Nachtrag: Pfadrechte nur für den eigenen Pfad (Assistent eines anderen Pfads abgelehnt), P4-Schritt „niemand ohne Recht ändert einen fremden Lernerpfad"; local_adele #588: derselbe Pfad in einem zweiten Kurs (E2EP2, Lernende Gamma) — jede Kursliste zeigt nur die eigenen Lernenden, Pfadrecht über den Systemkontext alle; mod_adele #39: Lehrkraft ohne Bearbeitungsrecht bekommt die Lehrkraftansicht nur lesend (eigener Test: gleiche Knotenstatus, keine Master-Haken, kein „Save"; Speichern über den Dienst abgelehnt) — Kette P jetzt 5 Tests |
@@ -426,3 +426,38 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   `$CFG->dataroot/local_adele_e2e_fixturemap.json`, dann exakter Name, dann
   „Name mit Suffix" — ein abgebrochener Umbenennungslauf vergiftet die
   folgenden Läufe nicht mehr.
+
+## Nachtrag `2026100709`: Kette F, bekannte Fehler, Zeitzone
+
+- **Lesen statt wirken:** Kette F prüft keine Wirkung (das tun C, T, L, O),
+  sondern die Texte. Hilfe `nodeTexts()` (gemeinsame `support/fixtures.ts`)
+  liefert Status, Informationskarte, Feedback und Farbe der Sprechblase eines
+  Knotens; `support/feedback.ts` (nur `local_adele`) die Satzbausteine und die
+  Schritte der Kette.
+- **Eigene Fixtures:** je Zustandskette eine Lernende mit eigenem Hostkurs
+  (`E2EF_<KEY>`, Aktivität „E2E F <key>"). Die Zeit-Fixtures haben eigene
+  Pfade und eigene Fenster (2032, 2033), später als alle Fenster der Kette T;
+  `zz-time-feedback` läuft nach `zz-time-conditions`. Alle Lernenden der Kette
+  haben eine feste Zeitzone (UTC, eine Asia/Tokyo), damit die gelesenen Daten
+  nicht von der Zeitzone der Site abhängen. Das deutsche Sprachpaket
+  installiert der Seed über Moodles Importer; ohne Netz überspringen sich die
+  deutschen Tests ausdrücklich.
+- **Bekannte Fehler** (`knownDefect` in `support/feedback.ts`): Tests, die
+  beschreiben, was Lernende lesen **sollten**, und heute scheitern. Im
+  Normallauf übersprungen (`test.fixme`), mit `ADELE_RUN_KNOWN_DEFECTS=1`
+  ausgeführt — dann rot, bis der Fehler behoben ist. Derzeit sechs:
+  Mischsprache nach eigener Aktion; Text der Autorin verschwindet bei anderer
+  Sprache; „manual completion recorded" ohne Abschluss; „From subscription you
+  have access until …" vor einem festen Fenster; „Missing date" bei offenem
+  Fenster; i-Symbol und Sprechblase nicht per Tastatur. Issue-Entwürfe:
+  `issues/local_adele-issue-feedback-language-and-author-text.md`,
+  `-feedback-wording-time-and-manual.md`, `-node-info-feedback-keyboard.md`;
+  als Frage `-feedback-partial-predecessors.md`.
+- **Die zeitbezogenen bekannten Fehler stehen am Anfang ihrer Datei:** nach
+  der Kette darunter stehen alle Lernenden hinter ihrem Fenster, und die Tests
+  wären grün, ohne etwas gesehen zu haben (so im ersten Lauf geschehen).
+- **Zeitzone (local_adele #581, Nachtrag):** Daten in den Texten erschienen
+  in der Zeitzone der Site statt in der der Lernenden, das Fensterende in der
+  Zeitzone dessen, der die Neuberechnung auslöste. Behoben; PHPUnit
+  `timed_timestamps_test::test_dates_are_shown_in_the_learners_time_zone`,
+  E2E über die Lernende in UTC+9.

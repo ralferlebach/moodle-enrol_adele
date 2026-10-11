@@ -1064,3 +1064,170 @@ Gesamtlauf vollständig grün); Jest 346/346; PHPUnit local 348 (1 übersprungen
 **Prüfstand `2026100708`:** E2E enrol 6, mod 13, local 43 (62 Tests, ein
 Gesamtlauf vollständig grün); PHPUnit local 354 (1 übersprungen, 1
 unvollständig, wie zuvor), enrol 57, mod 22; phpcs 0/0.
+
+## Teil 37 — Kette F (Feedback und Sprache): begonnen, **unterbrochen**
+
+Unterbrochen am 2026-10-07 für die Überarbeitung der Präsentation (Auftrag
+des Auftraggebers). Stand in der Arbeitskopie, **noch nicht ausgeliefert und
+nicht durch einen Gesamtlauf gedeckt**:
+
+- **Fixture-Fehler behoben (Seed):** Die abgeleiteten Fixture-Pfade trugen
+  die Texte des Ausgangspfads weiter — z. B. „… und {start_date} bis
+  {end_date}" an Knoten ohne Zeitbedingung. `local_adele_fixture_editor_texts()`
+  gibt jeder Bedingung die Standardtexte ihrer Klasse (`get_description()`,
+  daraus lädt auch der Editor) und setzt die Feedbackknoten zusammen, wie der
+  Editor es tut (`renderFeedback()` in `feedbackNode.vue` /
+  `feedbackNodeRestriction.vue`). Betrifft nur die Fixtures.
+- **Fixtures für F:** je eine eigene Lernende mit eigenem Hostkurs
+  (E2EF1–E2EF8) auf den Bedingungen Vorgänger 1 von 1, 2 von 2, manuelle
+  Freigabe, manueller Abschluss, Zeitfenster, Zeit UND/ODER Vorgänger, sowie
+  eine Lernende mit Sprache Deutsch. Der Seed installiert dafür das deutsche
+  Sprachpaket über Moodles eigenen Importer; ohne Netz entfällt der Teil.
+- **Hilfe `completeCourse()`** findet Moodles Abschluss-Knopf jetzt über
+  `data-action`/`data-toggletype` statt über die englische Beschriftung.
+- **Probeläufe** (nur gelesen, nichts festgeschrieben). Rohdaten des zweiten
+  Laufs: `docs/testplan/messungen/kette-f-probelauf-2026-10-07-teil2.txt`.
+  Beobachtungen, **noch zu bestätigen**:
+  1. Keine Rohplatzhalter in i-Symbol und Feedback, in keinem der gesehenen
+     Zustände.
+  2. Deutsch: vor dem Kursabschluss vollständig deutsch; **nach** dem
+     Abschluss von T01 gemischt („Complete diesen Kurs", „successfully
+     completed diesen Kurs").
+  3. Vorgänger 2 von 2, einer erledigt: Der Text nennt weiterhin beide
+     Vorgänger, nicht den fehlenden.
+  4. Manueller Abschluss: i-Symbol sagt in jedem Zustand „manual completion
+     recorded".
+  5. Zeitfenster nur mit Ende: i-Symbol „Missing date to 13/03/26, 09:00".
+  6. Festes Zeitfenster, vor Beginn: „From subscription you have access
+     until …" — Wortlaut der Zeitdauer-Bedingung.
+  7. UND, Vorgänger erledigt: Der Text nennt nur noch die Zeit — hier wird
+     das Fehlende benannt.
+  8. Im Probelauf blieb der Zeitknoten **im** Fenster gesperrt; der Probelauf
+     hat nur die Ad-hoc-Warteschlange geleert, nicht das Vorgehen der Kette T
+     nachgebildet — **nicht belastbar**.
+- **Offene Schritte:** Zeit-Schritte wie in Kette T nachbilden und neu messen;
+  Spec `feedback-texts.spec.ts` (F1/F2 je Bedingung über die Zustände, F3
+  UND/ODER, Deutsch) schreiben; Zeit-Teile in eine `zz-`Datei; bestätigte
+  Befunde als Issue-Entwürfe; Gesamtlauf; Auslieferung. Verschachtelte
+  Kombinationen brauchen die E2-Klammern.
+
+## Teil 38 — Präsentation überarbeitet (2026-10-07)
+
+Auftrag des Auftraggebers, sechs Inhaltsfolien nach Vorgabe. Geliefert:
+`AdeLe_Stand_2026-10-07_v2.pptx` (Titel + 6 Folien), Generator
+`docs/praesentation/build_2026-10-07_v2.js`. Keine Plugin-Dateien geändert,
+daher keine Issue-Nummern.
+
+- **Folie 2** Testarten nach Zweck; Zahlen aus dem Gesamtlauf `2026100708`.
+- **Folie 3** Rechtematrix (`ADELE_Rollen_Rechte_Soll-Ist`, Stand
+  local_adele v2026031200) gegen PHPUnit, Behat, Playwright. Die Zuordnung
+  stammt aus dem Lesen der Testdateien, nicht aus eigenen Läufen je Rolle.
+- **Folie 4** Ansatz und Unterschied zu local_adele #470 (53 Karten, 27
+  abgehakt — gezählt im Issue-Text).
+- **Folie 5/6** Zählung nach den Abschnitten des Testplans: 43
+  Teil-Userstories (C2 gestrichen), 37 umgesetzt, 3 teilweise (R3, R5, E2),
+  3 offen (F1–F3). Die Schätzung „3–5 Sitzungen" ist eine Erwartung.
+- **Folie 7** Befunde nach Art; als offen geführt: Infokarte per Tastatur,
+  Ablagezonen (#580), Kontrastverstoß auf dem CI-Runner (Ursache unbelegt),
+  Assistentenrolle, Feedbacktexte (Kette F, unbestätigt).
+- **Prüfung:** `validate.py` ohne Befund; alle Folien gerendert und
+  angesehen. Eigener Fehler unterwegs: Tabellenränder in Zoll statt Punkt
+  (Tabellen füllten die Folie), behoben.
+
+Kette F bleibt unterbrochen wie in Teil 37 beschrieben.
+
+### Nachtrag zu Teil 38 — Fassung v3 (2026-10-07)
+
+Auf Rückmeldung des Auftraggebers: Folie „Was seit August an der Software
+geschehen ist" aus dem Erstentwurf unverändert wieder eingefügt (Folie 2;
+die Oktober-Spalte endet dort weiterhin bei #584). Folie „Welche Tests die
+Plugins absichern": k6 und JMeter als eigene Karten (Inhalt aus
+`local_adele/tests/load` gelesen: drei Leseseiten, Voreinstellung 10 Nutzer,
+30 s, Workflows nur von Hand), Jest in der Unit-Karte als eigene Zahl neben
+PHPUnit; Schwerpunkt bleibt Unit, Behat, Playwright. Übrige Folien
+unverändert. Geliefert: `AdeLe_Stand_2026-10-07_v3.pptx`, Generator
+`docs/praesentation/build_2026-10-07_v3.js`; `validate.py` ohne Befund, alle
+Folien gerendert und angesehen.
+
+### Nachtrag zu Teil 38 — Fassung v4 (2026-10-07)
+
+Schlussfolie „Nächster Schritt" ergänzt (Folie 9): alle bereits gelösten und
+geschlossenen Issues zur Oberfläche als Regressionstests in Playwright,
+Umsetzung Azadeh (Vorgabe des Auftraggebers). Die Liste der betroffenen
+Issues ist nicht zusammengestellt; die Folie nennt deshalb keine Anzahl.
+Übrige Folien unverändert. Geliefert: `AdeLe_Stand_2026-10-07_v4.pptx`,
+Generator `docs/praesentation/build_2026-10-07_v4.js`; `validate.py` ohne
+Befund, Folie gerendert und angesehen.
+
+## Teil 39 — Kette F (Feedback und Sprache): umgesetzt; local_adele #581 Nachtrag Zeitzone
+
+Wiederaufnahme von Teil 37. Version `2026100709` (alle drei Plugins).
+
+- **Offener Punkt 8 aus Teil 37 widerlegt:** Der Zeitknoten öffnet im Fenster.
+  Der Probelauf hatte den Status einmal gelesen; die Neubewertung ist eine
+  Kette von Aufgaben. Mit wiederholtem Leeren der Warteschlange (wie Kette T)
+  zeigt der Knoten „accessible". Kein Produktfehler.
+- **Fixtures neu geschnitten:** Die Zeit-Fixtures teilten sich Pfad und
+  Fenster mit T und O2 — ein Uhrsprung der einen Kette hätte die Aufgaben der
+  anderen verbraucht. Jetzt eigene Pfade („E2E F Zeitfenster", „… Nur
+  Beginn", „… Nur Ende", „… Zeit UND/ODER Vorgänger") mit eigenen Fenstern
+  (2032, 2033). Dazu: zweite UND-Lernende („erst im Fenster"), eigener Text
+  der Autorin (englische und deutsche Lernende), eine Lernende in UTC+9.
+  Hostkurse heißen nach dem Schlüssel (`E2EF_<KEY>`) statt nummeriert.
+- **Eigener Fehler:** Die nummerierten Hostkurse (`E2EF1` …) wanderten beim
+  Einfügen einer Fixture samt ihren Mitgliedern zu einer anderen Fixture; eine
+  Lernende stand danach zusätzlich auf einem fremden Pfad. Nur in der lokalen
+  Testumgebung, nicht ausgeliefert; dort bereinigt.
+- **Erst gemessen** (drei Probeläufe, Rohdaten des zweiten und dritten:
+  `docs/testplan/messungen/kette-f-probelauf-2026-10-07-teil3.txt`), dann
+  festgeschrieben: `feedback-texts.spec.ts` (6 Tests) und
+  `zz-time-feedback.spec.ts` (2 Tests). Einzeln viermal grün (zweimal mit,
+  zweimal ohne die bekannten Fehler), danach im Gesamtlauf.
+- **Befunde, gemessen** — als Tests zu „bekannten Fehlern" (im Normallauf
+  übersprungen, mit `ADELE_RUN_KNOWN_DEFECTS=1` rot) und als Issue-Entwürfe:
+  1. *Mischsprache:* Deutsche Lernende lesen nach dem eigenen Kursabschluss
+     „Complete diesen Kurs". Ursache belegt: Die Neuberechnung in ihrer
+     Sitzung nimmt die gespeicherten (englischen) Vorlagen, füllt Platzhalter
+     deutsch und vermerkt `feedback_lang = de` — gemessen wechselt der Vermerk
+     genau bei ihrem Klick von `en` auf `de`; der Abruf rendert danach nicht
+     mehr neu (#493).
+  2. *Text der Autorin verschwindet:* Lernende mit anderer Sprache lesen den
+     Standardtext statt des eigenen Textes (Abruf mit `$forcelangdefaults`).
+  3. *Festes Fenster vor Beginn:* „From subscription you have access until …"
+     am gesperrten Knoten.
+  4. *Offenes Fenster:* „Missing date" im i-Symbol.
+  5. *Manueller Abschluss:* i-Symbol „manual completion recorded" in jedem
+     Zustand.
+  6. *Tastatur:* i-Symbol und Sprechblase öffnen nur per Mausklick (bereits
+     in Teil 24 beobachtet, jetzt als Test und Entwurf).
+  7. *Frage, kein Fehler:* „2 von 2 Vorgänger", einer erledigt — der Text
+     nennt weiter beide.
+  Entwürfe: `issues/local_adele-issue-feedback-language-and-author-text.md`
+  (1, 2), `-feedback-wording-time-and-manual.md` (3–5),
+  `-node-info-feedback-keyboard.md` (6), `-feedback-partial-predecessors.md`
+  (7). **Nicht behoben** — Fixes erst nach angelegten Issues (Abschnitt
+  „Entscheidungen des Auftraggebers (2026-10-07)"). Alle vier Entwürfe sind
+  auf GitHub noch nicht angelegt.
+- **Eigener Fehler aus #581, behoben (local_adele #581, Nachtrag):**
+  `time_value::display()` gab die Nutzer-ID an `core_date::get_user_timezone()`;
+  die Funktion liest eine bloße Zahl als erzwungene Zeitzone, nicht als
+  Nutzer. Folge: Start und Ende in der Zeitzone der Site statt der Lernenden;
+  das Fensterende („until …") in der Zeitzone dessen, der die Neuberechnung
+  auslöste. Gemessen mit einer Lernenden in Asia/Tokyo: Karte „10:00 to
+  12:00", Sprechblase gleichzeitig „until 21:00". #581 hatte die Anzeige „in
+  der Zeitzone der betroffenen Person" zugesagt; der damalige Test prüfte nur
+  ohne abweichende Zeitzone. Behoben in `time_value::display()` und
+  `relation_update::inbetweenfeedback()` (Nutzer-ID durchgereicht); PHPUnit
+  vorher rot („19:00" erwartet, „10:00" erhalten), nachher grün; E2E liest
+  jetzt überall 19:00/21:00. Bereits gespeicherte Texte korrigieren sich bei
+  der nächsten Neuberechnung des Lernerpfads.
+- **Abgeleitet, nicht gemessen:** Die Sätze zum Zeitfenster bleiben in der
+  Sprache der letzten Neuberechnung (steht im Entwurf zu 1).
+- **Offen:** verschachtelte Kombinationen (F3, letzter Punkt) — brauchen die
+  E2-Klammern.
+
+**Prüfstand `2026100709`:** E2E enrol 6, mod 13, local 51 bestanden und 6
+übersprungen (die bekannten Fehler) — 70 bestandene Tests, ein Gesamtlauf;
+PHPUnit local 355 (1 übersprungen, 1 unvollständig, wie zuvor), enrol 57,
+mod 22; phpcs für die geänderten PHP-Dateien 0/0. Jest nicht erneut
+gelaufen: kein Frontend-Code geändert, das Bündel ist das von `2026100708`.
