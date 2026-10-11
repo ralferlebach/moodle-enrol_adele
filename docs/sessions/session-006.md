@@ -306,3 +306,41 @@ HTTP 403).
 eines Kurses, der mit Kette C kommt.
 
 **Prüfstand:** E2E local 18/18 (davon T 2); CLI-Gegenprobe der Übergänge.
+
+## Teil 12 — Präsentation, Kette H begonnen, Befund Kettenreaktion
+
+- **Präsentation** für das Meeting am 7. Oktober (7 Folien, PPTX, außerhalb
+  der Plugins geliefert).
+- **H vorbereitet (noch nicht geliefert):** Seed legt die leeren Hostkurse
+  E2EHOST3–6 an (je ein Szenario: Quelle 3, Modus hidden, Modus none,
+  Quellen 1+2 kombiniert) und eine Lernende nur in T03 (`student10`).
+- **Befund:** Teilnehmerquellen werten auch Einschreibungen aus, die ADELE
+  selbst angelegt hat. `student10`, von Hand nur in T03, landete über die
+  Einbettungen des Fixture-Kurses `l01` auf drei Pfaden und in T01. Ursache:
+  `mod_adele_observer::user_enrolment_created()` reagiert auf jede
+  Einschreibungsmethode. Issue-Entwurf
+  `issues/mod_adele-issue-participant-source-cascade.md`; Entscheidung offen.
+  Folge für H: Negativprüfungen der Quellen 2 und 3 nutzen bis zur
+  Entscheidung die Person ohne jede Einschreibung (`student08`).
+
+## Teil 13 — mod_adele #37 umgesetzt, Kette H vervollständigt
+
+- **#37 (als [BUG] eingestellt → ADELE-eigene Einschreibungen zählen nicht):**
+  Beim Nachlesen stellte sich heraus, dass Quellen 2/3 und die A-4-Prüfung das
+  schon taten; mein Issue-Text war an einem Punkt zu weit gefasst (Korrektur
+  im Kommentarentwurf `issues/mod_adele-issue-37-comment.md`). Die Lücke war
+  Quelle 1 an zwei Stellen: `mod_adele` (Ereignis und Speichern) und
+  `local_adele\enrollment::enrolled()`. Beide nötig, einzeln gegengeprüft;
+  PHPUnit `participant_source_test.php`.
+- **Weitere Beobachtung, nicht geändert:** `enrollment::enrolled()` fragt die
+  gewählte Teilnehmerquelle nicht ab (Hostkurs-Mitglieder werden für jede
+  Einbettung abonniert). Im Kommentarentwurf zur Entscheidung gestellt.
+- **H:** Quelle 3, Kombination 1+2, Negativfall „nur späterer Knotenkurs",
+  Host-Modi hidden und none. Seed: Hostkurse 3–6, Knotenkurs-Lernende.
+- **Eigene Fehlvermutung:** Den plötzlich auftauchenden Rundgang hielt ich
+  zunächst für eine Folge der Zeitreise der T-Kette; die Zeitstempel zeigten
+  das Gegenteil (der Rundgang war schon immer fällig, der Klick gewann bisher
+  nur das Rennen). Rundgänge in den Seeds abgeschaltet.
+
+**Prüfstand:** PHPUnit mod 14, enrol 53, local 316; E2E enrol 6, mod 7,
+local 18.

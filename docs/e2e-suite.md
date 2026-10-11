@@ -123,6 +123,8 @@ durch `seed_fixtures.php`:
 | Eingangskurs-Lernende | `ADELE_FIXTURE_ENTRY_LEARNER` | nur im Eingangskurs T01, auf keinem Pfad |
 | Zeitfenster-Lernende | `fx_time_learner` | Pfad „E2E Zeitfenster": Eingangsknoten nur 2030-01-15 10:00–12:00 UTC offen |
 | Fristen-Lernende | `fx_duration_learner` | Pfad „E2E Zeitdauer": Eingangsknoten einen Tag ab Zuordnung offen |
+| Knotenkurs-Lernende | `student10` | nur manuell in T03 (späterer Knoten von „Linear A1"); Quelle 3 |
+| Hostkurse 3–6 | `E2EHOST3`–`E2EHOST6` | leer, je ein Szenario: Quelle 3, Modus hidden, Modus none, Quellen 1+2 |
 | zweiter Hostkurs | `E2EHOST2` (`ADELE_FIXTURE_HOST_COURSE_2`) | bewusst leer, für die Quelle „Startknoten-Kurs" |
 | Adele-Manager | `fx_adele_manager` | Systemrolle `adelemanager` |
 | Adele-Assistent | `fx_adele_assistant` | Systemrolle `adeleassistant`, Bearbeiter **nur** an „Linear A2" |
@@ -157,8 +159,9 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §9 T1–T3 | festes Zeitfenster (vorher zu, innerhalb offen, danach zu) und relative Frist (ab Zuordnung ein Tag) über die Server-Testuhr | local | **umgesetzt**, 2 Tests |
 | §9 T4–T5 | Zeit UND/ODER fachliche Bedingung | local | offen – braucht den echten Abschluss eines Vorgängers (kommt mit Kette C) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
-| §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" und Kombinationen | mod | offen |
-| §16 H3, §17 | Host-Modi (sichtbar, verborgen, keine), Result Visibility, Datenschutz | mod | offen |
+| §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
+| §16 H3 | Host-Modi `hidden` (Teilnehmerliste: gesperrt, kein Zugang) und `none` (nicht eingeschrieben); `visible` über H2 | mod | **umgesetzt**, 2 Tests |
+| §17 | Result Visibility, Datenschutz (Kette P) | mod | offen |
 
 
 ## 5a. Offene Punkte aus R3 und R5
@@ -323,3 +326,13 @@ CI=1 npx playwright test
 
 Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 `prompt-templates/environment-setup.md`, §8b).
+
+## Nachtrag `2026100603`: Rundgänge und Teilnehmerquellen
+
+- **Rundgänge abgeschaltet:** Die Seeds setzen alle Moodle-Rundgänge
+  (`tool_usertours`) auf inaktiv. Ein offener Rundgang legt eine Abdeckung
+  über die Seite; ob der Klick des Tests oder der Rundgang zuerst kommt, ist
+  ein Wettlauf. Er gehört zu Moodle, nicht zu ADELE.
+- **#37:** Teilnehmerquellen zählen nur Einschreibungen, die ADELE nicht
+  selbst angelegt hat. Die Negativprüfung von Quelle 2 nutzt deshalb auch die
+  Person, die nur in einem späteren Knotenkurs steht.
