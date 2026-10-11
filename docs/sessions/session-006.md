@@ -1621,3 +1621,41 @@ Version `2026100718`. Nur Test und Dokumentation.
   `local_adele` 14 (gesondert, vor dem Gesamtlauf); PHPUnit local 372, enrol
   57, mod 25. Ausgeliefert ohne Issue-Nummer (Test und Dokumentation zum
   Kontrastverstoß, Entwürfe).
+
+## Teil 52 — E2-Klammerungen auf Knoten- und Bedingungsebene; drei Befunde
+
+Version `2026100719`. Nur Tests und Dokumentation, keine Produktänderung.
+
+- **Umgesetzt:** `editor-brackets.spec.ts`, 5 Tests (Inhalt im
+  Suite-Nachtrag). Die Struktur wird am gespeicherten Pfad geprüft.
+- **Bedingungsebene, belegt am gespeicherten JSON:** Spalten nebeneinander =
+  ODER, Kette untereinander = UND. `A UND (B ODER C)` ist nur ausmultipliziert
+  darstellbar; das gilt laut Entscheidung als Testvariante.
+- **Knotenebene:** `(A UND B) ODER C` lässt sich mit der Maus nicht bauen —
+  seit #595 gibt es keine zweite Vorgänger-Zone, und die Bedingungen
+  „Nach Vorgängerknoten"/„Bestimmter Knoten abgeschlossen" erlauben keine
+  Teilmenge der Vorgänger. Gebaut als Folge A → B plus C per Tastatur „vor"
+  X, X verlangt 1 von 2.
+- **Befunde (alle belegt, je bekannter Fehler + Entwurf):**
+  1. „Vor" eingefügter Vorgänger fehlt in der Bedingung des Knotens
+     (gespeichert: `courses_id: [dndnode_2]` bei Vorgängern 2 und 4).
+  2. Vorgängerzahl im Bedingungs-Editor vor dem Speichern veraltet („1 / 1",
+     Kopfzeile nennt zwei Vorgänger).
+  3. Per Tastatur „vor" eingefügter Knoten liegt deckungsgleich auf dem
+     Zielknoten (gemessene Positionen im Entwurf).
+- **Unterwegs:**
+  - „Start and end time" ließ das Speichern scheitern (Datum fehlt; Moodle-
+    Dialog „Incomplete criterion"). C ist jetzt „Certain node completed" mit
+    gewähltem Knoten. Die Speicher-Hilfe nennt eine Ablehnung seither mit
+    ihrem Text, statt nur auf den Zeitablauf zu laufen.
+  - Der Bedingungs-Editor verschiebt seine Fläche, sobald die Zonen
+    erscheinen; die Hilfe zoomt deshalb heraus und zielt mit Nachmessen.
+  - Kopfkommentar in `editor-combinations.spec.ts` korrigiert (Beschriftung
+    passt seit #584).
+- **Nicht geprüft:** was Lernende aus den Kombinationen bekommen — Kette F3.
+- **Prüfstand `2026100719`** (Gesamtlauf nach dem Abgleich der Auslieferungskopie):
+  E2E enrol 6, mod 14, local 66 bestanden und 4 übersprungen (die bekannten
+  Fehler: Eigentümer von der Bearbeiterliste, die drei aus diesem Teil; die
+  drei neuen gesondert mit `ADELE_RUN_KNOWN_DEFECTS=1` gelaufen: rot an der
+  erwarteten Stelle); PHPUnit local 372, enrol 57, mod 25. Ausgeliefert ohne
+  Issue-Nummer (Tests und Dokumentation); drei Entwürfe warten auf Ablage.

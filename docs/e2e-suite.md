@@ -154,7 +154,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §16 H2 | zweite Teilnehmerquelle „Einschreibung im Startknoten-Kurs": Person aus dem Eingangskurs wird in den Hostkurs getragen, Außenstehende nicht | mod | **umgesetzt**, 1 Test |
 | §27 V1 | Berechtigung → Einschreibung → realer Kurszugriff, Negativkontrolle, Persistenz | enrol | **umgesetzt**, 5 Tests |
 | §27 V2 | Eingangsknoten löschen → Speicherverweigerung; Kriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
-| §7 E2 | A ODER B (Stapel), A UND B (paralleler Knoten, geteilter Nachfolger nennt beide Vorgänger, #584) per Drag&Drop | local | **umgesetzt**, 2 Tests; Klammerungen offen |
+| §7 E2 | A ODER B (Stapel), A UND B (paralleler Knoten, #584) per Drag&Drop; Klammerungen `(A UND B) ODER C` und `A UND (B ODER C)` je auf Bedingungs- und Knotenebene; Bedingung hinzufügen/entfernen; Änderungen verwerfen | local | **umgesetzt**, 2 + 5 Tests (`editor-combinations`, `editor-brackets`); 3 bekannte Fehler (Issue-Entwürfe) |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §9 T1–T3 | festes Zeitfenster (vorher zu, innerhalb offen, danach zu) und relative Frist (ab Zuordnung ein Tag) über die Server-Testuhr | local | **umgesetzt**, 2 Tests |
 | §9 T4–T5 | Zeit UND bzw. ODER abgeschlossener Vorgänger: alle vier Zeilen beider Wahrheitstafeln, mit echtem Kursabschluss; je Pfad zwei Lernende („schließt zuerst ab" / „erst im Fenster") | local | **umgesetzt**, 1 Test (4 Schritte); Prüfung der Feedbacktexte („genau die fehlende Voraussetzung") folgt mit Kette F |
@@ -558,4 +558,22 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **Testhilfe:** `offeredZones()`, `leadOntoZone()` (führt den Zeiger in
   Schritten vom Knoten zur Zone — ein Sprung sagt über Erreichbarkeit wenig).
 - `local_adele`: 61 bestanden, 1 übersprungen.
+
+## Nachtrag `2026100719`: E2-Klammerungen
+
+- **Neue Datei `editor-brackets.spec.ts`** (5 Tests + 3 bekannte Fehler).
+  Bedingungsebene (Zugangsbedingungen von T02): `(A UND B) ODER C` direkt,
+  `A UND (B ODER C)` ausmultipliziert, Hinzufügen/Entfernen, Verwerfen ohne
+  Speichern. Knotenebene: `A UND (B ODER C)` = T01 parallel zu einem Stapel
+  T02|T03 vor T04, „2 von 2"; `(A UND B) ODER C` = T01 → T02 → T04 und T03
+  per Tastatur vor T04, „1 von 2". Geprüft am **gespeicherten** Stand.
+- **Neue Testhilfe `support/conditions.ts`** (nur `local_adele`): Bedingungs-
+  Editor öffnen, Bedingung auf Zone ziehen, Knoten wählen, Anzahl
+  Vorgänger, löschen, speichern (meldet eine Ablehnung mit ihrem Text),
+  verwerfen; gespeicherte Spalten/Ketten und Knoten lesen; Tastatureinfügen.
+- **Drei bekannte Fehler** (Entwürfe in `issues/`): Vorgänger „davor" fehlt
+  in der Bedingung; veraltete Vorgängerzahl vor dem Speichern; Knoten „davor"
+  verdeckt den Zielknoten.
+- Was Lernende aus diesen Kombinationen bekommen, prüft F3 (folgt).
+- `local_adele`: 66 bestanden, 4 übersprungen.
 
