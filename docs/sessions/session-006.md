@@ -281,3 +281,28 @@ Test meldet deshalb jetzt Selektor, Markup, gemessene Farben, Verhältnis,
 Anforderung und Schrift — gegengeprüft mit einem erzwungenen Verstoß. Ein
 erneuter Lauf über die API war nicht möglich (Token ohne Actions-Schreibrecht,
 HTTP 403).
+
+
+## Teil 11 — Kette T (Zeit)
+
+- **T1/T2** (festes Fenster) und **T3** (relative Frist) im Browser über die
+  Server-Testuhr; neue Fixture-Pfade „E2E Zeitfenster" und „E2E Zeitdauer"
+  mit eigenen Lernenden.
+- **Eigener Fehler, im Seed:** Die erste Zeitbedingung war aus der **zweiten**
+  Bedingung eines Fixture-Knotens kopiert und trug deren Verkettung
+  (`parentCondition: ['condition_1']`); die Auswertung beginnt aber nur bei
+  `starting_condition`, also blieb der Knoten trotz erfüllter Bedingung
+  gesperrt. Gefunden, indem Bedingung und Gesamtlogik getrennt ausgewertet
+  wurden.
+- **Seiteneffekt von Zeitsprüngen:** siehe `e2e-suite.md` §5e; Reihenfolge
+  in der Kette und Dateiname `zz-` legen ihn fest.
+- **Werkzeug:** Ein `pgrep -f` mit Klammermuster traf erneut den eigenen
+  Aufruf, weil dieselbe Befehlszeile das Muster weiter hinten enthielt; der
+  Server wird jetzt über den Port beendet (`fuser -k 8001/tcp`).
+- **Workflows:** `e2e.yml` installiert `faketime` und startet den Server unter
+  der Testuhr (alle drei Plugins, damit die Vorlagen gleich bleiben).
+
+**Offen:** T4/T5 (Zeit UND/ODER Vorgänger) — brauchen den echten Abschluss
+eines Kurses, der mit Kette C kommt.
+
+**Prüfstand:** E2E local 18/18 (davon T 2); CLI-Gegenprobe der Übergänge.

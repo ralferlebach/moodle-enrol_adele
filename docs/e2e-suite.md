@@ -121,6 +121,8 @@ durch `seed_fixtures.php`:
 | Hostkurs-Mitglieder | `ADELE_FIXTURE_HOST_MEMBER_1/2` | Kurs `E2EHOST` |
 | Hostkurs-Außenstehender | `ADELE_FIXTURE_HOST_OUTSIDER` | in keinem Host- und keinem Knotenkurs |
 | Eingangskurs-Lernende | `ADELE_FIXTURE_ENTRY_LEARNER` | nur im Eingangskurs T01, auf keinem Pfad |
+| Zeitfenster-Lernende | `fx_time_learner` | Pfad „E2E Zeitfenster": Eingangsknoten nur 2030-01-15 10:00–12:00 UTC offen |
+| Fristen-Lernende | `fx_duration_learner` | Pfad „E2E Zeitdauer": Eingangsknoten einen Tag ab Zuordnung offen |
 | zweiter Hostkurs | `E2EHOST2` (`ADELE_FIXTURE_HOST_COURSE_2`) | bewusst leer, für die Quelle „Startknoten-Kurs" |
 | Adele-Manager | `fx_adele_manager` | Systemrolle `adelemanager` |
 | Adele-Assistent | `fx_adele_assistant` | Systemrolle `adeleassistant`, Bearbeiter **nur** an „Linear A2" |
@@ -152,7 +154,8 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §27 V2 | Eingangsknoten löschen → Speicherverweigerung; Kriterium entfernen → Speichern gelingt; Zugriff endet; Pfad löschen | enrol | **umgesetzt**, 1 Test mit 7 Schritten |
 | §7 E2 | A ODER B (Stapel), A UND B (paralleler Knoten, geteilter Nachfolger nennt beide Vorgänger, #584) per Drag&Drop | local | **umgesetzt**, 2 Tests; Klammerungen offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
-| §10 T1–T5 | Zeitgrenzen | local | offen – **blockiert** durch fehlende steuerbare Testzeit (Plan §20) |
+| §9 T1–T3 | festes Zeitfenster (vorher zu, innerhalb offen, danach zu) und relative Frist (ab Zuordnung ein Tag) über die Server-Testuhr | local | **umgesetzt**, 2 Tests |
+| §9 T4–T5 | Zeit UND/ODER fachliche Bedingung | local | offen – braucht den echten Abschluss eines Vorgängers (kommt mit Kette C) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" und Kombinationen | mod | offen |
 | §16 H3, §17 | Host-Modi (sichtbar, verborgen, keine), Result Visibility, Datenschutz | mod | offen |
@@ -281,6 +284,31 @@ Seit `2026100503` folgt auch die relative Bedingung `timed_duration`
 derselben Regel (`Beginn ≤ jetzt < Ende`, Entscheidung des Auftraggebers)
 und liefert ebenfalls Zeitstempel. Beide Zeitbedingungen haben damit eine
 gemeinsame Semantik.
+
+## 5e. Die Server-Testuhr in der Praxis
+
+- **Umsetzung:** `libfaketime` wird nur in die PHP-Prozesse geladen
+  (Webserver, CLI-Task-Runner), gesteuert über eine Datei
+  (`ADELE_FAKETIME_LIB`, `ADELE_FAKETIME_FILE`). Die Tests verschieben die Zeit
+  mit `setServerTime()`, `drainTaskQueue()` läuft unter derselben Uhr, und ein
+  `afterEach` stellt sie mit `resetServerTime()` zurück. Ohne Testuhr
+  überspringt sich die Kette ausdrücklich.
+- **Genauigkeit:** Die Bewertung ist sekundengenau (#581, PHPUnit). Durch das
+  ganze System greift ein Übergang aber erst, wenn local_adele seine
+  Neuauswertung ausführt — eingeplant auf Grenze **plus 120 s**. Die
+  Browserkette prüft deshalb eine Minute vor und gut zwei Minuten nach jeder
+  Grenze.
+- **Zeitsprünge wirken systemweit.** Wird die Uhr vorgestellt, laufen beim
+  nächsten Abarbeiten **alle** bis dahin fälligen Aufträge, auch die anderer
+  Lernender und Pfade. Ein Sprung ins Jahr 2030 hatte den Schließauftrag der
+  relativen Frist ausgeführt; nach dem Zurückstellen gab es keinen Auftrag,
+  der den Knoten wieder öffnete. Daher: innerhalb der Kette der kürzere
+  Sprung zuerst, und die Datei heißt `zz-time-conditions.spec.ts`, damit sie
+  in jeder Suite **zuletzt** läuft.
+- **Bedingungsstruktur in Fixtures:** Eine Bedingung wird nur ausgewertet,
+  wenn sie eine Kette beginnt (`parentCondition: ['starting_condition']`)
+  und auf ihren Feedbackknoten zeigt. Der Seed baut Einzelbedingungen deshalb
+  mit `local_adele_fixture_single_condition()` aus den Knoten der Fixtures.
 
 ## 6. Lokal ausführen
 
