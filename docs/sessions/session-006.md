@@ -943,3 +943,26 @@ vereinheitlichen — für die Lernpfad-ID des Schreibdienstes umgesetzt, die
 Nutzer-ID und die strukturierte Schnittstelle nicht), local_adele #523
 (eigene Capabilities für Lehrenden- und Teilnehmeransicht — deckt sich mit dem
 Entwurf zur lesenden Lehrkraftansicht).
+
+## Teil 33 — local_adele #585: Editor überschreibt eingetippten Namen
+
+- **Freigabe:** Issues angelegt (local_adele #585–#588, mod_adele #38, #39),
+  Auftrag: umsetzen. Ab jetzt stehen bei jeder Lieferung die Issue-Nummern
+  unmittelbar vor den Dateien.
+- **Ursache (Teil 27, belegt):** zwei Ladevorgänge beim Öffnen; die spätere
+  Antwort überschreibt die Eingabe.
+- **Behebung:** Die Liste lädt nicht mehr, der Editor lädt einmal; das
+  Formular (Editor und Nur-Lese-Ansicht) erscheint erst, wenn der angeforderte
+  Pfad da ist. Überholte Antworten werden verworfen.
+- **Build:** `npm ci --force`, `@babel/plugin-syntax-dynamic-import` ohne
+  Eintrag in `package.json` nachinstalliert (wie der CI-Workflow), `npm run
+  build`. Gegenprobe vor der Änderung: unveränderter Stand → identische Datei
+  (md5 gleich). `package.json` und `package-lock.json` unverändert.
+- **Tests:** Jest `LearningPathList.spec.js` 10/10 (1 neu). E2E
+  `editor-title-overwrite.spec.ts` als zwei reguläre Tests (eine Anfrage;
+  zurückgehaltene Antwort → kein Feld, danach bleibt die Eingabe).
+  Rollen- und Editor-Ketten plus M zweimal 19/19.
+
+**Prüfstand `2026100705`:** E2E enrol 6, mod 11, local 43 (60 Tests, kein
+`fixme` mehr, ein Gesamtlauf vollständig grün); Jest 343/343; PHPUnit local
+336 (1 übersprungen, 1 unvollständig, wie zuvor), enrol 53, mod 18; phpcs 0/0.

@@ -59,3 +59,26 @@ bereits bedienbar; kommt die zweite später, überschreibt sie die Eingabe.
    (statt `test.fixme`) grün.
 2. Beim Öffnen des Editors wird `local_adele_get_learningpath` genau einmal
    aufgerufen.
+
+## Umsetzung (Stand 2026100705)
+
+- `LearningPathList.vue`: `editLearningpath()` und `viewLearningpath()` laden
+  den Pfad nicht mehr selbst; das Ziel der Route lädt ihn.
+- `LearningpathsEdit.vue`: `showForm()` setzt `pathLoaded` erst, wenn **diese**
+  Anfrage beantwortet ist (eine laufende Nummer verwirft überholte Antworten);
+  Titel, Beschreibung und Zeichenfläche — im Editor wie in der Nur-Lese-Ansicht
+  — erscheinen erst dann. Vorher zeigte das Formular, was noch vom zuletzt
+  geöffneten Pfad im Store lag.
+- `amd/build` neu gebaut. Der Build ist reproduzierbar: Ein Bau des
+  unveränderten Stands ergab die ausgelieferte Datei Byte für Byte.
+- Jest: `LearningPathList.spec.js` — „Bearbeiten" setzt die Pfad-ID, wechselt
+  die Route und fordert den Pfad nicht an.
+- E2E `editor-title-overwrite.spec.ts`, jetzt regulär, zwei Tests:
+  1. Beim Öffnen des Editors geht genau eine Anfrage
+     `local_adele_get_learningpath` hinaus (Akzeptanzkriterium 2).
+  2. Die eine Antwort wird zurückgehalten: Solange gibt es kein Titelfeld;
+     danach bleibt der eingetippte Titel stehen, und es folgt keine zweite
+     Anfrage.
+  Akzeptanzkriterium 1 wörtlich („der Test läuft unverändert grün") ist nicht
+  erfüllbar: Der alte Test verzögerte die **zweite** Antwort, die es nicht
+  mehr gibt. Der neue prüft dieselbe Zusage am verbliebenen Ladevorgang.

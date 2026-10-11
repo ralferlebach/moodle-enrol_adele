@@ -417,6 +417,10 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   überschreibt den eingetippten Titel (Produktfehler, sichtbar gehalten durch
   `editor-title-overwrite.spec.ts` als `test.fixme`, Issue-Entwurf
   `issues/local_adele-issue-editor-title-overwritten.md`).
+  **Stand `2026100705` (local_adele #585):** behoben — der Pfad wird einmal
+  geladen, das Formular erscheint erst danach. `editor-title-overwrite.spec.ts`
+  läuft als zwei reguläre Tests; die Suite hat kein `fixme` mehr.
+  `waitForEditorLoaded()` bleibt als Vorsicht in den Ketten.
 - **Seed-Identität der Fixture-Pfade:** gemerkte IDs in
   `$CFG->dataroot/local_adele_e2e_fixturemap.json`, dann exakter Name, dann
   „Name mit Suffix" — ein abgebrochener Umbenennungslauf vergiftet die
