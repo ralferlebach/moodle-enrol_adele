@@ -158,6 +158,9 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §9 T1–T3 | festes Zeitfenster (vorher zu, innerhalb offen, danach zu) und relative Frist (ab Zuordnung ein Tag) über die Server-Testuhr | local | **umgesetzt**, 2 Tests |
 | §9 T4–T5 | Zeit UND/ODER fachliche Bedingung | local | offen – braucht den echten Abschluss eines Vorgängers (kommt mit Kette C) |
+| §8 C1 | Vorgänger 1 von 1, 1 von 2, 2 von 2 mit echtem Kursabschluss („Mark as done"); je Schritt Knotenstatus in der Pfadansicht der Lernenden und realer Kurszugriff | local | **umgesetzt**, 3 Tests; Variante „Vorgänger + Zeit" = T4 |
+| §8 C2 | Kurszugehörigkeit (Referenzkurs) | local | **offen – Klärung nötig**: Das Produkt hat keine Bedingung „in einem Kurs eingeschrieben"; `specific_course` heißt „Bestimmter Knoten abgeschlossen" |
+| §8 C3 | Manuelle Freigabe: nicht freigegeben → freigegeben → zurückgenommen, durch die Lehrkraft in der Pfadansicht der Lernenden | local | **umgesetzt**, 1 Test (5 Schritte) |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
 | §16 H3 | Host-Modi `hidden` (Teilnehmerliste: gesperrt, kein Zugang) und `none` (nicht eingeschrieben); `visible` über H2 | mod | **umgesetzt**, 2 Tests |
@@ -336,3 +339,21 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **#37:** Teilnehmerquellen zählen nur Einschreibungen, die ADELE nicht
   selbst angelegt hat. Die Negativprüfung von Quelle 2 nutzt deshalb auch die
   Person, die nur in einem späteren Knotenkurs steht.
+
+## Nachtrag `2026100604`: Kette C, echter Kursabschluss
+
+- **Echter Abschluss:** Jeder Fixture-Kurs schließt über ein Forum mit
+  manuellem Abschluss ab. `completeCourse()` klickt „Mark … as done"; Moodle
+  benennt die Schaltfläche nach der Aktivität („Mark Ankündigungen as done").
+  Der Klick-Handler kommt mit Moodles JavaScript etwas später als die
+  Schaltfläche — ein früher Klick verpufft. Die Hilfe wartet auf Ruhe und
+  klickt erneut nur, solange der Zustand nachweislich nicht umgesprungen ist.
+- `runCompletion()` führt Moodles `completion_regular_task` aus und arbeitet
+  danach die Warteschlange ab, beides unter der Testuhr.
+- **Knotenstatus aus Sicht der Lernenden:** `nodeStatus()` öffnet die
+  Aktivität und liest `data-status`. Jede C-Variante hat dafür einen eigenen
+  Hostkurs mit nur ihrer Lernenden, sonst würden sich die Varianten über
+  Quelle 1 gegenseitig abonnieren.
+- **Abschlüsse sind dauerhaft:** Der Seed löscht vor jedem Lauf die
+  Aktivitäts-, Kriterien- und Kursabschlüsse dieser Lernenden in den Kursen
+  ihres Pfads.

@@ -344,3 +344,34 @@ eines Kurses, der mit Kette C kommt.
 
 **Prüfstand:** PHPUnit mod 14, enrol 53, local 316; E2E enrol 6, mod 7,
 local 18.
+
+## Teil 14 — Kette C
+
+- **C1** (1 von 1, 1 von 2, 2 von 2) und **C3** (manuelle Freigabe und
+  Rücknahme) im Browser grün, mit echtem Kursabschluss bzw. echter Freigabe
+  durch die Lehrkraft. Mechanik vorher auf der Kommandozeile gegengeprüft.
+- **C2 offen:** Das Produkt kennt keine Zugangsbedingung „in einem
+  Referenzkurs eingeschrieben". `specific_course` bedeutet „bestimmter Knoten
+  dieses Pfads abgeschlossen"; der dritte Planschritt (Einschreibung entfernt
+  → wieder gesperrt) ist damit nicht abbildbar, weil ein Kursabschluss nicht
+  zurückgenommen wird. Rückfrage an den Auftraggeber.
+- **Fehler unterwegs, alle in der Testtechnik:** fehlendes `introeditor` bei
+  `create_module()`; zwei falsch vermutete Sprachschlüssel; doppelter
+  Aktivitätslink (Kursindex); zu früher Klick auf „Mark as done".
+
+### Teil 14, Nachtrag — Autocomplete im Aktivitätsformular
+
+- **Befund:** Die H-Kombinationskette scheiterte im Gesamtlauf, einzeln nie.
+  Die Hilfe `chooseInAutocomplete()` suchte die Option seitenweit; Moodle
+  stellt auch bereits gewählte Einträge als Optionen dar.
+- **Lösung:** Option nur in der Vorschlagsliste des eigenen Feldes
+  (`aria-controls`), danach das Feld mit `Tab` verlassen — das schließt die
+  Liste, sonst schluckt sie den nächsten Klick (z. B. „Speichern").
+- **Eigener Fehlgriff dazwischen:** Leeren des Feldes nach der Auswahl.
+  Beim Einzel-Autocomplete „Chosen Learning Path" ist der Text im Feld die
+  Auswahl selbst; das Pflichtfeld blieb leer, sechs Ketten scheiterten.
+  Am Bildschirmfoto erkannt, zurückgenommen.
+- **Werkzeug, dritte Wiederholung:** `pgrep`/`pkill` mit Muster traf die
+  eigene Befehlszeile. Prozesse nur noch über Prozessnummer oder Port beenden.
+
+**Prüfstand:** E2E enrol 6, mod 7 (zweimal hintereinander), local 22.
