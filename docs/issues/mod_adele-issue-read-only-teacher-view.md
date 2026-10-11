@@ -3,6 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-mod_adele` (mit Anteil in `moodle-local_adele`)
 **Labels (Vorschlag):** `bug`, `roles`, `capabilities`
 **Stand:** 2026-10-07, Session 006 — gemessen mit der E2E-Kette P; Entscheidung des Auftraggebers: Sie soll alles sehen können, aber nicht bearbeiten
+**GitHub:** mod_adele #39 (berührt local_adele #523)
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -67,3 +68,53 @@ erlaubt mehr, als die Rolle soll.
 3. Lehrkraft mit Bearbeitungsrecht: unverändert.
 4. E2E-Kette P3: Zeile „teacher without editing rights" wird
    „teacher view … | link", plus Negativschritt für das Speichern.
+
+## Umsetzung (Stand 2026100707)
+
+**local_adele**
+
+- Neue Capability `local/adele:viewparticipants` (lesend, Kurskontext;
+  Archetypen `teacher`, `editingteacher`, `manager`).
+  `local/adele:teacheredit` verliert den Archetyp `teacher`.
+- `learning_paths::can_view_participants()` = `viewparticipants` **oder**
+  `teacheredit` (wer ändern darf, darf ansehen — hält eigene Rollen ohne
+  Archetyp funktionsfähig). Die Lesedienste (`get_lp_user_path_relation(s)`,
+  `get_learningpath(s)`, `get_completions`, `get_restrictions`) prüfen darüber.
+- `save_lp_user_path_relation` verlangt `teacheredit` — und nichts anderes. Die
+  Prüfung nahm bisher auch `local/adele:canmanage` im übergebenen Kontext an;
+  das hält die Lehrkraft ohne Bearbeitungsrecht in ihrem Kurs per Archetyp.
+- Upgrade-Schritt `2026100707`:
+  `helper\capability_migration::remove_teacheredit_from_nonediting_teachers()`
+  nimmt den systemweiten Eintrag bei bestehenden Rollen des Archetyps
+  `teacher` zurück; Überschreibungen in Kurs oder Kategorie bleiben.
+  `viewparticipants` weist Moodle beim Registrieren nach Archetyp zu. Auf der
+  Testinstanz ausgeführt und in der Datenbank nachgesehen.
+- Oberfläche: `initview.mustache` gibt `canedit="0"` aus, wenn die Seite
+  `readonly` übergibt; `store.state.canedit`. In der Lehrkraftansicht
+  erscheinen manuelle Freigabe, manueller Abschluss, Master-Haken und
+  „Speichern" nur mit `canedit`. Ohne Angabe gilt wie bisher „darf bearbeiten".
+
+**mod_adele**
+
+- `local\view_mode::for_context()`: `teacheredit` → Lehrkraftansicht;
+  `viewparticipants` → Lehrkraftansicht nur lesend; `mod/adele:readinstance`
+  → Teilnehmeransicht. `view.php` und `mod_adele_cm_info_view()` nutzen das;
+  `mod/adele:addinstance` entscheidet nicht mehr über die Ansicht
+  (local_adele #523, Akzeptanzkriterium 1).
+- Abhängigkeit `local_adele >= 2026100707`.
+
+**Tests**
+
+- PHPUnit local `view_and_edit_capability_test` (5): Archetypen; Lehrkraft
+  ohne Bearbeitungsrecht liest Liste und Lernerpfad, Speichern abgelehnt;
+  Lehrkraft mit Bearbeitungsrecht speichert; Upgrade-Schritt.
+- PHPUnit mod `view_mode_test` (4), `version_dependencies_test` ergänzt.
+- Jest `mod39_read_only_teacher.spec.js` (3).
+- E2E Kette P: Matrixzeile „teacher without editing rights" = Lehrkraftansicht
+  mit Links; neuer Test: mit Bearbeitungsrecht Master-Haken und „Save"
+  vorhanden, ohne — dieselben Knotenstatus, keine Bedienelemente; P4: Speichern
+  der Lehrkraft ohne Bearbeitungsrecht abgelehnt.
+
+**Nicht umgesetzt:** die weiteren Capabilities aus local_adele #523
+(„Hostzugang konfigurieren") und die Bereinigung von `canmanage`/`assist`
+(Archetyp `teacher`; local_adele #518, #507).

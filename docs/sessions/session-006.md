@@ -994,3 +994,33 @@ Entwurf zur lesenden Lehrkraftansicht).
 **Prüfstand `2026100706`:** E2E enrol 6, mod 11, local 43 (60 Tests, ein
 Gesamtlauf vollständig grün); PHPUnit local 343 (1 übersprungen, 1
 unvollständig, wie zuvor), enrol 53, mod 18; phpcs 0/0.
+
+## Teil 35 — mod_adele #39: Lehrkraft ohne Bearbeitungsrecht sieht alles, ändert nichts
+
+- **Zwei Rechte statt einem:** neu `local/adele:viewparticipants` (sehen),
+  `local/adele:teacheredit` nur noch ändern und ohne Archetyp `teacher`.
+  Lesedienste prüfen „sehen oder ändern", der Schreibdienst nur „ändern" —
+  der Umweg über `canmanage` im Kurskontext ist entfernt (den hält die
+  Lehrkraft ohne Bearbeitungsrecht per Archetyp; gemessen in Teil 32: ihr
+  Speichern wurde angenommen).
+- **Ansicht:** `mod_adele\local\view_mode` wählt nach diesen Rechten;
+  `mod/adele:addinstance` entscheidet nicht mehr (local_adele #523, Kriterium
+  1). Die SPA bekommt `canedit="0"`; manuelle Freigabe, manueller Abschluss,
+  Master-Haken und „Speichern" entfallen dann.
+- **Upgrade:** Schritt `2026100707` nimmt `teacheredit` bei bestehenden Rollen
+  des Archetyps `teacher` systemweit zurück. Auf der Testinstanz als echtes
+  Upgrade gelaufen (`admin/cli/upgrade.php`), Ergebnis in
+  `role_capabilities` nachgesehen: `teacher` hat nur noch `viewparticipants`,
+  `editingteacher` und `manager` beide. PHPUnit-Umgebung neu initialisiert.
+- **Abhängigkeit:** `mod_adele` verlangt `local_adele >= 2026100707`.
+- **Tests:** PHPUnit local `view_and_edit_capability_test` (5), mod
+  `view_mode_test` (4; erster Lauf scheiterte an unvollständigen
+  Generatordaten des Tests), Jest `mod39_read_only_teacher.spec.js` (3),
+  Jest gesamt 346/346. Kette P: 5 Tests, zweimal grün, der erste Lauf auf
+  Anhieb.
+- **Nicht Teil dieses Pakets:** weitere Capabilities aus local_adele #523,
+  Bereinigung von `canmanage`/`assist` (local_adele #518, #507).
+
+**Prüfstand `2026100707`:** E2E enrol 6, mod 12, local 43 (61 Tests, ein
+Gesamtlauf vollständig grün); Jest 346/346; PHPUnit local 348 (1 übersprungen,
+1 unvollständig, wie zuvor), enrol 53, mod 22; phpcs 0/0.
