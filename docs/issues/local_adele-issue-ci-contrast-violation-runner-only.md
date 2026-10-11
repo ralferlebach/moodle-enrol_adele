@@ -44,6 +44,25 @@ dem Runner, ein Element, das nur dort in einem Übergangszustand geprüft wird,
 oder ein echter Verstoß, den die lokale Umgebung nicht zeigt. **Keine dieser
 Möglichkeiten ist belegt.**
 
+## Stand 2026-10-08 (Version `2026100718`)
+
+Entscheidung des Auftraggebers: erst neu laufen lassen, dann über das Issue
+entscheiden. Damit ein roter Lauf diesmal alles Nötige enthält, legt der
+Test jetzt bei jedem Lauf Belege in `test-results/<Test>/` ab (Teil des
+hochgeladenen Artefakts `playwright-report-local_adele-…`):
+
+- `axe-results.json` — Befunde **und** die von axe nicht entscheidbaren
+  Fälle („incomplete", beim Kontrast z. B. ein nicht bestimmbarer
+  Hintergrund), mit Browser und Fenstergröße des Laufs;
+- je Befund `finding-N-<regel>.json` — Selektor, Markup, von axe gemessene
+  Farben und Verhältnis, dazu die vom Browser in diesem Moment berechneten
+  Werte (Farbe, Hintergrund, Deckkraft, **Schriftfamilie**, Größe, Gewicht);
+- je Befund `finding-N-<regel>-element.png` — nur das Element;
+- `findings-in-page.png` — die ganze Seite, Befunde magenta umrandet.
+
+Gegenprobe mit einem erzwungenen Verstoß (Text #bbbbbb auf Weiß, nur auf der
+Testinstanz eingespielt): alle vier Belege vorhanden, gemessen 1,91:1.
+
 ## Nächste Schritte
 
 1. Den Workflow „Playwright smoke" erneut starten (Actions → Run workflow).

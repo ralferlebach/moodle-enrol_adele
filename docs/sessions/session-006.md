@@ -1582,3 +1582,42 @@ Entwurf. Frage des Auftraggebers dazu: „Ist da auch der
   E2E enrol 6, mod 14, local 61 bestanden und 1 übersprungen (bekannter
   Fehler „Eigentümer von der Bearbeiterliste genommen"); PHPUnit local 372,
   enrol 57, mod 25; Jest 370. Ausgeliefert unter local_adele #595.
+
+## Teil 50 — Entscheidung: Tastaturdialog bleibt (2026-10-08)
+
+- Frage: Soll der Dialog „Kurs einfügen" (#575) der Mausregel aus #595
+  folgen und „nach"/„vor" nur anbieten, wo noch kein Nachfolger/Vorgänger
+  ist? Antwort des Auftraggebers: „Bitte beibehalten, das macht ja absolut
+  Sinn!" Der Tastaturweg bleibt damit der Weg für einen zweiten Nachfolger
+  oder Vorgänger an beliebiger Stelle.
+
+## Teil 51 — Entscheidungen 2026-10-08; Belege des Kontrasttests
+
+Version `2026100718`. Nur Test und Dokumentation.
+
+- **Eigentümer-Befund:** Regel B (der Eigentümer steht immer auf der
+  Bearbeiterliste). In den Entwurf eingetragen samt Umsetzungsplan; wartet
+  auf Ablage. Codelage dazu: `ownership::set_owner()` trägt den neuen
+  Eigentümer schon heute in die Liste ein.
+- **#580:** schließen; Abschlusskommentar
+  `issues/local_adele-issue-580-closing-comment.md`. Punkt 2 neu erfasst
+  (`issues/local_adele-issue-fit-view-after-drop.md`). Punkt 3 (Beschriftung)
+  ist durch #584 erledigt — die Zone „Alternative node" verhält sich so
+  („einer genügt", `min_courses` 1). Das hatte ich in der Rückfrage noch als
+  offen geführt; beim Nachlesen von Teil 32 als erledigt erkannt.
+- **Kontrastverstoß:** Variante a (Workflow neu starten, dann entscheiden)
+  und Belege am Test. `issue574-575-accessibility.spec.ts` legt jetzt bei
+  jedem Lauf `axe-results.json` ab, bei Befunden zusätzlich je Befund JSON
+  mit gemessenen und berechneten Werten, ein Bild des Elements und ein
+  Seitenbild mit Markierung. Gegenprobe mit erzwungenem Verstoß: alle Belege
+  da. Smoke-Suite danach vollständig grün (14).
+- **E2-Klammern:** beide Ebenen (Knoten und Bedingungen), je beide Formen.
+  Folgt als eigenes Paket.
+- Für den Smoke-Lauf auf der Testinstanz fehlten die Node-Module unter
+  `tests/playwright/`; mit `npm ci` nachinstalliert (nur Testinstanz).
+- **Prüfstand `2026100718`** (Gesamtlauf nach dem Abgleich der Auslieferungskopie):
+  E2E enrol 6, mod 14, local 61 bestanden und 1 übersprungen (bekannter
+  Fehler „Eigentümer von der Bearbeiterliste genommen"); Smoke-Suite
+  `local_adele` 14 (gesondert, vor dem Gesamtlauf); PHPUnit local 372, enrol
+  57, mod 25. Ausgeliefert ohne Issue-Nummer (Test und Dokumentation zum
+  Kontrastverstoß, Entwürfe).

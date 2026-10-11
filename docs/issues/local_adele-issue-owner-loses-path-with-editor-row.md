@@ -1,7 +1,7 @@
 # Issue-Entwurf: Eigentümer verliert den eigenen Lernpfad, wenn er von der Bearbeiterliste genommen wird
 
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
-**Labels (Vorschlag):** `bug`, `permissions`, `question`
+**Labels (Vorschlag):** `bug`, `permissions`
 **Stand:** 2026-10-07, Session 006 — gefunden mit Testkette R5 (parallele Berechtigungsgründe)
 **GitHub:** noch nicht abgelegt
 
@@ -39,7 +39,31 @@ Kollaborator, Kollaboration entzogen"): **Eigentümerzugriff bleibt.**
 - `scope_paths_for_user()` blendet für Assistenten verborgene Pfade aus, die
   nicht als „eigene" gelten.
 
-## Frage
+## Entscheidung (Auftraggeber, 2026-10-08): Regel B
+
+**Der Eigentümer steht immer auf der Bearbeiterliste.** Die Liste bleibt die
+einzige Quelle für Bearbeitungsrecht.
+
+## Umsetzung (nach Ablage)
+
+- **Dienst `remove_lp_edit_users`:** lehnt das Entfernen des aktuellen
+  Eigentümers ab — gleich, wer es versucht (er selbst, ein anderer
+  Bearbeiter, ein AdeLe-Manager). Wer den Pfad abgeben will, überträgt
+  vorher das Eigentum.
+- **Oberfläche (`userSearch.vue`):** Die Karte des Eigentümers bekommt
+  keinen Entfernen-Knopf.
+- **Eigentumsübertragung:** `ownership::set_owner()` trägt den neuen
+  Eigentümer bereits heute in die Liste ein, falls er fehlt (Codelage) — das
+  wird mit einem Test festgehalten, nicht geändert.
+- **Upgrade-Schritt:** trägt jeden Eigentümer nach, der heute nicht auf der
+  Liste seines Pfads steht (solche Pfade kann es geben; die Testkette hat
+  einen erzeugt). Ausgenommen: Pfade, deren Eigentümer gelöscht ist (die
+  behandelt die bestehende Nachfolgeregel).
+- **Tests:** PHPUnit für Dienst und Upgrade-Schritt; der E2E-Test wird
+  umgeschrieben: Der Eigentümer kann sich nicht von der Liste nehmen (kein
+  Knopf, Dienst lehnt ab), der Pfad bleibt seiner.
+
+## Frage (vor der Entscheidung)
 
 Welche Regel ist gewollt?
 

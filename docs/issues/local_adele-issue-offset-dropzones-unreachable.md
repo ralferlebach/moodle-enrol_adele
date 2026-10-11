@@ -140,6 +140,7 @@ Reihenfolge also: erst verzweigen, dann die Arme verlängern.
 
 - Der Tastaturweg (Dialog „Kurs einfügen", #575) bietet „nach" und „vor"
   weiterhin für jeden Knoten an, auch wenn dort schon ein Nachfolger bzw.
-  Vorgänger ist. Ob das so bleiben soll, ist offen.
+  Vorgänger ist — **so entschieden** (2026-10-08: „beibehalten"). Er bleibt
+  der Weg für einen zweiten Nachfolger oder Vorgänger an beliebiger Stelle.
 - Andere Anordnungen als die gemessenen; Ziehen von Hand; andere Browser als
   Chromium.
