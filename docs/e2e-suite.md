@@ -549,3 +549,13 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   läuft regulär. `local_adele`: 57 bestanden, 1 übersprungen (Eigentümer von
   der Bearbeiterliste genommen — wartet auf Entscheidung und Ablage).
 
+## Nachtrag `2026100717`: local_adele #595
+
+- **Neue Datei `editor-drop-zones.spec.ts`** (4 Tests): welche Zonen ein
+  Knoten anbietet, dass jede angebotene Zone mit geführtem Zeiger erreichbar
+  ist, dass eine erreichte Zone auch über dem Startmarker bleibt, und der Weg
+  zur Verzweigung über die seitliche Zone.
+- **Testhilfe:** `offeredZones()`, `leadOntoZone()` (führt den Zeiger in
+  Schritten vom Knoten zur Zone — ein Sprung sagt über Erreichbarkeit wenig).
+- `local_adele`: 61 bestanden, 1 übersprungen.
+

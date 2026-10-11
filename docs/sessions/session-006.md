@@ -1552,3 +1552,33 @@ Version `2026100716`.
   Fehler „Eigentümer von der Bearbeiterliste genommen"); PHPUnit local 372
   (2 neue; 1 übersprungen, 1 unvollständig — wie bisher), enrol 57, mod 25.
   Ausgeliefert unter local_adele #594.
+
+## Teil 49 — local_adele #595: Zonen nur, wo Platz ist; eine erreichte Zone bleibt
+
+Version `2026100717`. Issue vom Auftraggeber abgelegt, Text entspricht dem
+Entwurf. Frage des Auftraggebers dazu: „Ist da auch der
+‚Beharren in der Zone'-Mechanismus enthalten?"
+
+- **Antwort, nach Messung:** Mit #580 nur zum Teil — dort blieb die Zone
+  gegenüber einem näheren Nachbarknoten. Zwei weitere Regeln entfernten
+  Zonen unter dem Zeiger: der Startmarker unter der Zone und die
+  Abstandsgrenzen. Beides ist jetzt mit #595 nachgezogen.
+- **Befund dabei (belegt):** Einzelner Knoten, Zoom 0,69: Zone „parallel"
+  450–750 Einheiten rechts der linken Knotenkante, Startmarker ab 600. Zeiger
+  bei 10/30/50 % der Zonenbreite: Treffer; bei 70/90 %: Zonen weg.
+- **Umsetzung, Tests, Gegenproben:** im Entwurf
+  `issues/local_adele-issue-offset-dropzones-unreachable.md`, Abschnitt
+  „Umsetzung".
+- **Verworfen:** Ein erster Test wollte den Vorrang vor den Abstandsregeln an
+  einem einzelnen Knoten zeigen und scheiterte am Startmarker — so kam der
+  Befund oben zustande. Für die Abstandsregeln gibt es keinen eigenen Test
+  (Begründung im Entwurf).
+- **Prämisse des Auftraggebers geprüft** („der Vorgänger oder Nachfolger kann
+  rechts davon einen Alternativ-Knoten anlegen mit derselben Funktion"): am
+  Blatt ja, in der Mitte einer Kette nein (der parallele Knoten teilt auch
+  den Nachfolger). Als Test 4 festgehalten, soweit es gilt.
+- **Offen:** Tastaturdialog bietet „nach"/„vor" weiter überall an.
+- **Prüfstand `2026100717`** (Gesamtlauf nach dem Abgleich der Auslieferungskopie):
+  E2E enrol 6, mod 14, local 61 bestanden und 1 übersprungen (bekannter
+  Fehler „Eigentümer von der Bearbeiterliste genommen"); PHPUnit local 372,
+  enrol 57, mod 25; Jest 370. Ausgeliefert unter local_adele #595.
