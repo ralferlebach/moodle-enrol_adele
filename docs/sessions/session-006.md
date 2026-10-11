@@ -1398,3 +1398,38 @@ Version `2026100712`.
 Gesamtlauf vollständig grün; PHPUnit local 369 (1 übersprungen, 1
 unvollständig, wie zuvor), enrol 57, mod 22; phpcs für die geänderten
 PHP-Dateien 0/0. Jest nicht erneut gelaufen: kein Frontend-Code geändert.
+
+## Teil 45 — local_adele #593: Teilnahme folgt den Bewerteten Rollen
+
+Version `2026100713`; `mod_adele` verlangt jetzt `local_adele` ≥ `2026100713`.
+
+- **Regel:** Lernende:r ist, wer im Kurs aus eigenem Recht eine der
+  Bewerteten Rollen der Instanz hat. Die Capability
+  `local/adele:participate` aus #587 entfällt wieder.
+- **Über den Issue-Text hinaus nötig:** Der Text sagte „der nächtliche
+  Abgleich zieht nach". Beim Nachlesen: Der Abgleich **entfernt** nur; niemand
+  abonniert Personen nach, die eine Rolle schon haben, wenn diese erst später
+  zählt. Dafür die Hintergrundaufgabe in `mod_adele` (Details im Entwurf).
+- **Risiko in der Gegenrichtung, im Issue so nicht benannt:** Eine Rolle mit
+  Archetyp „student", die **nicht** unter den Bewerteten Rollen steht, nahm
+  über die Capability teil und tut es jetzt nicht mehr. Das Upgrade nennt
+  solche Rollen, entscheidet aber nichts.
+- **Tests:** siehe Entwurf; `issue587_participants_test` umgeschrieben (der
+  Verbots-Fall der Capability entfällt mit ihr).
+- **Belegt:**
+  - Upgrade der Testinstanz von `2026100712` auf `2026100713`: Die Capability
+    ist danach weder in `capabilities` noch in `role_capabilities` vorhanden
+    (je 0 Zeilen); keine Meldung, weil dort nur „student" sie hatte und
+    Bewertete Rolle ist.
+  - Speichern der echten Einstellung (`admin_setting_special_gradebookroles`,
+    Rolle „teacher" hinzugefügt) auf der Testinstanz: 43 Lernpfad-Aktivitäten,
+    43 Aufgaben in der Warteschlange. Einstellung danach zurückgesetzt,
+    Aufgaben gelöscht.
+  - PHPUnit nach der Änderung: local 370 (einer mehr: die Upgrade-Meldung),
+    enrol 57, mod 25 (drei neue in `graded_roles_test`).
+- **Nicht geprüft:** das Verhalten auf einer Instanz mit sehr vielen
+  Aktivitäten (eine Aufgabe je Aktivität; Laufzeit nicht gemessen).
+- **Prüfstand `2026100713`** (Gesamtlauf nach dem Abgleich der Auslieferungskopie):
+  E2E enrol 6, mod 14, local 53 (73, keiner übersprungen); PHPUnit local 370
+  (1 übersprungen, 1 unvollständig — beide wie bisher), enrol 57, mod 25.
+  Ausgeliefert unter local_adele #593.

@@ -495,3 +495,13 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **H3 „hidden"** prüft zusätzlich: Die von ADELE suspendiert geführte Person
   steht auf der Lernpfad-Liste des Kurses.
 - `mod_adele` hat damit 14 Tests.
+
+## Nachtrag `2026100713`: local_adele #593
+
+- Kein neuer E2E-Test: Die Regel „Bewertete Rollen" ist eine globale
+  Einstellung der Instanz; sie im Lauf umzustellen, würde alle anderen Ketten
+  berühren. Abgesichert in PHPUnit (`issue587_participants_test`,
+  `graded_roles_test`) und durch eine einmalige Probe mit der echten
+  Einstellungsklasse (Protokoll Teil 45).
+- Die bestehenden Tests in `participants-by-role.spec.ts` laufen unverändert
+  und bestätigen die Regel für die Standardrollen.

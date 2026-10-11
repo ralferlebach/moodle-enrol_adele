@@ -74,3 +74,43 @@ Abschlussberichten erscheint.
    Startkurs; ohne sie sofort wieder draußen).
 3. Upgrade: `local/adele:participate` ist entfernt; auf einer Instanz mit den
    Standard-Einstellungen ändert sich für niemanden die Teilnahme.
+
+## Umsetzung (Stand 2026100713)
+
+- `local_adele\enrol_state::is_participant()` und
+  `get_nonparticipant_userids()` prüfen die Rollenzuweisungen im Kurs (samt
+  übergeordneter Kontexte, ohne die von `enrol_adele` vergebenen) gegen
+  `participant_roleids()` — die Bewerteten Rollen der Instanz, bei jedem
+  Aufruf frisch gelesen.
+- Die Capability `local/adele:participate` ist entfernt (Definition,
+  Sprachstrings, Konstante); Moodle löscht die Einträge nach dem Upgrade.
+- **Upgrade `2026100713`:** nennt in der Ausgabe und im Upgrade-Protokoll die
+  Rollen, die bisher über die Capability teilnahmen und keine Bewertete Rolle
+  sind (`capability_migration::roles_losing_participation()`). Es ändert die
+  Einstellung nicht. Der Schritt `2026100708` (einmalige Vergabe) ist geleert.
+- **Rolle kommt hinzu:** `mod_adele` hört auf die Änderung der Einstellung
+  (`config_log_created`, nur `gradebookroles` der Site) und stellt je
+  Lernpfad-Aktivität eine Hintergrundaufgabe ein
+  (`mod_adele\task\apply_participant_sources_adhoc`), die die
+  Teilnehmerquellen so anwendet wie das Speichern der Aktivität. Wer die Rolle
+  schon hat, wird damit Lernende:r.
+- **Rolle fällt weg:** sofort nicht mehr auf den Listen; der nächtliche
+  Abgleich von `enrol_adele` entfernt Abonnement und Lernstand nach der
+  Schonfrist (bestehende Regel, nichts Neues).
+- README von `local_adele`, Abschnitt „Upgrade notes".
+
+**Nicht umgesetzt:** der Hinweis auf der ADELE-Verwaltungsseite (Vorschlag
+aus „Zu beachten").
+
+**Abgeleitet, nicht gemessen:** Setzt eine Instanz die Einstellung nicht über
+die Einstellungsseite, sondern z. B. per CLI (`cfg.php`), entsteht kein
+Protokolleintrag und damit keine Hintergrundaufgabe; die neu zählenden
+Personen werden dann erst beim nächsten Speichern der Aktivität oder bei
+ihrer nächsten Rollen- oder Einschreibeänderung Lernende.
+
+**Tests:** PHPUnit `local_adele` `issue587_participants_test` (Teilnahme folgt
+der Einstellung in beide Richtungen ohne Upgrade; Rolle oberhalb des Kurses;
+keine Bewertete Rolle → niemand; Upgrade nennt die betroffenen Rollen);
+`mod_adele` `graded_roles_test` (bestehende Rolleninhaber werden nach der
+Änderung Lernende, Lehrkraft nicht; andere Einstellungen lösen nichts aus).
+E2E `participants-by-role.spec.ts` unverändert grün.
