@@ -521,3 +521,16 @@ werden nur als Tatsache genannt, wenn sie belegt sind.
   alle so gebauten Fixture-Knoten. Wird mit Kette F behoben.
 - **Zurückgenommene Vermutung:** Die „Go to course"-Schaltfläche schien
   unbeschriftet; sie trägt ihren Namen über `title`. Keine Lücke.
+
+## Teil 23 — Kette L1, Zuordnung L2/L3/L4
+
+- **L1** grün, zweimal: linearer Pfad „E2E Linear vier Schritte" (T01–T04),
+  echter Abschluss je Schritt, in jedem Zustand Routenstand, Prozentwert,
+  Beschriftung und Balkenbreite.
+- **Eigener Fehler unterwegs:** Die erwartete Beschriftung bei 0 % stammte aus
+  dem Jest-Test („No progress yet", eine Testzeichenkette); der echte String
+  lautet „No progress". Erwartung jetzt aus dem Sprachpaket.
+- **Zuordnung:** L2 ist durch Kette A erfüllt. L3 (manueller Abschluss)
+  entspricht O1, L4 (Master-Abschluss) entspricht O3 — jeweils gemeinsam
+  umzusetzen, damit nichts doppelt gebaut wird oder zwischen den Ketten
+  verloren geht.
