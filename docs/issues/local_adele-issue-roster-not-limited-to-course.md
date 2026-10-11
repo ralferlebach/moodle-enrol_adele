@@ -99,3 +99,36 @@ den Hostkurs eingeschrieben. Sie gehören damit nicht zur Schnittmenge und
 stehen in keiner Kursliste mehr — auch nicht bei der Lehrkraft des Hostkurses.
 Pfadweit sieht sie nur, wer das Pfadrecht hat, und dafür gibt es derzeit keine
 Oberfläche. Aus dem Code und der Regel abgeleitet, nicht gemessen.
+
+## Nachtrag (Entscheidung vom 2026-10-07, Stand 2026100712): von Hand suspendierte Einschreibungen
+
+Die Abweichung „es zählen aktive **und suspendierte** Einschreibungen" ist
+präzisiert. Das Suspendiert-Kennzeichen hat zwei Bedeutungen:
+
+- **von ADELE gesetzt** (Host-Modus „verdeckt", eigene Einschreibemethode):
+  „eingeschrieben, ohne Zugang" — die Person gehört auf die Liste ihrer
+  Lehrkraft;
+- **von Hand oder durch ein anderes System gesetzt** (manuelle Einschreibung,
+  Kohorte, …): Die Person ist aus dem Kurs genommen — sie steht **nicht**
+  mehr auf der Liste des Kurses, und die Lehrkraft des Kurses öffnet und
+  ändert ihren Lernerpfad nicht mehr.
+
+Auf der Liste eines Kurses steht also, wer dort eine **aktive** Einschreibung
+gleich welcher Methode hat, oder eine Einschreibung von ADELE selbst (aktiv
+oder suspendiert): `learning_paths::roster_members_sql()`,
+`is_roster_member()`.
+
+Unverändert bleibt die frühere Regel, dass eine Suspendierung im Host-Kurs
+für den **Pfad** folgenlos ist: Abonnement, Lernstand und Zugang zu den
+Knotenkursen der Person bleiben bestehen. Ausgeblendet wird sie nur aus der
+Liste; ein:e Administrator:in sieht sie außerhalb des Kurses weiterhin auf
+dem Pfad.
+
+**Tests:** PHPUnit `roster_course_scope_test` — von ADELE suspendiert: auf der
+Liste, Lernerpfad für die Lehrkraft lesbar; von Hand suspendiert: nicht auf
+der Liste, Lernerpfad abgelehnt, Pfad selbst unberührt (vorher war „bleibt
+auf der Liste" festgeschrieben). E2E `participants-by-role.spec.ts`: auf
+Moodles Teilnehmerseite suspendiert → von der Lernpfad-Liste verschwunden,
+Startkurs weiter offen; reaktiviert → wieder da.
+`host-course-participants.spec.ts`, Modus „hidden": die Person steht auf der
+Lernpfad-Liste des Kurses.

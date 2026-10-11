@@ -481,3 +481,17 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   nur mit der Tastatur bedient. Die Suite führt keinen bekannten Fehler mehr;
   der Schalter `ADELE_RUN_KNOWN_DEFECTS` und `knownDefect` bleiben für
   künftige Befunde.
+
+## Nachtrag `2026100712`: Nachträge zu local_adele #586 und #588
+
+- **Kette P:** AdeLe-Manager und Kollaborator des Pfads erhalten vom Server
+  keine Lernerdaten mehr (P3-Tabelle, P4-Schreibversuche auch über den
+  Systemkontext); der Administrator weiterhin, außerhalb eines Kurses den
+  ganzen Pfad.
+- **Neuer Test** in `participants-by-role.spec.ts`: Einschreibung auf Moodles
+  Teilnehmerseite suspendieren → von der Lernpfad-Liste des Kurses
+  verschwunden, Pfad bleibt (Startkurs offen); reaktivieren → wieder da.
+  Hilfe `setEnrolmentStatus()` in der gemeinsamen `support/fixtures.ts`.
+- **H3 „hidden"** prüft zusätzlich: Die von ADELE suspendiert geführte Person
+  steht auf der Lernpfad-Liste des Kurses.
+- `mod_adele` hat damit 14 Tests.

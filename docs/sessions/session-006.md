@@ -1361,3 +1361,40 @@ Version `2026100711`.
 Gesamtlauf vollständig grün, kein übersprungener Test; PHPUnit local 368
 (1 übersprungen, 1 unvollständig, wie zuvor), enrol 57, mod 22; Jest 361/361
 (74 Suiten); Smoke-Suite local 14/14.
+
+## Teil 44 — Nachträge zu local_adele #586 (nur Lehrende des Kurses) und #588 (von Hand suspendiert)
+
+Ein Paket: beide betreffen dieselben drei Dienste und die Liste.
+Version `2026100712`.
+
+- **Abgelegt:** Der Nachtrag steht als Kommentar unter #586 (API geprüft);
+  #593 (Bewertete Rollen) ist angelegt. Zu #588: Entscheidung des
+  Auftraggebers im Verlauf („von ADELE suspendierte zählen mit, von Hand
+  suspendierte ausblenden").
+- **#586-Nachtrag:** Pfadrechte geben keine Lernerdaten mehr; außerhalb eines
+  einbindenden Kurses nur noch Administrator:innen. `has_path_authority()`
+  (seit `2026100704`) entfällt wieder, ersetzt durch
+  `has_learner_data_authority()`.
+- **#588-Nachtrag:** Liste = aktive Einschreibung beliebiger Methode oder
+  Einschreibung von ADELE (auch suspendiert). Der Pfad einer von Hand
+  suspendierten Person bleibt unberührt (frühere Regel A-8).
+- **Bestehende Tests, die das Alte festschrieben (4):** Pfad-Mitarbeitende
+  lesen Lernerdaten (2), Assistent-Test (ging im neuen, breiteren Test auf),
+  „suspendiert bleibt auf der Liste". Umgeschrieben, nicht gelöscht.
+- **Lücke geschlossen:** Die PHPUnit-Tests nannten „Manager", benutzten aber
+  den Administrator. Jetzt gibt es eine echte Rolle mit
+  `local/adele:canmanage` — sie wird abgelehnt.
+- **Gegenprobe:** neue Tests mit dem Code von `2026100711`: 4 rot.
+- **E2E:** Kette P 5/5 mit den neuen Erwartungen (Kollaborator als
+  Teilnehmer: nur die eigene Zeile, kein fremder Lernerpfad — vorher
+  angenommen, dann gemessen); `mod_adele` gesamt 14/14.
+- **Eigener Fehler unterwegs:** Die neue Prüfung in H3 las die erste Spalte
+  der Liste (eine laufende Nummer) statt des Namens; an der Fehlermeldung
+  gesehen, auf die gemeinsame Hilfe `participantList()` umgestellt.
+- **Nicht gemessen:** Host-Modus „keine Einschreibung" und die Lernpfad-Liste
+  (Entscheidung dazu steht aus).
+
+**Prüfstand `2026100712`:** E2E enrol 6, mod 14, local 53 — 73 Tests, ein
+Gesamtlauf vollständig grün; PHPUnit local 369 (1 übersprungen, 1
+unvollständig, wie zuvor), enrol 57, mod 22; phpcs für die geänderten
+PHP-Dateien 0/0. Jest nicht erneut gelaufen: kein Frontend-Code geändert.

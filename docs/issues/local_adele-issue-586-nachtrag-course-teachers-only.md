@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Bezug:** #586 (offen) — als Kommentar oder Ergänzung des Issue-Texts
 **Stand:** 2026-10-07, Session 006 — Entscheidung des Auftraggebers vom 2026-10-07
-**GitHub:** noch nicht abgelegt
+**GitHub:** local_adele #586, Kommentar vom 2026-10-07
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Text.
 
@@ -83,3 +83,28 @@ Systemkontext die Lernenden beider Kurse.
 3. PHPUnit (`learner_data_embedding_test`, `roster_course_scope_test`): die
    Matrix oben, je Rolle × Kontext (einbindender Kurs, fremder Kurs, System).
 4. Administrator:innen: unverändert.
+
+## Umsetzung (Stand 2026100712)
+
+- `learning_paths::has_path_authority()` entfällt. An seine Stelle tritt
+  `has_learner_data_authority()`: Moodle-Administrator:innen, sonst niemand.
+- `external/get_lp_user_path_relations`, `get_lp_user_path_relation`,
+  `save_lp_user_path_relation`: Außerhalb eines einbindenden Kurses gibt es
+  Lernerdaten nur noch für Administrator:innen; im einbindenden Kurs
+  entscheidet allein `local/adele:viewparticipants` (lesen) bzw.
+  `local/adele:teacheredit` (ändern). `local/adele:canmanage`, die Mitarbeit an
+  einem Pfad und die Assistentenrolle zählen dafür nicht mehr.
+- **Editor:** zeigt an keiner Stelle Lernende; die drei Dienste werden nur von
+  der Lehrenden- und der Teilnehmeransicht der Aktivität aufgerufen (im Code
+  nachgesehen). Dort ändert sich für Lehrende und Lernende nichts.
+- **Moodles Rolle „Manager":** unverändert (Kurs-Capabilities über die Rolle
+  geerbt) — Entscheidung dazu steht aus.
+
+**Tests:** PHPUnit `learner_data_embedding_test` — AdeLe-Manager, Assistent
+und Mitarbeitende dieses Pfads: Liste, einzelner Lernerpfad und Ändern
+abgelehnt, über die Einbindung wie ohne Kurs; dieselben Personen als Lehrende
+des Kurses: lesen dort, ändern nur als Lehrende mit Bearbeitungsrecht.
+`user_path_relation_access_test::test_path_editor_cannot_read_user_path`
+(vorher das Gegenteil festgeschrieben). Gegenprobe mit dem alten Code: diese
+Tests rot. E2E Kette P: Manager und Kollaborator erhalten nichts mehr
+(Tabelle P3, Schreibversuche P4, Systemkontext); Administrator unverändert.
