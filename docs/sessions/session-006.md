@@ -375,3 +375,34 @@ local 18.
   eigene Befehlszeile. Prozesse nur noch über Prozessnummer oder Port beenden.
 
 **Prüfstand:** E2E enrol 6, mod 7 (zweimal hintereinander), local 22.
+
+## Teil 15 — T4/T5
+
+- **T4/T5** in einem Test: zuerst alle Schritte auf echter Zeit (nichts,
+  nur Vorgänger), dann ein Sprung ins Fenster (nur Zeit, beides). Vorher die
+  Wahrheitstafeln beider Pfade auf der Kommandozeile gegengeprüft, alle acht
+  Zeilen wie im Plan.
+- **Wechselwirkung gefunden und behoben:** Mit gemeinsamem Fenster öffnete
+  der Sprung von T4/T5 den Kurs von T1/T2 vorzeitig. Eigenes Fenster 2031 für
+  T4/T5.
+- **Offen:** die Feedbacktexte („genau die fehlende Voraussetzung") — gehören
+  zur Kette F.
+
+
+## Teil 16 — C2 gestrichen
+
+Entscheidung des Auftraggebers: **C2 (Kurszugehörigkeit) aus dem Plan
+streichen.** Im Testplan durch einen Vermerk mit Begründung ersetzt, in
+`e2e-suite.md` als gestrichen geführt. Kette C ist damit vollständig (C1, C3).
+
+## Teil 17 — Kette A, Fortschrittsbalken, Stand D
+
+- **A** in vier Varianten grün (nur T02, nur T03, beide, keine): T04-Status
+  in der Pfadansicht, realer Zugriff, Routenstand und Prozentwert in der
+  Liste der Aktivität. Vorher auf der Kommandozeile gegengeprüft.
+- **Produktfehler (Barrierefreiheit, #575-Umfeld):** `aria-valuenow` des
+  Fortschrittsbalkens war nicht gebunden. Behoben, Jest mit Gegenprobe.
+- **D zurückgestellt:** `local_catquiz` ist in der Testumgebung nicht
+  installiert. Die Abschlussbedingung `modquiz` (Moodle-Test, Schwelle in
+  Prozent, erreicht bei ≥) erlaubt die Grenzwertprüfung x−ε / x / x+ε, aber
+  keine CAT-Diagnose. Rückfrage an den Auftraggeber.

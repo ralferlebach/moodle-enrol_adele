@@ -436,20 +436,13 @@ Je Zustand:
 
 ---
 
-## C2 – Kurszugehörigkeit
+## C2 – Kurszugehörigkeit (gestrichen)
 
-```text
-nicht im Referenzkurs
-→ Ziel gesperrt
-
-Referenzkurseinschreibung
-→ Ziel zugänglich
-→ Zielkurs-Einschreibung aktiv
-
-Referenzkurseinschreibung entfernt
-→ Ziel wieder gesperrt
-→ Enrollment suspendiert/entfernt
-```
+Gestrichen am 2026-10-06 (Entscheidung des Auftraggebers). Das Produkt kennt
+keine Zugangsbedingung „in einem Referenzkurs eingeschrieben"; die Bedingung
+`specific_course` bedeutet „bestimmter Knoten dieses Pfads abgeschlossen".
+Der Schritt „Referenzkurseinschreibung entfernt → wieder gesperrt" ist damit
+nicht abbildbar, weil ein Kursabschluss nicht zurückgenommen wird.
 
 ---
 

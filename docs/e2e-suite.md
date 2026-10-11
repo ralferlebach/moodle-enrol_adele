@@ -157,10 +157,12 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §7 E2 | A ODER B (Stapel), A UND B (paralleler Knoten, geteilter Nachfolger nennt beide Vorgänger, #584) per Drag&Drop | local | **umgesetzt**, 2 Tests; Klammerungen offen |
 | §6–9 | Zugangs- und Abschlussbedingungen | local | offen |
 | §9 T1–T3 | festes Zeitfenster (vorher zu, innerhalb offen, danach zu) und relative Frist (ab Zuordnung ein Tag) über die Server-Testuhr | local | **umgesetzt**, 2 Tests |
-| §9 T4–T5 | Zeit UND/ODER fachliche Bedingung | local | offen – braucht den echten Abschluss eines Vorgängers (kommt mit Kette C) |
+| §9 T4–T5 | Zeit UND bzw. ODER abgeschlossener Vorgänger: alle vier Zeilen beider Wahrheitstafeln, mit echtem Kursabschluss; je Pfad zwei Lernende („schließt zuerst ab" / „erst im Fenster") | local | **umgesetzt**, 1 Test (4 Schritte); Prüfung der Feedbacktexte („genau die fehlende Voraussetzung") folgt mit Kette F |
 | §8 C1 | Vorgänger 1 von 1, 1 von 2, 2 von 2 mit echtem Kursabschluss („Mark as done"); je Schritt Knotenstatus in der Pfadansicht der Lernenden und realer Kurszugriff | local | **umgesetzt**, 3 Tests; Variante „Vorgänger + Zeit" = T4 |
-| §8 C2 | Kurszugehörigkeit (Referenzkurs) | local | **offen – Klärung nötig**: Das Produkt hat keine Bedingung „in einem Kurs eingeschrieben"; `specific_course` heißt „Bestimmter Knoten abgeschlossen" |
+| §8 C2 | Kurszugehörigkeit | – | **gestrichen** (2026-10-06, Entscheidung des Auftraggebers): keine solche Zugangsbedingung im Produkt |
 | §8 C3 | Manuelle Freigabe: nicht freigegeben → freigegeben → zurückgenommen, durch die Lehrkraft in der Pfadansicht der Lernenden | local | **umgesetzt**, 1 Test (5 Schritte) |
+| §14 A | Alternative Routen (Raute T01 → T02/T03 → T04): nur T02, nur T03, beide, keine; T04-Status und realer Zugriff, nicht gewählte Alternative nicht Pflicht (Route 3/3 = 100 %), Fortschritt als Routenstand und Balkenwert | local | **umgesetzt**, 4 Tests; Feedbacktexte → Kette F |
+| §13 D | Diagnose/CAT | local | **offen – Klärung nötig**: `local_catquiz` fehlt in der Testumgebung; Grenzwertprüfung über `modquiz` möglich |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
 | §16 H3 | Host-Modi `hidden` (Teilnehmerliste: gesperrt, kein Zugang) und `none` (nicht eingeschrieben); `visible` über H2 | mod | **umgesetzt**, 2 Tests |
@@ -357,3 +359,29 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **Abschlüsse sind dauerhaft:** Der Seed löscht vor jedem Lauf die
   Aktivitäts-, Kriterien- und Kursabschlüsse dieser Lernenden in den Kursen
   ihres Pfads.
+
+## Nachtrag `2026100605`: T4/T5 und getrennte Zeitfenster
+
+- **Struktur von UND und ODER** in den Fixtures wie im Bedingungseditor
+  (`RestrictionFlow.vue`): Bei UND hängt die zweite Bedingung unter der
+  ersten (`source_and` → `target_and`), eine Kette, ein Feedbackknoten. Bei
+  ODER beginnt sie eine eigene Kette (`parentCondition: starting_condition`)
+  mit eigenem Feedbackknoten, verbunden über `source_or` → `target_or`.
+  Seed-Funktion `local_adele_fixture_two_conditions()`.
+- **Jede Zeitkette hat ihr eigenes Fenster.** T1/T2 liegen im Fenster
+  2030-01-15, T4/T5 im Fenster 2031-01-15. Teilen sich zwei Ketten ein
+  Fenster, verbraucht der Zeitsprung der einen die Neuauswertungsaufträge
+  der anderen (gemessen: T4/T5 vor T1/T2 öffnete den T1/T2-Kurs vorzeitig).
+  Reihenfolge in der Datei: T3 (ein Tag), T1/T2 (2030), T4/T5 (2031).
+
+## Nachtrag `2026100606`: Kette A und Fortschrittsbalken
+
+- **Fortschritt** misst `learning_paths::getnodeprogress()` an der besten
+  Route, nicht an allen Knoten. In der Raute (zwei Routen à drei Knoten)
+  heißt das 1/3, 2/3, 3/3 = 33,33 / 66,67 / 100 %, und die nicht gewählte
+  Alternative zählt nicht mit.
+- **Produktfehler behoben:** Der Fortschrittsbalken schrieb
+  `aria-valuenow="{{ props.progress }}"` — in Vue-Attributen wird so nichts
+  eingesetzt, Screenreader bekamen den wörtlichen Text. Jetzt gebunden
+  (`:aria-valuenow`), Jest-Test mit Gegenprobe. Die Kette A liest den Wert
+  über genau dieses Attribut.
