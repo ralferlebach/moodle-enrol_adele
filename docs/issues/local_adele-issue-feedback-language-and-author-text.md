@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `i18n`, `feedback`
 **Stand:** 2026-10-07, Session 006 — gefunden mit Testkette F (Feedback und Sprache)
-**GitHub:** noch nicht angelegt
+**GitHub:** local_adele #589
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -97,3 +97,41 @@ Je Feld unterscheiden, ob es der Standard ist oder ein eigener Text
    Standardtexte vollständig in der Sprache der Lernenden, eigener Text
    unverändert.
 3. Die Sätze zum Zeitfenster folgen der Sprache der Lernenden.
+
+## Umsetzung (Stand 2026100710)
+
+- **Neuberechnung in der Sprache der Lernenden:** `relation_update::updated_single()`
+  stellt für die Dauer der Neuberechnung die Profilsprache der Person ein,
+  der der Pfad gehört (`learner_language()`, sonst die Sprache der Site), und
+  stellt danach die Sprache der Sitzung wieder her — gleich, wer auslöst
+  (Lernende, Lehrkraft, Cron).
+- **Standardtexte nie aus der gespeicherten Kopie:** Ist „Standard verwenden"
+  gesetzt, wird der Text aus den Sprachstrings der Bedingungen zusammengesetzt,
+  so wie der Editor es tut (Kette der UND-Bedingungen, „ und " dazwischen,
+  Sichtbarkeit) — `get_default_condition_string()`, `condition_default()`. Das
+  i-Symbol ist immer Standard. Auch die Liste „was noch fehlt"
+  (`before_active`) nimmt die Texte der einzelnen Bedingungen aus den
+  Sprachstrings.
+- **Eigener Text bleibt:** „Standard verwenden" abgewählt → der gespeicherte
+  Text, in jeder Sprache; abgewählt und leer → kein Text. Der eigene
+  Informationstext beim manuellen Abschluss (`informationedited`) ebenso.
+- **Abruf in anderer Sprache:** `rerender_feedback_language()` ruft denselben
+  Code auf wie die Neuberechnung (`evaluate_node()`, aus `updated_single()`
+  herausgelöst, ohne Nebenwirkungen) und übernimmt nur die Texte — auch die
+  Sätze zum Zeitfenster. Vorher war es eine eigene Näherung, die u. a. bei
+  UND-Ketten nur die erste Bedingung kannte.
+- **Folge für bestehende Pfade:** keine Migration nötig. Ältere gespeicherte
+  Standardtexte (auch früherer Wortlaut) werden nicht mehr gelesen; die Texte
+  erscheinen nach der nächsten Neuberechnung bzw. sofort beim Abruf in anderer
+  Sprache im heutigen Wortlaut.
+- **Grenze:** Ein Feedback-Knoten ohne das Feld `feedback_*_checkmark`
+  (Daten von vor Einführung des Hakens) gilt als „abgewählt": sein
+  gespeicherter Text bleibt, wie bisher bei der Neuberechnung.
+
+**Tests:** PHPUnit `feedback_language_test.php` (13 Tests; mit dem alten Code
+12 davon rot), darunter für fünf Zustände in beiden Richtungen: Neuberechnung
+in Sprache A + Abruf in Sprache B ergibt genau die Texte einer Neuberechnung
+in Sprache B. Sechs bestehende Tests angepasst — sie schrieben die Mischung
+„gespeicherte deutsche Vorlage + englische Platzhalter" fest bzw. nutzten
+Fixtures ohne die Felder, die der Editor setzt. E2E: die beiden Tests laufen
+regulär (`feedback-texts.spec.ts`, „F language: …").

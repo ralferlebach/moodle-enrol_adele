@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `enhancement`, `feedback`, `question`
 **Stand:** 2026-10-07, Session 006 — beobachtet mit Testkette F (Feedback und Sprache)
-**GitHub:** noch nicht angelegt
+**GitHub:** local_adele #592
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 

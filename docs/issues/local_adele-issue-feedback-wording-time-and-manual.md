@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `feedback`, `wording`
 **Stand:** 2026-10-07, Session 006 — gefunden mit Testkette F (Feedback und Sprache)
-**GitHub:** noch nicht angelegt
+**GitHub:** local_adele #590
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -83,3 +83,26 @@ liest die Zeit- und Abschlusstexte nur auf Englisch).
 1. Die drei genannten E2E-Tests laufen als reguläre Tests grün.
 2. Die bestehenden Tests der Kette F (Zeitfenster vor/im/nach, UND/ODER)
    bleiben grün.
+
+## Umsetzung (Stand 2026100710)
+
+1. `relation_update::inbetweenfeedback()`: Der Satz „From subscription you
+   have access until …" entsteht im gesperrten Zustand nur noch für
+   `timed_duration`. Am gesperrten Knoten hinter einem festen Fenster steht
+   nur, was fehlt („from 15/01/32, 10:00" bzw. der Vorgänger); das Ende steht
+   weiter im i-Symbol und, sobald der Knoten offen ist, in „You have access to
+   this node until …".
+2. Offenes Fenster: Die Platzhalter bekommen Wörter, die in die Vorlage
+   „{start_date} to {end_date}" passen — auch dort, wo eine Autorin eine
+   eigene Vorlage geschrieben hat: „now to 15/01/32, 12:00" / „15/01/32,
+   10:00 to open end"; deutsch „sofort bis …" / „… bis auf Weiteres". Neue
+   Strings `course_restricition_timed_no_start`, `…_no_end`; `…_no_date`
+   entfällt.
+3. `course_information_condition_completion_manual`: „Manual completion by
+   the teacher" / „Manueller Abschluss durch die Lehrkraft". Wirkt durch #589
+   auch auf bestehende Pfade (der gespeicherte alte Wortlaut wird nicht mehr
+   gelesen); ein von der Autorin selbst geschriebener Informationstext bleibt.
+
+**Tests:** PHPUnit `feedback_language_test.php` (vier Tests zu diesem Issue,
+Deutsch und Englisch); E2E: die drei Tests sind in die regulären Ketten
+aufgegangen und schreiben den neuen Wortlaut fest.

@@ -1231,3 +1231,109 @@ Wiederaufnahme von Teil 37. Version `2026100709` (alle drei Plugins).
 PHPUnit local 355 (1 übersprungen, 1 unvollständig, wie zuvor), enrol 57,
 mod 22; phpcs für die geänderten PHP-Dateien 0/0. Jest nicht erneut
 gelaufen: kein Frontend-Code geändert, das Bündel ist das von `2026100708`.
+
+## Teil 40 — Abgleich GitHub ↔ Rückmeldungen, Entscheidungen zu P (2026-10-07)
+
+- **Neu angelegt und geprüft (API):** local_adele #589 (Sprache, Text der
+  Autorin), #590 (Texte Zeitfenster/manueller Abschluss), #591 (Tastatur),
+  #592 („n von m"); ab „Beobachtung" wortgleich mit den Entwürfen. mod_adele
+  einzeln abgerufen: #37–#39 vorhanden, #40 nicht.
+- **Nur im Entwurf, nicht auf GitHub:** zweiter Teil von #586; Abschnitte
+  „Umsetzung" zu #587, #588, mod_adele #38; die Kommentar-Entwürfe zu #580
+  und mod_adele #37 (jeweils 0 Kommentare). Ohne Issue: Kontrastverstoß nur
+  auf dem CI-Runner; Zeitzonen-Nachtrag zu #581.
+- **Ältere Entwürfe (G.x, Session 002/003):** laut `arbeitsplan.md` damals
+  umgesetzt; nicht erneut geprüft.
+- **Eigener Fehler:** Die Assistentenrolle stand in Protokoll (§5a der
+  Suite-Doku, Teil 39) und Präsentation als offene Entscheidung. Entschieden
+  ist sie seit 2026-08-18: #503 geschlossen („einmal vergebene AA-Rolle nicht
+  wieder automatisch entziehen"), #509 „Kein Entzug realisieren". Die
+  Kommentare hatte ich nicht gelesen. Folge: R3 prüft, dass die Rolle bleibt;
+  die R5-Zeilen „Assistent entzogen" sind über den manuellen Entzug durch den
+  Admin testbar. Der Entwurf `local_adele-issue-assistant-role-no-revocation.md`
+  ist gegenstandslos.
+- **Entscheidungen des Auftraggebers zu P (präzisiert):**
+  1. Pfad bearbeiten und Pfad einsetzen sind getrennt: Einsicht in
+     Lernerdaten haben die Lehrenden des Kurses, nicht die Pfaderstellenden.
+     **Weicht vom ausgelieferten Stand ab** (`has_path_authority()` gibt
+     Erstellenden und Mitarbeitenden die Lernerdaten ihres Pfads in allen
+     Kursen, #586 zweiter Teil) — Rückbau offen, Rückfrage zu Admin/Manager
+     gestellt.
+  2. Lehrende erhalten keinen Lernenden-Status (#587, erfüllt); bei temporär
+     umgestellter Rolle sehen sie die Lernendenansicht — „Rolle wechseln zu …"
+     ist nicht gemessen, Rückfrage gestellt.
+  3. Lehrendenansicht ohne Bearbeitungsrecht (mod_adele #39, erfüllt).
+  4. Schnittmenge aus Pfad- und Kurseinschreibung (#588, erfüllt); die
+     Quellen 2 und 3 schreiben in den Kurs ein.
+- **Weitere Rückfragen gestellt:** #592 (Wortlaut), Host-Modus ohne
+  Einschreibung, drei Abweichungen aus #587/#588, #580 Ablagezonen,
+  Kontrastverstoß.
+
+## Teil 41 — local_adele #589 und #590: Feedbacktexte, Sprache, Wortlaut
+
+Ein Paket, weil beide denselben Code betreffen und #590 Punkt 3 erst durch
+#589 auf bestehende Pfade wirkt. Version `2026100710`.
+
+- **Befund beim Lesen, über das Issue hinaus:** Der Abruf in anderer Sprache
+  (#493) war eine eigene Näherung der Neuberechnung. Er kannte bei
+  UND-Ketten nur die erste Bedingung und ersetzte die Liste „was noch fehlt"
+  durch den Standardtext dieser ersten Bedingung — aus dem Code gelesen, nicht
+  vorab gemessen; der neue Vergleichstest (unten) deckt es ab.
+- **Umbau:** Die Auswertung eines Knotens ist aus `updated_single()` nach
+  `evaluate_node()` herausgelöst (reine Verschiebung, Suite danach
+  unverändert grün bis auf die erwarteten sechs). Neuberechnung und Abruf
+  benutzen denselben Code; die Neuberechnung läuft in der Sprache der
+  Lernenden. Regeln: Standardtext immer aus den Sprachstrings, eigener Text
+  immer wie gespeichert (Details in den beiden Issue-Entwürfen, Abschnitt
+  „Umsetzung").
+- **`informationedited`:** Beim manuellen Abschluss kann die Autorin einen
+  eigenen Informationstext schreiben (`manual_check.vue`). Mein erster Stand
+  behandelte das i-Symbol als „nie eigen"; ein bestehender Test
+  (`hidden_feedback_visibility_test`) fiel, daraufhin im Editor nachgelesen
+  und das vorhandene Kennzeichen berücksichtigt.
+- **Bestehende Tests angepasst (6):** `save_learningpath_test` (2),
+  `uc03_parent_courses_restriction_test`, `feedback_rendering_both_languages_test`
+  (2), `hidden_feedback_visibility_test`. Drei schrieben die Mischung
+  „gespeicherte deutsche Vorlage alten Wortlauts + englische Platzhalter"
+  fest („[EN_216]1 of 2 courses erfolgreich bearbeiten") — genau das
+  Verhalten, das #589 abstellt; drei nutzten Fixtures ohne die Felder, die
+  der Editor setzt (`feedback_before_checkmark`, `informationedited`).
+- **Neu:** `feedback_language_test.php`, 13 Tests; Gegenprobe mit dem alten
+  `relation_update.php`: 12 rot. Deutsch im PHPUnit über ein minimales
+  Sprachpaket im Testdatenverzeichnis (nur `langconfig.php`; die deutschen
+  Strings kommen aus dem Plugin).
+- **E2E:** fünf bekannte Fehler in reguläre Zusicherungen überführt, auf
+  Anhieb grün; bleibt #591 (Tastatur).
+- **Nicht geändert:** der String `node_restriction_before_timed` selbst
+  („From subscription …") — er bleibt für `timed_duration`.
+
+**Prüfstand `2026100710`:** E2E enrol 6, mod 13, local 52 bestanden und 1
+übersprungen (bekannter Fehler #591) — 71 bestandene Tests, ein Gesamtlauf;
+PHPUnit local 368 (1 übersprungen, 1 unvollständig, wie zuvor), enrol 57,
+mod 22; phpcs für die geänderten PHP-Dateien 0/0. Jest nicht erneut gelaufen:
+kein Frontend-Code geändert.
+
+## Teil 42 — Weitere Entscheidungen des Auftraggebers (2026-10-07, während Teil 41)
+
+- **Lernerdaten (Nachtrag zu #586):** Moodle-Administrator:innen ja,
+  AdeLe-Manager nein, sonst nur Lehrende im Host-Kurs. Nachtrag formuliert:
+  `issues/local_adele-issue-586-nachtrag-course-teachers-only.md`; der
+  Auftraggeber legt ihn ab. Darin offen: Moodles eigene Rolle „Manager".
+  Umsetzung nach #591.
+- **Kontrastverstoß im CI:** Issue. Entwurf
+  `issues/local_adele-issue-ci-contrast-violation-runner-only.md`, Ursache
+  dort ausdrücklich als unbekannt.
+- **#580 Ablagezonen:** Die Zonen sollen immer am jeweils nächstliegenden
+  Knoten liegen. Umsetzung unter #580 offen.
+- **Teilnahme und Bewertete Rollen:** soll von den Bewerteten Rollen der
+  Instanz abhängen. Entwurf
+  `issues/local_adele-issue-participation-by-graded-roles.md`; Umsetzung nach
+  Ablage.
+- **#588, suspendierte Einschreibungen:** Rückfrage des Auftraggebers, wozu
+  ADELE die Suspendierung nutzt; beantwortet (siehe Antwort im Verlauf),
+  Entscheidung offen.
+- **Missverständnis geklärt:** „kein #40" in mod_adele hieß nur, dass seit
+  dem letzten Abgleich kein neues Issue dazugekommen ist; es fehlt keines.
+- **Noch offen:** „Rolle wechseln zu …" (Bedeutung), #592 (Wortlaut),
+  Host-Modus ohne Einschreibung, Moodles Rolle „Manager", Löschen statt
+  Suspendieren beim Verlassen (#587).

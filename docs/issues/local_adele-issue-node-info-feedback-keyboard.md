@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `accessibility`
 **Stand:** 2026-10-07, Session 006 — zuerst beobachtet mit Kette L3/O1, bestätigt mit Kette F
-**GitHub:** noch nicht angelegt (Umfeld: #575)
+**GitHub:** local_adele #591 (Umfeld: #575)
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
