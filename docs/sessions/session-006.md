@@ -459,3 +459,65 @@ streichen.** Im Testplan durch einen Vermerk mit Begründung ersetzt, in
 
 **Prüfstand:** PHPUnit local 319 (1 übersprungen, 1 unvollständig), enrol 53,
 mod 14.
+
+## Teil 20 — Kette D, zwei weitere Fehler in der catquiz-Bedingung
+
+- **Korrektur (nachträglich):** Hier stand, Teil 19 und `2026100607` stammten
+  aus einem „parallelen Durchlauf". Das war eine unbelegte Vermutung, als
+  Tatsache formuliert. Wahrscheinlicher: eigene Arbeitsstände aus einem
+  Arbeitsfenster, das nicht ordentlich abgeschlossen und dokumentiert wurde.
+  Inhaltlich wurde nichts überschrieben; Teil 20 baut auf Teil 19 auf.
+- **Fehler 3 (Modus `all_quiz_global`, Voreinstellung der Seite):** Die
+  Bedingung verlangte ein Prozentergebnis, auch wenn keine Prozentschwelle
+  gesetzt war — eine reine Fähigkeitsschwelle war in diesem Modus **nie**
+  erfüllbar. `uc09` lief nur im Modus `single_quiz` und verdeckte das.
+  Jetzt: fehlende Art = leere Menge, und mindestens eine Schwelle muss
+  konfiguriert sein.
+- **Fehler 4 (gleicher Modus):** Der Vergleich mit der globalen Schwelle war
+  strikt (`<`), zwei Zeilen über der Regel `>=` — am Grenzwert selbst
+  scheiterte ein Versuch. Jetzt `<=`.
+- **Nachweis:** `uc09`-Grenzwerttest in beiden Modi (6 Fälle); alter Code
+  rot in genau „all_quiz_global: x" und „x + ε", neuer grün. E2E-Kette D mit
+  echten Signalen grün.
+- **Gefunden wurde Fehler 3 erst durch den Browserlauf:** Signale kamen an,
+  der Knoten blieb offen; die Bedingung direkt aufgerufen, die Einstellung der
+  Seite gelesen.
+
+## Teil 21 — Kette M
+
+- **M1/M2** in einem Test auf eigenem Pfad „E2E Laufende Änderung": Knoten 2
+  zunächst ohne Bedingung (Lernende in T02) → Autorin fügt „Manual access"
+  per Ziehen in den Bedingungseditor hinzu → Zugriff weg → Autorin entfernt
+  die Bedingung → Zugriff zurück. Auf Anhieb grün.
+- **Technik:** Eine leere Bedingungsfläche nimmt die erste Bedingung dort an,
+  wo sie losgelassen wird (`RestrictionFlow.onDrop`, `nodes.length == 0`);
+  `dragTo` auf die Fläche genügt. Entfernen wie in V2 (Papierkorb, zweimal
+  speichern).
+
+
+## Arbeitsregel ab Teil 22
+
+Jedes Arbeitspaket wird abgeschlossen, bevor das nächste beginnt: Prüfung,
+Protokolleintrag, Lieferung. Reicht das verbleibende Arbeitsfenster dafür
+nicht, beginnt kein neues Paket; stattdessen wird der Zwischenstand als
+„unterbrochen" mit offenen Schritten protokolliert und geliefert. Ursachen
+werden nur als Tatsache genannt, wenn sie belegt sind.
+
+## Teil 22 — M vervollständigt
+
+- **Auf Nachfrage des Auftraggebers:** M war geliefert, deckte aber nur
+  Knotenstatus und realen Zugriff ab; Feedback, Prozent und Einschreibung
+  waren auf F/L verschoben — das war Aufschieben, kein Abschluss. Jetzt in
+  jedem Zustand geprüft: Knotenstatus, Meldung auf der Infokarte des Knotens
+  („Freely accessible" → Bedingung „manual" → wieder „Freely accessible"),
+  Routenfortschritt (1/3, von beiden Änderungen unberührt), Einschreibung in
+  T02 auf der Teilnehmerseite (Active → Suspended → Active), realer Zugriff.
+  Zweimal grün.
+- **Befund in den eigenen Fixtures (für Kette F):** Die Seed-Funktion
+  `local_adele_fixture_single_condition()` kopiert den Feedbackknoten samt
+  Autorentexten aus einer Bedingung des Referenzpfads. Bei C3 zeigt die
+  Infokarte deshalb „Vorgängernode „" abschliessen und bis" statt eines zur
+  manuellen Freigabe passenden Texts; nur der berechnete Teil stimmt. Betrifft
+  alle so gebauten Fixture-Knoten. Wird mit Kette F behoben.
+- **Zurückgenommene Vermutung:** Die „Go to course"-Schaltfläche schien
+  unbeschriftet; sie trägt ihren Namen über `title`. Keine Lücke.

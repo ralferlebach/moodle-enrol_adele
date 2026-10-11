@@ -162,7 +162,8 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §8 C2 | Kurszugehörigkeit | – | **gestrichen** (2026-10-06, Entscheidung des Auftraggebers): keine solche Zugangsbedingung im Produkt |
 | §8 C3 | Manuelle Freigabe: nicht freigegeben → freigegeben → zurückgenommen, durch die Lehrkraft in der Pfadansicht der Lernenden | local | **umgesetzt**, 1 Test (5 Schritte) |
 | §14 A | Alternative Routen (Raute T01 → T02/T03 → T04): nur T02, nur T03, beide, keine; T04-Status und realer Zugriff, nicht gewählte Alternative nicht Pflicht (Route 3/3 = 100 %), Fortschritt als Routenstand und Balkenwert | local | **umgesetzt**, 4 Tests; Feedbacktexte → Kette F |
-| §13 D | Diagnose/CAT: Fähigkeitsgrenze x−ε / x / x+ε | local | PHPUnit **umgesetzt** (uc09, Regel Fähigkeit ≥ Schwelle); E2E-Kette in Arbeit; local_catquiz 4.5-Linie (`ralferlebach`, `ALiSe-v-1.2.0-legacy`) in Testumgebung und CI |
+| §15 M | Laufenden Pfad ändern: M1 Bedingung „Manual access" hinzufügen → Knoten gesperrt, Meldung nennt die Bedingung, Fortschritt unverändert, Einschreibung suspendiert, Zugriff weg; M2 entfernen → alles zurück, Einschreibung wieder aktiv | local | **umgesetzt**, 1 Test (5 Schritte) |
+| §13 D | Diagnose über ein CAT-Ergebnis: Fähigkeit x−ε / x / x+ε (x = 2,5) gegen die Schwelle einer echten catquiz-Skala; je Lernende Knotenstatus, realer Zugriff auf den Folgeknoten, Routenfortschritt | local | **umgesetzt**, 3 Tests (nur mit catquiz-Ökosystem, sonst übersprungen); PHPUnit-Grenzwerttest in `uc09` für beide Prüfmodi; Feedbacktexte → Kette F |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
 | §16 H3 | Host-Modi `hidden` (Teilnehmerliste: gesperrt, kein Zugang) und `none` (nicht eingeschrieben); `visible` über H2 | mod | **umgesetzt**, 2 Tests |
@@ -385,3 +386,15 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   eingesetzt, Screenreader bekamen den wörtlichen Text. Jetzt gebunden
   (`:aria-valuenow`), Jest-Test mit Gegenprobe. Die Kette A liest den Wert
   über genau dieses Attribut.
+
+## Nachtrag `2026100608`: Kette D und catquiz-Signale
+
+- **Signale statt durchgespielter Tests:** `tests/e2e/support/catquiz_signal.php`
+  erzeugt, was ein echter adaptiver Test hinterlässt: einen
+  mod_adaptivequiz-Versuch mit Fragen-Nutzung, die catquiz-Ergebniszeile mit
+  `personabilities` und das Ereignis `\mod_adaptivequiz\event\attempt_completed`
+  als die Lernende — darauf reagiert local_adele. Die Testaktivität in T01 legt
+  der Seed über den Generator von mod_adaptivequiz an, die Skala als echten
+  catquiz-Datensatz.
+- **Nur mit catquiz:** Der Seed legt Kette D nur an, wo das Ökosystem
+  installiert ist; die Kette überspringt sich sonst ausdrücklich.
