@@ -966,3 +966,31 @@ Entwurf zur lesenden Lehrkraftansicht).
 **Prüfstand `2026100705`:** E2E enrol 6, mod 11, local 43 (60 Tests, kein
 `fixme` mehr, ein Gesamtlauf vollständig grün); Jest 343/343; PHPUnit local
 336 (1 übersprungen, 1 unvollständig, wie zuvor), enrol 53, mod 18; phpcs 0/0.
+
+## Teil 34 — local_adele #588: Teilnehmerliste gehört dem Kurs
+
+- **Umsetzung:** Die Liste einer Einbindung ist die Schnittmenge aus
+  Kurseinschreibung und Pfadeinschreibung; der Rang wird in dieser Menge
+  vergeben. Technisch ein Join auf `get_enrolled_sql()` in
+  `get_learning_user_relations()`, gesetzt von `get_lp_user_path_relations`,
+  sobald die Anfrage über einen einbindenden Kurs kommt. Pfadrecht ohne Kurs
+  (Systemkontext): weiterhin pfadweit.
+- **Suspendierte Einschreibungen zählen mit** (abweichend vom Vorschlag im
+  Issue): Host-Modus `hidden` führt seine Lernenden suspendiert.
+- **Einzelabruf und Schreibdienst:** Das Kursrecht einer Lehrkraft deckt nur
+  Lernende ihres Kurses.
+- **PHPUnit** `roster_course_scope_test` 7 Tests; Gegenprobe ohne
+  Geltungsbereich: 3 schlagen fehl. Erster Lauf: 2 Fehler durch einen
+  unvollständig gebauten Test-Snapshot (Knoten ohne `data`), nicht durch das
+  Produkt; Snapshot vereinfacht.
+- **Fixture/E2E:** E2EP2 mit Lernender „Privacy Gamma" auf demselben Pfad.
+  Kette P prüft Gamma jetzt überall mit: in keiner Liste von E2EP; in E2EP2
+  allein mit Rang 1; Manager über den Systemkontext sieht Alpha, Beta, Gamma;
+  Lehrkraft von E2EP: Gammas Snapshot und Änderung abgelehnt. P zweimal 4/4.
+- **Offen, zur Entscheidung:** Host-Modus `none` — dort sind die Lernenden der
+  Quellen 2/3 nicht im Hostkurs eingeschrieben und stehen damit in keiner
+  Kursliste mehr (abgeleitet, nicht gemessen; im Entwurf vermerkt).
+
+**Prüfstand `2026100706`:** E2E enrol 6, mod 11, local 43 (60 Tests, ein
+Gesamtlauf vollständig grün); PHPUnit local 343 (1 übersprungen, 1
+unvollständig, wie zuvor), enrol 53, mod 18; phpcs 0/0.
