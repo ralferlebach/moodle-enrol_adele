@@ -1433,3 +1433,47 @@ Version `2026100713`; `mod_adele` verlangt jetzt `local_adele` ≥ `2026100713`.
   E2E enrol 6, mod 14, local 53 (73, keiner übersprungen); PHPUnit local 370
   (1 übersprungen, 1 unvollständig — beide wie bisher), enrol 57, mod 25.
   Ausgeliefert unter local_adele #593.
+
+## Teil 46 — local_adele #580: Ablagezonen folgen dem Zeiger
+
+Version `2026100714`. Entscheidung des Auftraggebers: „Immer der topologisch
+nächstliegende Knoten ist am einfachsten im Handling zu verstehen."
+
+- **Umsetzung:** `zoneOwner.ts` (Entscheidung, mit Jest-Test) und
+  `SidebarPath.vue::onDrag`. Regel und die zwei Ausnahmen (Zeiger auf einer
+  Zone; Marge von 30 Einheiten gegen Hin- und Herspringen) stehen im
+  Kommentarentwurf `issues/local_adele-issue-580-comment.md`.
+- **Eigener Fehler unterwegs, vor der Auslieferung bemerkt:** Die erste
+  Fassung der Prüfhilfe `zonesAround()` verglich nur die Höhe. Knoten
+  derselben Reihe konnte sie nicht unterscheiden; der Test der Ausnahme lief
+  deshalb auch mit ausgebauter Ausnahme grün. Aufgefallen durch die
+  Gegenprobe, behoben (feste Lage der Zone relativ zum Knoten), Gegenprobe
+  danach rot an der richtigen Stelle.
+- **Erster Testentwurf verworfen:** Er wollte die Ausnahme an der
+  Nachfolger-Zone eines Knotens mit Nachfolger zeigen. Diese Zone ist nicht
+  zu treffen — auch mit dem Stand vor #580 nicht (gemessen, siehe unten).
+  Der Test nutzt jetzt die Zone „parallel" bei zwei Knoten nebeneinander.
+- **Belegt:**
+  - Gegenprobe 1: neuer Test „follow" gegen Stand `2026100713` → rot („the
+    child zone never appeared next to dndnode_2"); die übrigen fünf
+    Editor-Tests mit der strengeren Prüfung grün.
+  - Gegenprobe 2: Variante ohne Ausnahme 1 gebaut und nur auf der
+    Testinstanz eingespielt → Test „stays under the pointer" rot („the zones
+    must still be those of T01"). Danach der ausgelieferte Stand wieder
+    eingespielt (Dateivergleich mit der Arbeitskopie).
+  - Erreichbarkeit mit geführtem Zeiger, 2 Topologien × 3 Knoten × 4 Zonen:
+    alt und neu identisch, 17 von 24 erreicht.
+  - Jest 366 (5 neue), sieben Editor-Tests grün.
+- **Neuer Befund, nicht behoben (Regel: erst nach Ablage):** Versetzt
+  gezeichnete Zonen sind nicht zu treffen. Entwurf
+  `issues/local_adele-issue-offset-dropzones-unreachable.md`. Ursache dort
+  ausdrücklich nur nach Codelage, nicht durch Versuch belegt.
+- **Nicht geprüft:** Ziehen von Hand in einem echten Browser; andere
+  Browser als Chromium; Topologien über die zwei gemessenen hinaus.
+- **Prüfstand `2026100714`** (Gesamtlauf nach dem Abgleich der Auslieferungskopie):
+  E2E enrol 6, mod 14, local 55 (75, keiner übersprungen); PHPUnit local 370
+  (1 übersprungen, 1 unvollständig — beide wie bisher), enrol 57, mod 25;
+  Jest 366. PHPUnit lief nach dem Gesamtlauf gesondert: Der Lauf selbst
+  brach dort ab, weil die Testumgebung nach dem Versionswechsel nicht neu
+  eingerichtet war (mein Versäumnis im Ablauf, kein Befund am Code).
+  Ausgeliefert unter local_adele #580.

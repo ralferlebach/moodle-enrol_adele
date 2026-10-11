@@ -505,3 +505,21 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   Einstellungsklasse (Protokoll Teil 45).
 - Die bestehenden Tests in `participants-by-role.spec.ts` laufen unverändert
   und bestätigen die Regel für die Standardrollen.
+
+## Nachtrag `2026100714`: local_adele #580
+
+- **Zwei neue Tests** in `editor-drag-and-drop.spec.ts` (Kette E1): Die
+  Ablagezonen folgen dem Zeiger von Knoten zu Knoten; eine Zone, die einem
+  Nachbarknoten näher liegt als dem eigenen, bleibt unter dem Zeiger.
+- **Testhilfe `support/editor.ts`:** Das Ziehen ist in Schritte zerlegt
+  (`startDrag`, `dragOverNode`, `dragOntoZone`, `abandonDrag`);
+  `zonesAround()` stellt fest, zu welchem Knoten die gezeichneten Zonen
+  gehören — über die feste Lage der Zone „parallel" relativ zu ihrem Knoten,
+  damit auch Knoten derselben Reihe unterschieden werden. `dropCourseAt()`
+  prüft das jetzt bei jedem Ablegen und kann mit `via` an einem anderen
+  Knoten vorbeiziehen. Der Umweg über den Startmarker ist entfallen.
+- `local_adele` hat damit 55 E2E-Tests.
+- **Befund ohne Test:** Versetzt gezeichnete Zonen (zweiter Nachfolger,
+  zweiter Vorgänger) sind nicht zu treffen — vor wie nach #580. Entwurf:
+  `issues/local_adele-issue-offset-dropzones-unreachable.md`. Ein Test folgt
+  mit der Entscheidung.
