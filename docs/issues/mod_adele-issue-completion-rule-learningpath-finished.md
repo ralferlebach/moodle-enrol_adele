@@ -2,7 +2,7 @@
 
 **Repository:** `Wunderbyte-GmbH/moodle-mod_adele`
 **Labels (Vorschlag):** `bug`, `completion`
-**Stand:** 2026-10-06, Session 006 — gefunden beim Aufbau der E2E-Ketten L4/O3
+**Stand:** 2026-10-07, Session 006 — gefunden beim Aufbau der E2E-Ketten L4/O3; in der Arbeitskopie umgesetzt (Abschnitt „Umsetzung")
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -52,3 +52,31 @@ schließt der Kurs nie ab.
    beider Knoten ist die Aktivität abgeschlossen, nach Rücknahme nicht mehr.
 2. E2E-Kette L4/O3 (`master-completion.spec.ts`) prüft zusätzlich den
    Aktivitätsabschluss im Hostkurs; Kette Z nutzt ihn für den Kursabschluss.
+
+## Umsetzung (Arbeitskopie, Stand 2026100703)
+
+- `classes/completion/custom_completion.php`: Regel
+  `completionlearningpathfinished`, Beschreibung
+  `completiondetail:learningpathfinished` („Finish the learning path" /
+  „Lernpfad abschließen"), Reihenfolge nach `completionview`.
+- `classes/local/path_completion.php`: `is_finished()` liest den gespeicherten
+  Lernerpfad und fragt `learning_paths::getnodeprogress()` — abgeschlossen,
+  wenn auf der besten Route alle Knoten abgeschlossen sind (was die
+  Teilnehmerliste als 100 % zeigt). `update_activities()` ruft für jede
+  Einbindung des Pfads mit der Regel `update_state(COMPLETION_UNKNOWN)` auf,
+  also in beide Richtungen.
+- `db/events.php`: Beobachter von `\local_adele\event\user_path_updated` mit
+  Priorität −100. `local_adele` berechnet und **speichert** den Lernerpfad in
+  seinem eigenen Beobachter desselben Ereignisses (Priorität 0); die niedrige
+  Priorität stellt `mod_adele` dahinter. Gegenprobe mit Priorität +100: Test
+  schlägt fehl.
+- PHPUnit `tests/path_completion_test.php` (4 Tests) über die echte Kette
+  (Änderung durch die Lehrkraft → Neuberechnung → Beobachter): halb fertig
+  → offen, fertig → abgeschlossen, zurückgenommen → wieder offen; ohne Regel
+  keine Wirkung.
+- E2E: Kette Z (`local_adele/tests/e2e/tests/final-completion.spec.ts`).
+
+**Abhängigkeit, bewusst:** Die Lösung verlässt sich darauf, dass `local_adele`
+den Pfad synchron im Beobachter speichert. Ein eigenes Ereignis „Lernerpfad
+gespeichert" in `local_adele` wäre die sauberere Schnittstelle; bis dahin hält
+der PHPUnit-Test die Reihenfolge fest.

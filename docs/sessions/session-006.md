@@ -793,3 +793,75 @@ dreimal 5/5.
 **Als Nächstes:** Kette Z (Gesamtabschluss) hängt an der wirkungslosen
 Abschlussregel von `mod_adele` (Issue-Entwurf) — vor Z ist zu entscheiden, ob
 die Regel behoben wird. Danach F (Feedbacktexte), Reste R3/R5, E2-Klammern.
+
+## Entscheidungen des Auftraggebers (2026-10-07)
+
+- **O4, Zeile 0/1:** Der Master-Abschluss soll immer wirken, unabhängig von
+  Voraussetzungen. Das gemessene Verhalten (gesperrter Knoten wird
+  abgeschlossen, Nachfolger öffnet) ist damit gewollt; die Kette bleibt, der
+  Vorbehalt in `master-both.spec.ts` und in der Suite-Tabelle ist entfernt.
+- **Produktfehler Editor-Titel und Abschlussregel `mod_adele`:** erst beheben,
+  nachdem die Issues angelegt sind; der Auftraggeber meldet sich.
+  **Abweichung, offen benannt:** Die Abschlussregel war zu diesem Zeitpunkt
+  bereits umgesetzt (Teil 31, begonnen auf „Weiter" nach der Rückfrage zu Z).
+  Sie ist in den Archiven ab `2026100703` enthalten; der Issue-Entwurf trägt
+  die Umsetzung. Der Editor-Fehler ist unangetastet.
+- **Zu Kette P:** (1) Lernerdaten fremder Pfade für Assistenten und
+  Kollaboratoren: wird behoben. (2) Lehrkräfte als Lernende in der Liste:
+  vorerst akzeptabel, langfristig ausschließen — Issue. (3) Lehrkraft ohne
+  Bearbeitungsrecht soll alles sehen, aber nicht bearbeiten — Issue. (4) Liste
+  auf die Schnittmenge Kurseinschreibung × Pfadeinschreibung beschränken —
+  Issue. Umsetzung in Teil 32.
+
+## Teil 31 — Abschlussregel in `mod_adele`, Kette Z
+
+- **Entscheidung für Z:** Alle vier Stories des Plans verlangen den
+  Aktivitätsabschluss. Die Regel `completionlearningpathfinished` war
+  wirkungslos (Issue-Entwurf aus Teil 26); ohne sie wäre Z nicht prüfbar
+  gewesen. Deshalb umgesetzt.
+- **`mod_adele`:**
+  - `classes/completion/custom_completion.php` — über diese Klasse wertet
+    Moodle eigene Regeln aus; Beschreibung „Finish the learning path" /
+    „Lernpfad abschließen" (`completiondetail:learningpathfinished`).
+  - `classes/local/path_completion.php` — `is_finished()`: gespeicherter
+    Lernerpfad, beste Route vollständig (`getnodeprogress()`, 100 %);
+    `update_activities()`: `update_state(COMPLETION_UNKNOWN)` für jede
+    Einbindung des Pfads mit der Regel, also in beide Richtungen.
+  - `db/events.php` — Beobachter von `user_path_updated` mit Priorität −100:
+    `local_adele` speichert den Pfad in seinem Beobachter desselben
+    Ereignisses (Priorität 0), `mod_adele` liest danach.
+- **PHPUnit `path_completion_test`** (4 Tests) über die echte Kette. Gegenprobe
+  mit Priorität +100: Test schlägt fehl — die Reihenfolge ist festgehalten.
+- **Fixture:** vier Pfade mit je eigener Lernender und eigenem Hostkurs
+  (E2EZ1–E2EZ4), Aktivität mit Abschlussverfolgung und Regel. Seed:
+  `local_adele_fixture_embed()` und `local_adele_fixture_host_course()` mit
+  Parameter für die Regel. „E2E Abschluss manuell": alle drei Knoten nur
+  manuell abschließbar.
+- **Probelauf am lebenden System** (Master-Abschluss auf allen Knoten): Kursseite
+  der Lernenden „To do" → „Done", Bedingung „Finish the learning path";
+  Abschlussbericht „Not completed" → „Completed".
+- **Kette Z** (`local_adele/tests/e2e/tests/final-completion.spec.ts`, 4 Tests):
+  - **Z1** regulär: 0/3 → 2/3 (66,67 %, Aktivität offen) → 3/3 (100 %,
+    abgeschlossen).
+  - **Z2** alternative Route (Raute): T01, T02 abgeschlossen, T03 nie besucht —
+    vor T04 2/3 und offen, nach T04 3/3 = 100 % und abgeschlossen; T03 bleibt
+    „zugänglich".
+  - **Z3** manueller Abschluss auf zwei Knoten (offen), dem dritten
+    (abgeschlossen), Rücknahme (wieder offen).
+  - **Z4** Master-Abschluss, gleiche Folge.
+  Je Zustand drei Ebenen: Pfadansicht der Lernenden (Knotenstatus, Route,
+  Prozent), Aktivitätsabschluss auf ihrer Kursseite, Abschlussbericht der
+  Lehrkraft.
+- **Gemeinsame Hilfen:** `activityCompletion()`, `completionReport()`. Erster
+  Lauf: Z1/Z2 grün, Z3/Z4 scheiterten an der Hilfe — der Bericht nennt nach
+  einer Rücknahme „Not completed" **mit Datum**; Hilfe normalisiert das jetzt.
+  Danach zweimal 4/4.
+- **Abhängigkeit, bewusst:** Die Lösung verlässt sich darauf, dass
+  `local_adele` synchron im Beobachter speichert. Ein eigenes Ereignis
+  „Lernerpfad gespeichert" wäre die sauberere Schnittstelle (im Issue-Entwurf
+  vermerkt).
+
+**Prüfstand `2026100703`:** E2E enrol 6, mod 11, local 41 + 1 `fixme`
+(58 Tests, ein Gesamtlauf vollständig grün; O4 nach der Umformulierung einzeln
+wiederholt, grün); PHPUnit local 330 (1 übersprungen, 1 unvollständig, wie
+zuvor), enrol 53, mod 18; phpcs 0/0.
