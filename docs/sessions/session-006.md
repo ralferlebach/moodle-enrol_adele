@@ -637,3 +637,21 @@ folgenden Gesamtläufen beobachtet.
 unvollständig), enrol 53, mod 14; E2E enrol 6, mod 7 (zweimal allein; einmal
 im Gesamtlauf rot, siehe oben), local 34 + 1 `fixme`; Rollen-/Editor-/M-Ketten
 zweimal 17/17; phpcs 0/0.
+
+## Teil 28 — O2 Master-Zugang
+
+- **O2** auf zwei eigenen Pfaden. „E2E Master-Zugang" (linear): Varianten 1–4
+  des Plans in der Reihenfolge, die jede Wirkung zeigt — Bedingung falsch +
+  Master aus (gesperrt), + Master an (zugänglich, **nicht abgeschlossen**,
+  0/3, Einschreibung Active), Master aus (gesperrt, Suspended), Master an und
+  T01 abgeschlossen (Knoten 1 abgeschlossen, Knoten 2 nur zugänglich, 1/3),
+  Master aus (bleibt zugänglich aus eigener Bedingung). „E2E Master-Zugang
+  Zeit", Variante 5: Knoten 1 nur im Fenster 2030 offen; Master-Zugang öffnet
+  ihn ohne Zeitsprung, Ausschalten schließt ihn wieder. Zweimal grün, auf
+  Anhieb. Zentrale Aussage „Master-Zugang ist kein Abschluss" in jedem
+  Schritt über Knotenstatus und Fortschritt geprüft.
+- **Gemeinsame Hilfen:** `setMasterCheckbox()` und `enrolmentStatus()` in
+  `support/fixtures.ts`; L4/O3 nutzt sie jetzt ebenfalls (erneut grün).
+
+**Prüfstand `2026100700`:** E2E enrol 6, mod 7 (H2-Kombination unter
+Beobachtung, diesmal grün), local 36 + 1 `fixme`; phpcs 0/0.

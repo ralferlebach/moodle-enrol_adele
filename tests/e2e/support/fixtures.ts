@@ -346,3 +346,68 @@ export async function saveLearningPath(page: Page, save: Locator): Promise<void>
 export async function waitForEditorLoaded(page: Page): Promise<void> {
   await page.waitForLoadState('networkidle');
 }
+
+/**
+ * As a teacher: open a learner's path from the activity's user list and set
+ * one of the two master checkboxes on the given nodes, then save.
+ *
+ * Both checkboxes sit behind the disclosure button "Master checkboxes" in
+ * the teacher's view of the learner's path (MasterConditions.vue). The canvas
+ * may clip a node's controls, so the clicks are dispatched to the elements
+ * directly - same Vue handlers, no visible spot needed.
+ *
+ * @param page The page, logged in as somebody who may edit the learner's path.
+ * @param host The course embedding the path.
+ * @param activity The embedding activity's name.
+ * @param learner A text that identifies the learner's row (e.g. the last name).
+ * @param nodes Node ids, e.g. ["dndnode_1"].
+ * @param box "Master access checkbox" or "Master completion checkbox".
+ * @param checked Whether the box is to be ticked.
+ */
+export async function setMasterCheckbox(
+  page: Page,
+  host: string,
+  activity: string,
+  learner: string,
+  nodes: string[],
+  box: 'Master access checkbox' | 'Master completion checkbox',
+  checked: boolean
+): Promise<void> {
+  await page.goto(`/course/view.php?id=${host}`);
+  await page.getByRole('main').getByRole('link', { name: activity }).click();
+  await page.locator('tr').filter({ hasText: learner }).first().getByRole('link').first().click();
+  for (const nodeid of nodes) {
+    const node = page.locator(`[data-testid="learningpath-node-${nodeid}"]`);
+    await expect(node).toBeVisible({ timeout: 60_000 });
+    const checkbox = node.getByLabel(box);
+    if (!(await checkbox.isVisible())) {
+      await node.getByRole('button', { name: 'Master checkboxes' }).dispatchEvent('click');
+    }
+    await expect(checkbox, `the teacher must be offered the ${box} on ${nodeid}`).toBeVisible();
+    if ((await checkbox.isChecked()) !== checked) {
+      await checkbox.dispatchEvent('click');
+    }
+    await expect(checkbox).toBeChecked({ checked });
+  }
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Learning path saved')).toBeVisible({ timeout: 30_000 });
+  drainTaskQueue();
+}
+
+/**
+ * A learner's enrolment in a course as an admin sees it on the participants
+ * page: "Active", "Suspended" or "not listed".
+ *
+ * @param page The page, logged in as admin.
+ * @param courseid The course.
+ * @param learner A text that identifies the learner's row.
+ */
+export async function enrolmentStatus(page: Page, courseid: string, learner: string): Promise<string> {
+  await page.goto(`/user/index.php?id=${courseid}&perpage=5000`);
+  const row = page.locator('table#participants tbody tr').filter({ hasText: learner });
+  if (!(await row.count())) {
+    return 'not listed';
+  }
+  const text = (await row.first().innerText()).replace(/\s+/g, ' ');
+  return /Suspended/.test(text) ? 'Suspended' : /Active/.test(text) ? 'Active' : text;
+}
