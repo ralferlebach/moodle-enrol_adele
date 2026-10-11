@@ -3,6 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `privacy`
 **Stand:** 2026-10-07, Session 006 — aus dem Code der Kette P gelesen (nicht im Browser gemessen); Entscheidung des Auftraggebers: auf die Schnittmenge Kurseinschreibung × Pfadeinschreibung beschränken
+**GitHub:** local_adele #588
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 

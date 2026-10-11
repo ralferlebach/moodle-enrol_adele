@@ -3,6 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `security`, `privacy`
 **Stand:** 2026-10-07, Session 006 — gefunden mit der E2E-Kette P (Lernerdaten), in der Arbeitskopie behoben
+**GitHub:** local_adele #586 (zweiter Teil berührt #516 und #517)
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -10,7 +11,7 @@ Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
 ## Titel
 
-`get_user_path_relations` / `get_user_path_relation`: Kursrechte gelten in jedem Kurs — Teilnehmerliste und Lernstand fremder Pfade abrufbar, „Only own results" umgehbar
+Lernerdaten-Webservices: Kursrechte gelten in jedem Kurs, Pfadrechte für jeden Pfad — Teilnehmerliste und Lernstand fremder Pfade lesbar, „Only own results" umgehbar, Lernerpfade fremder Pfade änderbar
 
 ## Beobachtung
 
@@ -29,6 +30,18 @@ Alpha 1/3 und Beta 2/3, eingebunden im Kurs E2EP mit „Only own results"):
 | Lernende Alpha, Einbindung „Only own results" | Knotenkurs T01 (dort von ADELE selbst eingeschrieben) | `local_adele_get_user_path_relations` | vollständige Liste statt nur der eigenen Zeile — #569 umgangen |
 | Lehrkraft (ohne Bearbeitungsrecht) eines **anderen** Kurses | eigener Kurs | `local_adele_get_user_path_relations` | vollständige Liste |
 | dieselbe Lehrkraft | eigener Kurs | `local_adele_get_user_path_relation` (Beta) | Betas Snapshot samt E-Mail-Adresse |
+
+Schreibend, ebenfalls gemessen (`local_adele_save_user_path_relation`, Master-
+Abschluss auf Betas Knoten 3):
+
+| Wer | übergebener Kontext | Antwort vorher |
+|---|---|---|
+| Lehrkraft (ohne Bearbeitungsrecht) eines **anderen** Kurses | eigener Kurs | `success: true` — Betas Knoten 3 ist abgeschlossen |
+| Teilnehmer; Teilnehmer eines anderen Kurses; Assistent; Kollaborator des Pfads | — | abgelehnt |
+
+Pfadrechte, gemessen: Ein AdeLe-Assistent, der nur einen **anderen** Pfad
+bearbeiten darf und in keinem Kurs ist, erhielt Liste und Betas Snapshot —
+`check_access()` fragt nur, ob jemand irgendeinen Pfad bearbeiten darf.
 
 Zusätzlich:
 
@@ -65,8 +78,8 @@ gewollt fest; genau dieser Fall ist die Umgehung.
 - Neu `learning_paths::is_embedded_in_course($learningpathid, $courseid)`:
   Es gibt eine `mod_adele`-Aktivität dieses Kurses mit diesem Pfad.
 - Liste: Kursrechte (`teacheredit`, eingeschrieben) zählen nur, wenn der Kurs
-  des Kontexts den Pfad einbindet. Pfadbezogene Rechte (`check_access()`:
-  Manager, Assistent, Pfad-Editor) bleiben unabhängig vom Kurs.
+  des Kontexts den Pfad einbindet. Pfadbezogene Rechte bleiben unabhängig vom
+  Kurs (ihr Umfang: zweiter Teil unten).
 - Einzelabruf: `teacheredit` zählt nur in einem einbindenden Kurs; der eigene
   Snapshot bleibt in jedem Kontext lesbar.
 - `only_own_results()`: Die Einstellung der Aktivität entscheidet nur, wenn
@@ -84,22 +97,34 @@ gewollt fest; genau dieser Fall ist die Umgehung.
   nicht eingebundenen Pfad eine Ablehnung.
 - E2E: `mod_adele/tests/e2e/tests/learner-data.spec.ts`, P3 und P4.
 
-## Nicht Teil dieser Behebung — zur Entscheidung
+## Behebung, zweiter Teil (Stand 2026100704, nach Entscheidung des Auftraggebers)
 
-1. **Reichweite von `check_access()`.** Wer irgendeinen Pfad bearbeiten darf
-   (Assistent, Kollaborator eines beliebigen Pfads, jede Lehrkraft mit
-   Bearbeitungsrecht in einem AdeLe-Kurs über `enrollassistant`), liest Liste
-   und Einzel-Snapshot **jedes** Pfads. Das Rollenmodell gibt Assistenten und
-   Kollaboratoren sonst nur ihre eigenen Pfade
-   (`require_lp_editor_access()`). Soll das Lesen der Lernerdaten ebenso auf
-   die eigenen Pfade begrenzt werden?
-2. **Liste ist pfadweit, nicht kursweit.** Ist ein Pfad in mehreren Kursen
-   eingebunden, zeigt die Liste eines Kurses auch die Lernenden der anderen
-   Kurse.
-3. **Lehrkräfte stehen als Lernende in der Liste.** Jede Einschreibung in
-   einen einbindenden Kurs abonniert den Pfad (`enrollment::enrolled()`),
-   unabhängig von der Rolle — Lehrkräfte erscheinen mit 0 % und einem Rang.
-4. **Lehrkraft ohne Bearbeitungsrecht.** Sie darf serverseitig alles lesen
-   (`local/adele:teacheredit`), bekommt aber die Teilnehmeransicht
-   (`mod/adele:addinstance` fehlt): bei „Only own results" nur die eigene
-   Zeile, keine Detailansicht.
+- Neu `learning_paths::has_path_authority($learningpathid)`: Site-Administrator
+  oder `local/adele:canmanage` im System — jeder Pfad; sonst nur Pfade, deren
+  Editor man ist (`local_adele_lp_editors`). Ersetzt `check_access()` in
+  `get_lp_user_path_relations` und `get_lp_user_path_relation`. Assistenten
+  und Kollaboratoren lesen damit nur noch die Lernenden ihrer Pfade; Lehrkräfte
+  eines einbindenden Kurses weiterhin über das Kursrecht.
+- `save_lp_user_path_relation`: Kursrechte (`teacheredit`, `canmanage` im
+  Kurs) zählen nur in einem Kurs, der den Pfad einbindet; `canmanage` im
+  System weiterhin überall. Der Pfad, der tatsächlich geschrieben wird, steht
+  **im Payload** (`route.learningpathId`); er muss dem Parameter
+  `learningpathid` entsprechen, sonst `invalid_parameter_exception` — sonst
+  ließe sich die Prüfung mit dem eigenen Pfad im Parameter und dem fremden im
+  Payload umgehen.
+- PHPUnit `learner_data_embedding_test`: jetzt 14 Tests (Editor eines anderen
+  Pfads liest nichts; Editor dieses Pfads liest; fremde Lehrkraft schreibt
+  nicht; Payload-Pfad muss passen; Teilnehmer schreibt nicht; Lehrkraft des
+  einbindenden Kurses und Manager schreiben). Gegenproben mit der alten Logik
+  schlagen fehl.
+- E2E: P3 Zeile „ADELE assistant" jetzt abgelehnt; P4 neuer Schritt
+  „niemand ohne Recht ändert Betas Pfad".
+
+## Nicht in diesem Issue — eigene Entwürfe
+
+1. Lehrkräfte stehen als Lernende in der Liste:
+   `local_adele-issue-staff-subscribed-as-learners.md`.
+2. Lehrkraft ohne Bearbeitungsrecht soll alles sehen, aber nicht bearbeiten:
+   `mod_adele-issue-read-only-teacher-view.md`.
+3. Liste auf Kurseinschreibung × Pfadeinschreibung beschränken:
+   `local_adele-issue-roster-not-limited-to-course.md`.

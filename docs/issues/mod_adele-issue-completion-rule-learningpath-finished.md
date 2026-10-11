@@ -3,6 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-mod_adele`
 **Labels (Vorschlag):** `bug`, `completion`
 **Stand:** 2026-10-07, Session 006 — gefunden beim Aufbau der E2E-Ketten L4/O3; in der Arbeitskopie umgesetzt (Abschnitt „Umsetzung")
+**GitHub:** mod_adele #38
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 

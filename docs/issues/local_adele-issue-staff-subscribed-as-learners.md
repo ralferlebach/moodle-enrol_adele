@@ -3,6 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele` (Querverweis: `moodle-mod_adele`, `moodle-enrol_adele`)
 **Labels (Vorschlag):** `enhancement`, `roles`, `enrolment`
 **Stand:** 2026-10-07, Session 006 — beobachtet mit der E2E-Kette P; Entscheidung des Auftraggebers: vorerst akzeptabel, langfristig ausschließen
+**GitHub:** local_adele #587
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 

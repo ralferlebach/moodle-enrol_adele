@@ -865,3 +865,81 @@ die Regel behoben wird. Danach F (Feedbacktexte), Reste R3/R5, E2-Klammern.
 (58 Tests, ein Gesamtlauf vollständig grün; O4 nach der Umformulierung einzeln
 wiederholt, grün); PHPUnit local 330 (1 übersprungen, 1 unvollständig, wie
 zuvor), enrol 53, mod 18; phpcs 0/0.
+
+## Teil 32 — Folgepaket P: Pfadrechte, Schreibdienst, drei Issue-Entwürfe
+
+- **Entscheidung 1 umgesetzt — Lernerdaten nur für den eigenen Pfad:**
+  `learning_paths::has_path_authority()` (Administrator, `canmanage` im
+  System, Editor **dieses** Pfads) ersetzt `check_access()` in beiden
+  Lesediensten. Gemessen vorher: AdeLe-Assistent (Editor nur von „Linear A2",
+  in keinem Kurs) erhielt Liste und Betas Snapshot; jetzt `nopermissions`.
+- **Weiterer Befund (gemessen), gleiche Ursache wie Teil 30, schreibend:**
+  `local_adele_save_user_path_relation` prüfte Kursrechte ebenfalls gegen den
+  übergebenen Kontext. Eine Lehrkraft ohne Bearbeitungsrecht eines **fremden**
+  Kurses setzte über den Kontext ihres Kurses den Master-Abschluss auf Betas
+  Knoten 3 — Antwort `success: true`, Knoten abgeschlossen. Behoben: Kursrechte
+  zählen nur im einbindenden Kurs. Dabei aufgefallen und mitbehoben: Der
+  geschriebene Pfad steht im Payload (`route.learningpathId`), geprüft wurde
+  der Parameter — beide müssen jetzt übereinstimmen.
+- **Mitgemessen, nicht geändert (Entscheidung 3, Issue):** Die Lehrkraft ohne
+  Bearbeitungsrecht des einbindenden Kurses kann über den Dienst speichern.
+  Kollaborator des Pfads (als Teilnehmer im Kurs) und Assistent können es
+  nicht.
+- **PHPUnit:** `learner_data_embedding_test` 14 Tests; Gegenproben mit alter
+  Logik (Pfadrecht = `check_access()`; Speichern ohne Einbindungsprüfung)
+  schlagen je mit genau dem betroffenen Test fehl.
+- **Kette P:** P3 „ADELE assistant (editor of another path)" abgelehnt; P4 neuer
+  Schritt: Teilnehmer, Kollaborator, Assistent, Teilnehmer und Lehrkraft eines
+  fremden Kurses senden die Änderung, die die Pfadansicht senden würde
+  (Master-Abschluss auf Betas Knoten 3, aus Betas echtem Snapshot gebaut) —
+  alle abgelehnt, Betas Stand unverändert.
+- **Issue-Entwürfe** zu den Entscheidungen 2–4:
+  `local_adele-issue-staff-subscribed-as-learners.md`,
+  `mod_adele-issue-read-only-teacher-view.md` (enthält den Nebenbefund:
+  `local/adele:canmanage` und `:assist` tragen den Archetyp `teacher`, also
+  Lehrkraft **ohne** Bearbeitungsrecht),
+  `local_adele-issue-roster-not-limited-to-course.md`. Der Entwurf zu Teil 30
+  ist um den zweiten Teil ergänzt.
+- **Testumgebung, Stolperstein:** Belegt: Nach dem Gesamtlauf zeigte der
+  Webserver „Call to undefined method … has_path_authority()", obwohl die
+  Datei die Methode enthielt (CLI fand sie); nach Neustart des Servers war der
+  Fehler weg. **Vermutung, nicht belegt:** Der Server läuft unter libfaketime;
+  die Zeit-Kette springt nach 2031 und zurück, und OPcache prüft Dateien erst
+  nach Ablauf von `revalidate_freq` seiner Uhr wieder. Der lokale Server
+  startet jetzt vorsorglich mit `opcache.revalidate_freq=0`. Betrifft nur das
+  Ändern von Code zwischen Läufen in der lokalen Umgebung, nicht CI.
+
+**Prüfstand `2026100704`:** E2E enrol 6, mod 11, local 41 + 1 `fixme`
+(58 Tests, ein Gesamtlauf vollständig grün); PHPUnit local 336 (1 übersprungen,
+1 unvollständig, wie zuvor), enrol 53, mod 18; phpcs 0/0.
+
+## Abgleich Issue-Entwürfe ↔ GitHub (2026-10-07)
+
+Geprüft über die GitHub-API (`local_adele`, `enrol_adele`) und die einzelnen
+Issue-Seiten (`mod_adele`; die API ist für dieses Repository aus der
+Arbeitsumgebung nicht erreichbar). Entwürfe dieser Session:
+
+| Entwurf | Issue |
+|---|---|
+| `local_adele-issue-dropzones-only-during-drag.md` | local_adele #580 |
+| `local_adele-issue-timed-condition-timestamps.md` | local_adele #581 |
+| `local_adele-issue-core-clock.md` | local_adele #582 |
+| `local_adele-issue-min-moodle-45.md` | local_adele #583 |
+| `local_adele-issue-parallel-node-criterion.md` | local_adele #584 |
+| `local_adele-issue-editor-title-overwritten.md` | local_adele #585 |
+| `local_adele-issue-learner-data-context-not-bound-to-embedding.md` | local_adele #586 — der Issue-Text ist der erste Stand; der zweite Teil (Pfadrechte, Schreibdienst) steht nur im Entwurf |
+| `local_adele-issue-staff-subscribed-as-learners.md` | local_adele #587 (Text ab „Beobachtung" identisch) |
+| `local_adele-issue-roster-not-limited-to-course.md` | local_adele #588 (Text ab „Beobachtung" identisch) |
+| `enrol_adele-issue-core-clock.md` | enrol_adele #11 |
+| `mod_adele-issue-core-clock.md` | mod_adele #36 |
+| `mod_adele-issue-participant-source-cascade.md` | mod_adele #37 |
+| `mod_adele-issue-completion-rule-learningpath-finished.md` | mod_adele #38 — der Issue-Text ist der Stand vom 2026-10-06, ohne den Abschnitt „Umsetzung" |
+| `mod_adele-issue-read-only-teacher-view.md` | noch nicht zugeordnet (Abruf von mod_adele #39 steht aus) |
+
+Bestehende Issues, die die Arbeit aus Teil 30/32 berühren: local_adele #517
+(Teilnehmerlisten an Aktivität, Kurs und Lernpfad binden — die Bindung an die
+Einbindung ist umgesetzt), local_adele #516 (autorisierte und verwendete IDs
+vereinheitlichen — für die Lernpfad-ID des Schreibdienstes umgesetzt, die
+Nutzer-ID und die strukturierte Schnittstelle nicht), local_adele #523
+(eigene Capabilities für Lehrenden- und Teilnehmeransicht — deckt sich mit dem
+Entwurf zur lesenden Lehrkraftansicht).

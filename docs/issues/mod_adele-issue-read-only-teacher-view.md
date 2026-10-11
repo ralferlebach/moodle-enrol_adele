@@ -21,7 +21,7 @@ Gemessen (Moodle 4.5.15, Kurs mit eingebundenem Lernpfad, Rolle `teacher`):
 | Ansicht der Aktivität | Teilnehmeransicht: bei „Only own results" nur die eigene Zeile, keine ID-Spalte, kein Weg in die Detailansicht | Lehrkraftansicht mit allen Lernenden und Detailansicht |
 | Liste vom Server (`get_user_path_relations`) | vollständig | vollständig |
 | Einzelner Lernerpfad (`get_user_path_relation`) | lesbar | lesbar |
-| Lernerpfad ändern (`save_user_path_relation`: manueller Abschluss, Master-Haken) | **erlaubt** (aus dem Code gelesen: `local/adele:teacheredit` genügt; Messung steht aus) | **nicht erlaubt** |
+| Lernerpfad ändern (`save_user_path_relation`: manueller Abschluss, Master-Haken) | **erlaubt** (Antwort `success: true`, Knoten danach abgeschlossen) | **nicht erlaubt** |
 
 Die Oberfläche zeigt also weniger, als der Server herausgibt, und der Server
 erlaubt mehr, als die Rolle soll.

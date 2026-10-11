@@ -3,6 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `editor`, `data loss`
 **Stand:** 2026-10-07, Session 006 — gefunden über zufällig scheiternde Rollen-Ketten
+**GitHub:** local_adele #585
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
