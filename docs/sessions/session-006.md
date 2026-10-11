@@ -1024,3 +1024,43 @@ unvollständig, wie zuvor), enrol 53, mod 18; phpcs 0/0.
 **Prüfstand `2026100707`:** E2E enrol 6, mod 12, local 43 (61 Tests, ein
 Gesamtlauf vollständig grün); Jest 346/346; PHPUnit local 348 (1 übersprungen,
 1 unvollständig, wie zuvor), enrol 53, mod 22; phpcs 0/0.
+
+## Teil 36 — local_adele #587: Lehrkräfte sind keine Lernenden
+
+- **Vorgefunden (gelesen, vor dem Entwurf einer eigenen Lösung):** Das
+  Ökosystem hat die nötige Mechanik bereits. `enrol_adele\observer` kennt
+  „getragen" (`is_user_carried()`), entfernt beim Verlassen sofort den Zugang
+  und löscht den Lernerpfad nach fünf Minuten Schonfrist
+  (`remove_user_path_adhoc`, enrol_adele #3); ein nächtlicher Abgleich räumt
+  nicht getragene Abonnements nach. Die Regel „zählt als Mitglied" steht an
+  zwei Stellen (`enrol_adele\observer`, `mod_adele\local\host_policy`).
+  #587 erweitert diese Regel um „als Teilnehmer" und löst sie bei
+  Rollenwechseln aus — kein neuer Status, keine zweite Abgleichslogik.
+- **Kriterium:** `local/adele:participate` (Archetyp `student`), über eine
+  eigene Rolle; `enrol_state::is_participant()` als eine Definition für alle
+  drei Plugins.
+- **Reihenfolge der Ereignisse (im Core nachgelesen):** `enrol_user()` löst
+  `user_enrolment_created` aus und vergibt die Rolle **danach**. Zum Zeitpunkt
+  des Einschreibe-Ereignisses nimmt also noch niemand teil; abonniert wird
+  jetzt beim `role_assigned`.
+- **Rollenwechsel:** `role_assigned` → Abonnement/Hostzugang (local, mod);
+  `role_unassigned` → Verlassen wie bei Ausschreibung (enrol), Hostzugang neu
+  bewertet (mod).
+- **Liste:** lässt die Lehrkräfte des Kurses sofort weg.
+- **Bestand:** Lehrkräfte mit Lernerpfad werden vom nächtlichen Abgleich
+  entfernt. Risiko „Lernende unter einer Rolle ohne Archetyp" durch den
+  Upgrade-Schritt entschärft (Bewerterrollen bekommen die Capability); als
+  echtes Upgrade auf der Testinstanz gelaufen (Version zurückgesetzt, eine
+  zweite Bewerterrolle gesetzt, Ergebnis nachgesehen, danach
+  zurückgestellt).
+- **Abweichung vom Issue:** „löschen nach Schonfrist" statt „suspendieren" —
+  die bestehende Regel für das Verlassen, bewusst keine zweite.
+- **Tests:** PHPUnit local 6, enrol 4; vier bestehende Tests angepasst (sie
+  simulierten Einschreibungen ohne Rolle). Erster Gesamtlauf PHPUnit: genau
+  diese vier schlugen fehl, sonst nichts. E2E `participants-by-role.spec.ts`
+  mit Moodles eigenem Rolleneditor (Hilfe `setCourseRoles()`): dreimal grün,
+  der erste Lauf auf Anhieb; Kette P daneben zweimal 5/5.
+
+**Prüfstand `2026100708`:** E2E enrol 6, mod 13, local 43 (62 Tests, ein
+Gesamtlauf vollständig grün); PHPUnit local 354 (1 übersprungen, 1
+unvollständig, wie zuvor), enrol 57, mod 22; phpcs 0/0.

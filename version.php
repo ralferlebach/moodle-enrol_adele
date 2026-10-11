@@ -27,7 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
 $plugin->release = '0.5.0';
-$plugin->version = 2026100707;
+$plugin->version = 2026100708;
 // Moodle 4.5 (2024100700) is the lowest supported version; 4.4 and older
 // are no longer supported. The trio could not be installed below 4.5 anyway,
 // because mod_adele requires 2024100700.
@@ -38,5 +38,6 @@ $plugin->supported = [405, 405];
 // get_host_entitlement(), get_host_embeddings() and
 // get_learningpaths_with_host_embeddings(), which the host sweep calls.
 $plugin->dependencies = [
-    'local_adele' => 2026082902,
+    // 2026100708: enrol_state::is_participant(), the rule of who takes part in a course (local_adele #587).
+    'local_adele' => 2026100708,
 ];
