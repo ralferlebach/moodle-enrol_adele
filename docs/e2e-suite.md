@@ -173,7 +173,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
 | §16 H3 | Host-Modi `hidden` (Teilnehmerliste: gesperrt, kein Zugang) und `none` (nicht eingeschrieben); `visible` über H2 | mod | **umgesetzt**, 2 Tests |
-| §17 | Result Visibility, Datenschutz (Kette P) | mod | offen |
+| §17 P1–P4 | Lernerdaten in der Kurseinbindung, ein Pfad zweifach eingebunden („Only own results" / „Results of all other participants"), zwei Lernende mit 1/3 und 2/3: P1 eigene Zeile, Status, Prozent — fremde Lernende weder auf der Seite noch in den Serverantworten; P2 beide Lernende mit korrekten Werten, Lehrkraft erreicht die Detailansicht; P3 Sichtbarkeit je Rolle wie implementiert (Admin, Lehrkraft mit/ohne Bearbeitungsrecht, Kollaborator, AdeLe-Manager, AdeLe-Assistent, Teilnehmer, Teilnehmer und Lehrkraft eines fremden Kurses); P4 fremde Zeile, fremde Detailansicht, direkte URL über jeden nennbaren Kontext | mod | **umgesetzt**, 4 Tests; drei Umgehungen gefunden und in `local_adele` behoben (Issue-Entwurf), PHPUnit `learner_data_embedding_test` |
 
 
 ## 5a. Offene Punkte aus R3 und R5

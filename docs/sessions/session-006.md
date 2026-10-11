@@ -699,3 +699,97 @@ dreimal 5/5.
 
 **Prüfstand `2026100701`:** E2E enrol 6, mod 7, local 37 + 1 `fixme`
 (50 Tests, ein Gesamtlauf vollständig grün); phpcs 0/0.
+
+## Teil 30 — Kette P Lernerdaten, drei Umgehungen im Webservice behoben
+
+- **Fixture:** Pfad „E2E Lernerdaten" (linear T01 → T02 → T03) mit zwei
+  Lernenden, im Kurs E2EP **zweifach** eingebunden: „E2E P own results"
+  (`userlist` 2) und „E2E P all results" (`userlist` 1). Dazu Lehrkraft mit
+  und ohne Bearbeitungsrecht, Kollaborator dieses Pfads (als Teilnehmer im
+  Kurs), sowie im Kurs E2EPX — der nichts einbindet — ein Teilnehmer und eine
+  Lehrkraft ohne Bearbeitungsrecht. Seed: `local_adele_fixture_embed()`,
+  `local_adele_fixture_person()`; `local_adele_fixture_host_course()` nimmt
+  die Ergebnis-Sichtbarkeit als Parameter.
+- **Erst gemessen, dann festgeschrieben.** Probelauf über alle Personen:
+  Ansicht beider Einbindungen, beide Webservices in jedem nennbaren Kontext,
+  direkte URLs. Lernstand im Test real erzeugt: Alpha schließt T01 ab (1/3,
+  33,33 %, Rang 2), Beta T01 und T02 (2/3, 66,67 %, Rang 1).
+- **Befund (gemessen, Sicherheit/Datenschutz):** Beide Webservices prüften
+  Kursrechte gegen den vom Client übergebenen Kontext, ohne dass der Kurs den
+  Pfad einbinden musste:
+  1. Teilnehmer eines fremden Kurses ohne Lernpfad erhielt über den Kontext
+     seines Kurses die vollständige Liste (Namen, Fortschritt, Rang).
+  2. Lernende Alpha erhielt trotz „Only own results" die vollständige Liste
+     über den Kontext des Knotenkurses T01, in den ADELE sie selbst
+     eingeschrieben hat (#569 umgangen).
+  3. Lehrkraft eines fremden Kurses erhielt Liste und Betas Snapshot samt
+     E-Mail-Adresse.
+  Aus dem Code, nicht gemessen, aber durch PHPUnit belegt: Der Modulkontext
+  einer anderen ADELE-Aktivität desselben Kurses (anderer Pfad, „all results")
+  hob „Only own results" auf. Systemkontext führte zu `codingerror`.
+- **Behebung in `local_adele`:** `learning_paths::is_embedded_in_course()`;
+  Kursrechte (`teacheredit`, eingeschrieben) zählen in
+  `get_lp_user_path_relations` und `get_lp_user_path_relation` nur in einem
+  Kurs, der den Pfad einbindet. Pfadbezogene Rechte (`check_access()`)
+  unverändert. `only_own_results()` nimmt die Einstellung einer Aktivität nur,
+  wenn sie den angefragten Pfad zeigt. Kontext außerhalb eines Kurses: kein
+  `codingerror` mehr. Issue-Entwurf:
+  `issues/local_adele-issue-learner-data-context-not-bound-to-embedding.md`.
+- **PHPUnit:** neu `tests/security/learner_data_embedding_test.php` (8 Tests;
+  Gegenprobe mit abgeschalteter Prüfung: 4 schlagen fehl).
+  `user_path_relation_access_test` bindet den Pfad jetzt im Kurs ein.
+  `issue569_userlist_privacy_test::test_unembedded_path_keeps_current_behaviour`
+  hielt die vollständige Liste für nicht eingebundene Pfade als gewollt fest —
+  das ist Umgehung 2; ersetzt durch
+  `test_unembedded_path_has_no_roster_for_participants` (Ablehnung).
+- **Kette P** (`mod_adele/tests/e2e/tests/learner-data.spec.ts`, 4 Tests,
+  seriell):
+  - **P1** eigene Knotenstatus, eigene Zeile mit Prozent, Route, Rang; die
+    andere Lernende steht nicht auf der Seite **und** in keiner Antwort von
+    `lib/ajax/service.php`, die die Seite beim Laden erhält.
+  - **P2** „all results": beide Zeilen mit korrekten Werten; Lehrkraft sieht
+    beide in beiden Einbindungen mit Link und öffnet Betas Detailansicht
+    (Knotenstatus abgeschlossen / abgeschlossen / zugänglich).
+  - **P3** wie implementiert:
+
+    | Rolle | „own results" | „all results" | Liste vom Server | Betas Snapshot |
+    |---|---|---|---|---|
+    | Administrator | Lehrkraftansicht, beide | beide | beide | ja |
+    | Lehrkraft mit Bearbeitungsrecht | Lehrkraftansicht, beide | beide | beide | ja |
+    | Lehrkraft ohne Bearbeitungsrecht | Teilnehmeransicht, nur eigene Zeile | beide | beide | ja |
+    | Kollaborator (als Teilnehmer im Kurs) | Teilnehmeransicht, nur eigene Zeile | beide | beide | ja |
+    | AdeLe-Manager (in keinem Kurs) | kein Zugang zur Seite | kein Zugang | beide | ja |
+    | AdeLe-Assistent (in keinem Kurs) | kein Zugang zur Seite | kein Zugang | beide | ja |
+    | Teilnehmer | eigene Zeile | beide | eigene | nein |
+    | Teilnehmer eines fremden Kurses | kein Zugang | kein Zugang | nein | nein |
+    | Lehrkraft eines fremden Kurses | kein Zugang | kein Zugang | nein | nein |
+
+  - **P4** als Teilnehmer: Liste über Einbindung, Kurs, gefälschte `userid`
+    → nur eigene Zeile; über Knotenkurs, fremden Kurs, Systemkontext →
+    abgelehnt. Betas Snapshot in jedem Kontext abgelehnt, der eigene bleibt
+    lesbar. Direkte URL der Detailansicht zeigt den eigenen Pfad; der Editor
+    lässt Teilnehmer nicht ein. Personen des fremden Kurses: abgelehnt.
+- **Gemeinsame Hilfen** in `support/fixtures.ts`: `participantList()`,
+  `callService()`.
+- **Offene Fragen an den Auftraggeber** (im Issue-Entwurf unter „Nicht Teil
+  dieser Behebung"):
+  1. `check_access()` gibt jedem, der irgendeinen Pfad bearbeiten darf, die
+     Lernerdaten **aller** Pfade — auch Assistenten und Kollaboratoren, die
+     sonst auf ihre Pfade begrenzt sind. Begrenzen?
+  2. Lehrkräfte werden durch die Einschreibung in den einbindenden Kurs selbst
+     Lernende des Pfads und stehen mit 0 % und Rang in der Liste. Gewollt?
+  3. Lehrkraft ohne Bearbeitungsrecht: serverseitig volle Leserechte, in der
+     Oberfläche Teilnehmeransicht. Gewollt?
+  4. Die Liste ist pfadweit: Bei Einbindung in mehreren Kursen zeigt sie auch
+     die Lernenden der anderen Kurse.
+  Die Kette prüft nur die beiden Lernenden und lässt die Zeilen des Personals
+  unberührt; P3 hält 1 und 3 fest, wie sie sind.
+- P dreimal grün (je 4/4, rund 60 s), der erste Lauf auf Anhieb.
+
+**Prüfstand `2026100702`:** E2E enrol 6, mod 11, local 37 + 1 `fixme`
+(54 Tests, ein Gesamtlauf vollständig grün); PHPUnit local 330 (1 übersprungen,
+1 unvollständig, wie zuvor), enrol 53, mod 14; phpcs 0/0.
+
+**Als Nächstes:** Kette Z (Gesamtabschluss) hängt an der wirkungslosen
+Abschlussregel von `mod_adele` (Issue-Entwurf) — vor Z ist zu entscheiden, ob
+die Regel behoben wird. Danach F (Feedbacktexte), Reste R3/R5, E2-Klammern.
