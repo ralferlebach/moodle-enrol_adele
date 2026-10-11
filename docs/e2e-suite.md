@@ -162,7 +162,7 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §8 C2 | Kurszugehörigkeit | – | **gestrichen** (2026-10-06, Entscheidung des Auftraggebers): keine solche Zugangsbedingung im Produkt |
 | §8 C3 | Manuelle Freigabe: nicht freigegeben → freigegeben → zurückgenommen, durch die Lehrkraft in der Pfadansicht der Lernenden | local | **umgesetzt**, 1 Test (5 Schritte) |
 | §14 A | Alternative Routen (Raute T01 → T02/T03 → T04): nur T02, nur T03, beide, keine; T04-Status und realer Zugriff, nicht gewählte Alternative nicht Pflicht (Route 3/3 = 100 %), Fortschritt als Routenstand und Balkenwert | local | **umgesetzt**, 4 Tests; Feedbacktexte → Kette F |
-| §13 D | Diagnose/CAT | local | **offen – Klärung nötig**: `local_catquiz` fehlt in der Testumgebung; Grenzwertprüfung über `modquiz` möglich |
+| §13 D | Diagnose/CAT: Fähigkeitsgrenze x−ε / x / x+ε | local | PHPUnit **umgesetzt** (uc09, Regel Fähigkeit ≥ Schwelle); E2E-Kette in Arbeit; local_catquiz 4.5-Linie (`ralferlebach`, `ALiSe-v-1.2.0-legacy`) in Testumgebung und CI |
 | §11–15 | Feedback, Fortschritt, manuelle Abschlüsse, Routing | local | offen |
 | §16 H2 (Rest) | dritte Quelle „beliebiger Knotenkurs" („any course of the learning path"), Kombination „dieser Kurs" + „Startknoten", Negativfall „nur späterer Knotenkurs" | mod | **umgesetzt**, 2 Tests plus 1 Schritt in H2 |
 | §16 H3 | Host-Modi `hidden` (Teilnehmerliste: gesperrt, kein Zugang) und `none` (nicht eingeschrieben); `visible` über H2 | mod | **umgesetzt**, 2 Tests |

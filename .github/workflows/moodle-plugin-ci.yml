@@ -3,51 +3,8 @@ name: Moodle Plugin CI
 "on": [push, pull_request]
 
 jobs:
-  # Moodle 5.0 / 5.1 on PHP 8.2+, mirroring the matrix that local_adele tests against.
-  moodle500to501:
-    uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
-    with:
-      disable_release: true
-
-      moodle_branches: "MOODLE_500_STABLE MOODLE_501_STABLE"
-      min_php: '8.2'
-
-      # enrol_adele declares a hard dependency on local_adele, and local_adele in
-      # turn declares one on mod_adele, so both have to be present before this
-      # plugin can install at all.
-      #
-      # All three plugins are co-developed on a shared "development" working
-      # branch per repo (Session 001, Teil 4).
-      # Companion plugins come from the SAME owner as the repository under
-      # test - the Wunderbyte upstream when CI runs there, the fork when it
-      # runs in a fork - and from the branch of the same name if the
-      # companion has one, otherwise "main". All three repositories are
-      # named moodle-<type>_adele and default to "main" (local_adele was
-      # renamed from moodle_local_adele, mod_adele's "master" became
-      # "main").
-      #
-      # PREREQUISITE: this only works once the corresponding changes are
-      # merged upstream. version.php declares hard dependencies on specific
-      # sibling versions, so an upstream that is behind makes Moodle refuse
-      # to install with "Dependencies check failed" - before a single test
-      # runs. If that happens, the branches here are ahead of upstream, not
-      # the code broken.
-      extra_plugin_runners: |
-        OWNER="${{ github.repository_owner }}"; REF="${{ github.head_ref || github.ref_name }}"; for sib in local mod; do url="https://github.com/$OWNER/moodle-${sib}_adele.git"; br=main; git ls-remote --exit-code --heads "$url" "$REF" >/dev/null 2>&1 && br="$REF"; echo "companion ${sib}_adele: $OWNER@$br"; moodle-plugin-ci add-plugin --branch "$br" "$OWNER/moodle-${sib}_adele"; done
-
-      # local_adele ships a Vue3 build tree; this plugin does not, so there is
-      # nothing here for grunt to do.
-      disable_grunt: true
-
-      enable_phpmd: true
-
-      # No warnings tolerated. Keep it that way.
-      codechecker_max_warnings: 0
-
-  # Floor: Moodle 4.5 on PHP 8.1.
-  #
-  # $plugin->requires is 2024100700: Moodle 4.4 and older are no longer
-  # supported. $plugin->supported is [405, 502].
+  # Moodle 4.5 only: local_adele, which this plugin needs, is released for
+  # 4.5 and nothing newer yet (decision 2026-10-06). The 5.x job was removed.
   moodle405:
     uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
     with:

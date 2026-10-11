@@ -406,3 +406,56 @@ streichen.** Im Testplan durch einen Vermerk mit Begründung ersetzt, in
   installiert. Die Abschlussbedingung `modquiz` (Moodle-Test, Schwelle in
   Prozent, erreicht bei ≥) erlaubt die Grenzwertprüfung x−ε / x / x+ε, aber
   keine CAT-Diagnose. Rückfrage an den Auftraggeber.
+
+## Teil 18 — local_catquiz in der Testumgebung (Kette D, Vorbereitung)
+
+- **Entscheidung des Auftraggebers:** `local_catquiz` samt Abhängigkeiten
+  installieren; für Moodle 4.5 die Legacy-Zweige.
+- **Zweige:** Im Wunderbyte-Upstream gibt es keinen Legacy-Zweig. In den
+  Forks `ralferlebach/*` heißt er **`ALiSe-v-1.2.0-legacy`** (local_catquiz,
+  mod_adaptivequiz, adaptivequizcatmodel_catquiz). `local_wunderbyte_table`
+  von Wunderbyte `main` (verlangt 4.5).
+- **Abhängigkeiten:** local_catquiz → local_wunderbyte_table,
+  mod_adaptivequiz, adaptivequizcatmodel_catquiz (Subplugin unter
+  `mod/adaptivequiz/catmodel/catquiz`). Dazu zwei **Git-Submodule** in
+  local_catquiz: `catquizcentralhub/host` und `/client`.
+- **Eigener Fehler:** Erster Klon ohne Submodule → leere Verzeichnisse →
+  Moodles Plugin-Manager scheitert an fehlender `version.php`, 155 Fehler in
+  der local_adele-Suite. Neu geklont mit `--recurse-submodules`.
+- **Bestehensregel der ADELE-Bedingung `catquiz`:** Fähigkeitswert der Skala
+  `>=` Schwelle (`catquiz.php`, `check_scale`). Für D: x−ε scheitert, x und
+  x+ε bestehen.
+- **Signale:** ADELE liest `local_catquiz_attempts` (Instanz, Kurs, Person,
+  JSON mit `personabilities`). Muster für künstliche Signale steht bereits in
+  `tests/usecases/uc09_catquiz_completion_test.php` — auch local_catquiz
+  selbst legt Testversuche direkt in der Datenbank an.
+
+## Teil 19 — catquiz in CI, nur Moodle 4.5, zwei Fehler in der catquiz-Bedingung
+
+- **Entscheidungen des Auftraggebers:** catquiz-Abhängigkeiten vorerst aus
+  den Zweigen `ralferlebach/*` `ALiSe-v-1.2.0-legacy`; `local_adele` ist nur
+  für Moodle 4.5 freigegeben.
+- **Nur 4.5:** Die 5.x-Jobs der Plugin-CI aller drei Plugins entfernt;
+  `$plugin->supported = [405, 405]` in allen drei (enrol und mod brauchen
+  local_adele). Mit einer Zeile wieder zu öffnen.
+- **catquiz in CI:** Plugin-CI von local_adele installiert mod_adaptivequiz,
+  adaptivequizcatmodel_catquiz und local_catquiz und zieht danach die
+  Submodule nach (`add-plugin` klont ohne). Der frühere, abgeschaltete Block
+  scheiterte an genau diesen fehlenden Submodulen. Die E2E-Workflows klonen
+  dieselben vier Plugins mit `--recurse-submodules`; der Block wurde lokal
+  echt ausgeführt.
+- **Fehler in ADELE (catquiz.php), gefunden durch die nun laufenden Tests:**
+  1. Der Anteil richtiger Antworten wurde für jeden Versuch berechnet, auch
+     ohne Prozentschwelle; catquiz wirft dabei für Versuche ohne
+     Fortschrittsdatensatz einen `TypeError`, der die ganze Neuberechnung
+     des Pfads abbrach. Jetzt nur bei Bedarf und abgefangen (`debugging`).
+  2. `$bestattemptpescale` war nicht initialisiert (Fehler, sobald kein
+     Versuch die Schwelle erreicht) und wurde gegen ein Array statt gegen
+     dessen Skalenwert verglichen (bessere spätere Versuche nie übernommen).
+- **D, PHPUnit:** Grenzwerttest x−ε / x / x+ε in `uc09` (Regel
+  Fähigkeit ≥ Schwelle). `catquiz_test::test_get_completion_status_is_true`
+  (Prozentschwelle) als unvollständig markiert — braucht Fortschrittssignale
+  über die catquiz-API.
+
+**Prüfstand:** PHPUnit local 319 (1 übersprungen, 1 unvollständig), enrol 53,
+mod 14.
