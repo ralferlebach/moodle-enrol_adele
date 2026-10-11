@@ -655,3 +655,47 @@ zweimal 17/17; phpcs 0/0.
 
 **Prüfstand `2026100700`:** E2E enrol 6, mod 7 (H2-Kombination unter
 Beobachtung, diesmal grün), local 36 + 1 `fixme`; phpcs 0/0.
+
+## Teil 29 — O4 beide Master-Haken
+
+- **Erst gemessen, dann festgeschrieben** (Probelauf, Knoten 2 eines linearen
+  Pfads, Lernende schließt nichts ab):
+
+  | Zugang | Abschluss | Knoten 1/2/3 | Route |
+  |---|---|---|---|
+  | 0 | 0 | offen / gesperrt / gesperrt | 0/3 |
+  | 0 | 1 | offen / abgeschlossen / offen | 1/3 |
+  | 1 | 1 | offen / abgeschlossen / offen | 1/3 |
+  | 1 | 0 | offen / zugänglich / gesperrt | 0/3 |
+
+- **Offene Frage an den Auftraggeber (Zeile 0/1):** Der Plan überlässt sie der
+  Implementierung. Ein Master-Abschluss an einem gesperrten Knoten schließt ihn
+  ab und öffnet den Folgeknoten, ohne Master-Zugang; T02 und T03 werden offen.
+  Ob das gewollt ist oder Abschluss den Zugang voraussetzen soll, ist nicht
+  entschieden. Die Kette hält das Verhalten fest; bei anderer Entscheidung
+  ändert sich nur diese Zeile.
+- **O4** zweimal grün: alle Kombinationen mit Knotenstatus, Route und realem
+  Zugriff auf T02/T03.
+
+**Beobachtung H2-Kombination aufgeklärt:** Die gespeicherte Aktivität hatte
+nur Quelle 1 — die zweite Auswahl („Startknoten") kam nicht im Formular an.
+Beide früheren Fehlerbilder (Lernende nicht im Hostkurs; Klick auf eine
+unsichtbare Option) hatten diese Ursache. Die Auswahlhilfe prüft jetzt das
+versteckte `<select>`, das Moodles Autocomplete füllt und das gesendet wird,
+und wiederholt die Auswahl begrenzt. Betrifft Moodles Autocomplete und die
+Testbedienung, nicht ADELE. Danach `mod` zweimal 7/7 (58 s statt 120 s).
+
+**Einzelner Fehlschlag E2 (A ODER B) im Gesamtlauf:** Der Knoten enthielt
+„Testkurs 03 + 02" statt „01 + 02" — beim ersten Ziehen wurde der falsche Kurs
+gegriffen. Die Ziehhilfen greifen nach Bildschirmposition; baut sich die
+Kursliste der Seitenleiste in dem Moment noch um, liegt dort der Nachbar.
+`editor.ts`: Vor dem Greifen warten, bis Anzahl der Einträge und Position der
+Quelle zweimal unverändert sind; nach dem Ablegen prüfen, dass genau dieser
+Kurs im Pfad gelandet ist (bei der ODER-Zone im Zielknoten). Danach E1/E2
+dreimal 5/5.
+
+**Unterbrechung:** Ein Gesamtlauf wurde mitsamt Datenbank abgebrochen
+(Exit 137, Umgebung pausiert); `local` wiederholt.
+
+**Prüfstand `2026100701`:** E2E enrol 6, mod 7, local 37 + 1 `fixme`
+(50 Tests, ein Gesamtlauf vollständig grün); phpcs 0/0.
