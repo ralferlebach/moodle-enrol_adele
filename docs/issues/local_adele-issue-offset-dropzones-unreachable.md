@@ -1,4 +1,4 @@
-# Issue-Entwurf: Zweiter Nachfolger / zweiter Vorgänger per Ziehen nicht anlegbar — die versetzte Ablagezone ist nicht zu treffen
+# Issue-Entwurf: Versetzte Ablagezonen „Nachfolger"/„Vorgänger" entfernen — sie sind nicht zu treffen und nicht nötig
 
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `editor`
@@ -11,7 +11,19 @@ Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
 ## Titel
 
-Editor: Ablagezone „Nachfolger" eines Knotens, der schon einen Nachfolger hat (und „Vorgänger" eines Knotens mit Vorgänger), ist beim Ziehen nicht zu treffen
+Editor: Keine Ablagezone „Nachfolger" an einem Knoten, der schon einen Nachfolger hat, und keine Zone „Vorgänger" an einem Knoten mit Vorgänger
+
+## Entscheidung (Auftraggeber, 2026-10-07)
+
+- Hat ein Knoten bereits einen Nachfolger, wird die untere Zone
+  („Nachfolger") **nicht mehr angeboten**. Hat er bereits einen Vorgänger
+  (außer dem Startmarker), wird die obere Zone („Vorgänger") nicht mehr
+  angeboten.
+- Begründung: Dieselbe Struktur lässt sich über die seitliche Zone am
+  vorhandenen Nachfolger bzw. Vorgänger anlegen (Knoten rechts daneben).
+- Grundsatz, bereits mit #580 umgesetzt: Eine einmal erreichte Zone bleibt
+  bestehen, auch wenn sich der Zeiger innerhalb der Zone einem anderen
+  Knoten stärker annähert.
 
 ## Beobachtung
 
@@ -70,9 +82,19 @@ weiter als 500 entfernt.
   anlegen kann.
 - Andere Topologien als die beiden gemessenen.
 
-## Frage
+## Umsetzung (nach Ablage)
 
-Soll die versetzte Zone erreichbar werden (dann gilt für sie dieselbe
-Ausnahme wie in #580: Solange der Zeiger auf einer Zone steht, bleiben die
-Zonen), oder ist eine Verzweigung über diese Zone nicht vorgesehen — dann
-sollte die Zone nicht angeboten werden?
+- `drawDropzone.ts`: Zone `child` nur, wenn der Knoten keinen Nachfolger
+  hat; Zone `parent` nur, wenn er keinen Vorgänger hat oder der Vorgänger der
+  Startmarker ist. Der Versatz um 500 Einheiten (`getOffsetX`) entfällt.
+- Tests: Jest für `drawDropzone`; E2E — an einem Knoten mit Nachfolger
+  erscheinen genau die erwarteten Zonen; die Erreichbarkeitsmessung von oben
+  als Test (jede angebotene Zone ist zu treffen).
+
+## Noch nicht gemessen
+
+Ob der seitliche Knoten in jedem Fall dieselbe Struktur ergibt: Hat der
+vorhandene Nachfolger selbst Nachfolger, teilt ein Knoten „parallel" dazu
+vermutlich auch diese (gemessen ist bisher nur: parallel zu einem Knoten mit
+einem Nachfolger → beide führen zu diesem Nachfolger). Eine Verzweigung, die
+danach getrennt weiterläuft, wäre dann auf diesem Weg nicht dasselbe.

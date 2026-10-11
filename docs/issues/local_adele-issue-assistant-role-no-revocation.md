@@ -1,5 +1,11 @@
 # [SECURITY/BUG] Automatische Assistentenrolle wird nie entzogen (fehlendes `role_unassigned`-Gegenstück)
 
+> **Gegenstandslos (Vermerk 2026-10-07):** Entschieden auf GitHub —
+> local_adele #503 geschlossen, Kommentar zu #509: „Kein Entzug
+> realisieren". Die Assistentenrolle wird bewusst nie automatisch entzogen.
+> Die E2E-Ketten R3 und R5 halten dieses Verhalten fest. Der Text unten ist
+> der Stand vor der Entscheidung.
+
 > **Hinweis:** Der Auftraggeber hat angegeben, dass dieser Punkt bereits als
 > Issue im Wunderbyte-`local_adele`-Repository hinterlegt ist. Dieses
 > Dokument ist als **Ergänzung** gedacht — es hält den konkreten

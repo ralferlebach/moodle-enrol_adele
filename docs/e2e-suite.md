@@ -143,11 +143,11 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 |---|---|---|---|
 | §6 R1 | Administrator verwaltet alle Lernpfade (anlegen, umbenennen, duplizieren, löschen, je mit Neuladen) + Negativkontrolle | local | **umgesetzt**, 2 Tests |
 | §6 R2 | Manager bearbeitet einen fremden Lernpfad; Lernende sehen keine Verwaltung | local | **umgesetzt**, 2 Tests |
-| §6 R3 | Lehrkraft-Rolle im Kurs → Editorzugriff als Assistent, eigener Pfad anlegbar | local | **umgesetzt**, 1 Test; Entzug des Zugriffs siehe „Offen" |
+| §6 R3 | Lehrkraft-Rolle im Kurs → Editorzugriff als Assistent, eigener Pfad anlegbar; aus dem Kurs genommen → Zugriff **bleibt** (Entscheidung local_adele #503/#509: kein automatischer Entzug); Administrator entzieht die Systemrolle von Hand → kein Editor, Server legt keinen Pfad an | local | **umgesetzt**, 1 Test (6 Schritte) + 1 bekannter Fehler (Form der Ablehnung) |
 | §6 R4a | Kollaborator bearbeitet genau den freigegebenen Pfad, beim anderen nur Ansehen | local | **umgesetzt**, 2 Tests |
 | §6 R4b | Recht über die Suche im Editor vergeben und entziehen; letzter Bearbeiter geschützt | local | **umgesetzt**, 1 Test mit 6 Schritten |
 | §7 E1 | Referenzpfad T01 → T02 → T03 ausschließlich per Drag&Drop, nach erneutem Öffnen Knoten **und Kanten** unverändert; Einzelknoten; Lernende ohne Editor | local | **umgesetzt**, 3 Tests |
-| §6 R5 | parallele Berechtigungsgründe: 3 von 6 Zeilen der Matrix (Manager + Kollaboration, Assistent + Kollaboration, nur Kollaboration) | local | **umgesetzt**, 2 Tests; die übrigen Zeilen siehe §5a |
+| §6 R5 | parallele Berechtigungsgründe, alle 6 Zeilen der Matrix: Manager + Kollaboration; Assistent + Kollaboration (je Kollaboration bzw. Assistentenrolle entzogen); nur Kollaboration; nur Assistent (am Ende von R3); Eigentümer + Kollaboration | local | **umgesetzt**, 3 Tests + R3; die Zeile „Eigentümer + Kollaboration" ist ein bekannter Fehler (eigener Test, Issue-Entwurf) |
 | §6 R6 | Eigentümerschaft über die Kronen-Schaltfläche übertragen, Bestand nach Neuladen, alter Eigentümer als Manager behält Zugriff | local | **umgesetzt**, 1 Test mit 5 Schritten |
 | §16 H1 | Aktivität über das Formular anlegen → Hostkurs-Mitglieder im Eingangskurs, Außenstehende nicht; Pfad in der Aktivität sichtbar | mod | **umgesetzt**, 1 Test |
 | §16/§27 H1b | Austritt aus dem Hostkurs → Zugriff entzogen, und nur für die abgemeldete Person | mod | **umgesetzt**, 1 Test |
@@ -178,26 +178,30 @@ ADELE-Einschreibungen der Hostkurs-Personen endgültig zurückgenommen).
 | §18 Z1–Z4 | Gesamtabschluss, je Pfad ein Hostkurs mit Abschlussregel „Lernpfad abgeschlossen": Z1 regulär (vor dem letzten Schritt 2/3, Aktivität offen; danach 3/3 = 100 %, abgeschlossen), Z2 alternative Route (Raute, T03 nie besucht: 100 % und Abschluss), Z3 manueller Abschluss auf allen Knoten, Z4 Master-Abschluss; Z3/Z4 auch Rücknahme. Je Zustand Knotenstatus, Route, Prozent, Aktivitätsabschluss auf der Kursseite der Lernenden („To do"/„Done" mit Bedingung) und im Abschlussbericht der Lehrkraft | local | **umgesetzt**, 4 Tests; Regel in `mod_adele` dafür erst wirksam gemacht (`custom_completion`, Beobachter), PHPUnit `path_completion_test` |
 
 
-## 5a. Offene Punkte aus R3 und R5
+## 5a. R3 und R5: Entzug der Assistentenrolle
 
-Die Kette prüft bisher nur die Hinzunahme: Kursrolle vergeben → Editorzugriff.
-Der Plan verlangt zusätzlich, dass der Zugriff beim Entfernen der Kursrolle
-wieder entfällt, sofern keine andere Quelle existiert. Im Code legt
-`enrollment::assign_assistant_to_role()` die Systemrolle `adeleassistant` nur
-an; ein Gegenstück zum `role_unassigned`-Ereignis gibt es in `db/events.php`
-nicht. Bevor daraus ein Test oder eine Fehlermeldung wird, ist zu klären, ob
-der Entzug gewollt ist — bisher **nicht geprüft**, also auch nicht behauptet.
+Entschieden seit 2026-08-18 (local_adele #503 geschlossen, Kommentar zu #509:
+„Kein Entzug realisieren"): Das Plugin vergibt die Systemrolle
+`adeleassistant` automatisch und nimmt sie **nie** selbst zurück. Der Plan
+(§6 R3, letzte Zeile) liest sich anders; die Ketten halten deshalb beides
+fest:
 
-Für diesen Punkt liegt bereits ein Entwurf vor:
-[`issues/local_adele-issue-assistant-role-no-revocation.md`](issues/local_adele-issue-assistant-role-no-revocation.md).
+- Die Rolle überlebt das Entfernen der Kursrolle (R3, Schritt 5).
+- Der Weg, sie zu beenden, ist Moodles eigene Seite „Systemrollen zuweisen"
+  (R3, Schritt 6; R5 „Assistent + Kollaborator, Assistent entzogen").
+  Testhilfe: `setSystemRole()` in der gemeinsamen `support/fixtures.ts`.
 
-Dieselbe Lücke betrifft drei Zeilen der R5-Matrix: „Assistent + Kollaborator,
-Assistent entzogen", „nur Assistent, Assistent entzogen" und „Eigentümer +
-Kollaborator". Die ersten beiden setzen den Entzug einer Systemrolle voraus,
-den das Plugin nicht als Gegenstück zur automatischen Vergabe anbietet; die
-dritte verlangt einen Eigentümer ohne Managerrolle, den die Fixtures derzeit
-nicht vorsehen. Umgesetzt sind die drei Zeilen, die sich ohne diese Klärung
-eindeutig entscheiden lassen.
+Der frühere Entwurf `issues/local_adele-issue-assistant-role-no-revocation.md`
+ist damit gegenstandslos (Vermerk im Entwurf).
+
+**Zwei bekannte Fehler aus diesen Ketten** (Tests laufen nur mit
+`ADELE_RUN_KNOWN_DEFECTS=1`):
+
+- Eigentümer von der Bearbeiterliste genommen → Pfad weg
+  (`issues/local_adele-issue-owner-loses-path-with-editor-row.md`).
+- Anlegen ohne Recht wird mit einem PHP-Fehler abgelehnt
+  (`issues/local_adele-issue-save-learningpath-refusal.md`) — **behoben mit
+  `2026100716`, local_adele #594.**
 
 ## 5b. Screenreader-Suite (NVDA)
 
@@ -523,3 +527,25 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   zweiter Vorgänger) sind nicht zu treffen — vor wie nach #580. Entwurf:
   `issues/local_adele-issue-offset-dropzones-unreachable.md`. Ein Test folgt
   mit der Entscheidung.
+
+## Nachtrag `2026100715`: Ketten R3 und R5 vollständig
+
+- **R3** um zwei Schritte verlängert (aus dem Kurs genommen: Rolle bleibt;
+  Systemrolle von Hand entzogen: Zugriff weg, auch am Server).
+- **R5**: neuer Test „without the assistant role the collaboration still
+  opens its path - and without that, nothing is left" (zwei Zeilen der
+  Matrix an einer Person ohne jede Rolle; stellt Rolle und Bearbeiterliste
+  am Ende wieder her). Die Zeile „nur Kollaboration" war bisher an einer
+  Person geprüft, die zugleich Assistent war.
+- **Zwei bekannte Fehler**, je ein eigener Test (siehe §5a). Die Suite hat
+  damit wieder übersprungene Tests: `local_adele` 56 bestanden, 2
+  übersprungen.
+- Neue Testhilfen in `support/fixtures.ts` (in allen drei Plugins gleich):
+  `setSystemRole()`, `unenrolFromCourse()`.
+
+## Nachtrag `2026100716`: local_adele #594
+
+- Der bekannte Fehler „Ablehnung als PHP-Fehler" ist behoben; sein Test
+  läuft regulär. `local_adele`: 57 bestanden, 1 übersprungen (Eigentümer von
+  der Bearbeiterliste genommen — wartet auf Entscheidung und Ablage).
+

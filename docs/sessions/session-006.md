@@ -1477,3 +1477,78 @@ nächstliegende Knoten ist am einfachsten im Handling zu verstehen."
   brach dort ab, weil die Testumgebung nach dem Versionswechsel nicht neu
   eingerichtet war (mein Versäumnis im Ablauf, kein Befund am Code).
   Ausgeliefert unter local_adele #580.
+
+## Teil 47 — Ketten R3 und R5 vollständig; zwei neue Befunde
+
+Version `2026100715`. Nur Tests und Dokumentation, keine Produktänderung.
+
+- **Ausgangslage:** R3 prüfte nur die Vergabe, R5 drei von sechs Zeilen. Als
+  Grund stand im Suite-Dokument, der Entzug der Assistentenrolle sei
+  ungeklärt. Das war falsch (im Abgleich mit GitHub in Teil 40 bemerkt):
+  entschieden seit 2026-08-18, kein automatischer Entzug.
+- **Umgesetzt:** R3 mit sechs Schritten; R5 mit allen sechs Zeilen. „Entzug
+  der Assistentenrolle" heißt in den Tests: Administrator nimmt die
+  Systemrolle auf Moodles Seite weg.
+- **Korrektur an einer bestehenden Aussage:** Die Zeile „nur Kollaborator,
+  Kollaboration entzogen → Zugriff entfällt" galt als umgesetzt, war aber an
+  einer Person geprüft, die zugleich Assistent war (Editor blieb
+  erreichbar). Jetzt an einer Person ohne jede Rolle: Pfad nicht mehr
+  gelistet, Server antwortet `nopermissions`.
+- **Befund 1 (belegt):** Eigentümer nimmt sich von der Bearbeiterliste → der
+  eigene verborgene Pfad wird ihm nicht mehr angezeigt. Datenbank nach dem
+  Test: `createdby` unverändert, in `local_adele_lp_editors` nur die zweite
+  Person. Passende Codestellen im Entwurf benannt. Als bekannter Fehler
+  markiert; Entwurf mit Frage (Regel A oder B).
+- **Befund 2 (belegt):** `save_learningpath.php` wirft eine nicht importierte
+  Ausnahmeklasse; die Ablehnung beim Anlegen endet als PHP-Fehler
+  (`Class "local_adele\external\required_capability_exception" not found`,
+  direkt in PHP nachgestellt). Es wird nichts angelegt. Suche über
+  `classes/`: nur diese Datei betroffen. Als bekannter Fehler markiert.
+- **Unterwegs:**
+  - Erste Fassung der Aufräumschritte des Eigentümer-Tests las die Liste,
+    bevor sie geladen war, und ließ den Testpfad liegen; behoben, per
+    erneutem Lauf geprüft (kein Rest).
+  - Auf der Testinstanz lag ein Pfad aus einem früheren, abgebrochenen Lauf
+    der Kette R6 („Linear A2 nach Eigentumswechsel …"), Eigentümer die
+    Assistenten-Person. Er ließ eine zu weit gefasste Zusicherung („kein Pfad
+    gelistet") fehlschlagen. Zusicherung auf den betroffenen Pfad
+    eingeschränkt, Rest gelöscht. Wann er entstanden ist, habe ich nicht
+    nachvollzogen.
+- **Beides wird erst nach Ablage behoben.**
+- **Prüfstand `2026100715`** (Gesamtlauf nach dem Abgleich der Auslieferungskopie):
+  E2E enrol 6, mod 14, local 56 bestanden und 2 übersprungen (die zwei
+  bekannten Fehler; mit `ADELE_RUN_KNOWN_DEFECTS=1` gesondert gelaufen: beide
+  rot an der erwarteten Stelle); PHPUnit local 370 (1 übersprungen, 1
+  unvollständig — wie bisher), enrol 57, mod 25. Ausgeliefert ohne
+  Issue-Nummer (nur Tests und Dokumentation); die zwei Entwürfe warten auf
+  Ablage.
+
+## Teil 48 — local_adele #594: Ablehnung beim Anlegen als PHP-Fehler; Entscheidung zu den versetzten Ablagezonen
+
+Version `2026100716`.
+
+- **#594** (abgelegt vom Auftraggeber, Text entspricht dem Entwurf): fehlender
+  Import in `save_learningpath.php` ergänzt. PHPUnit-Test zuerst geschrieben
+  und rot gesehen („Class … not found"), nach der Änderung grün. Der
+  E2E-Test ist kein bekannter Fehler mehr.
+- **Versetzte Ablagezonen — Entscheidung des Auftraggebers (2026-10-07):**
+  „Wenn es einen Nachfolger gibt, dann keine untere (zusätzliche)
+  Ablagezone, wenn es einen Vorgänger gibt, dann keine (zusätzliche) obere
+  Ablage mehr." Dazu der Grundsatz: „Eine einmal erreichte Zone soll
+  bestehen bleiben, auch wenn innerhalb der Zone sich der Mauszeiger einem
+  anderen Knoten stärker annähert" — das ist die Ausnahme 1 aus #580,
+  bereits ausgeliefert. Entwurf entsprechend umgeschrieben.
+- **Missverständnis, festgehalten:** Der Auftraggeber meldete „ist angelegt,
+  bitte mitfixen" mit dem Link auf #594, unmittelbar nach dem Gespräch über
+  die Ablagezonen. #594 ist aber der Befund zum Dienst. Der Entwurf zu den
+  Ablagezonen ist auf GitHub nicht zu finden (#595–#598 existieren nicht,
+  geprüft). Umgesetzt wurde deshalb nur #594; die Zonen warten auf ihre
+  Nummer.
+- **Nicht gemessen** (Probe vom Auftraggeber unterbrochen, nicht
+  nachgeholt): ob ein Knoten „parallel" zum vorhandenen Nachfolger in jedem
+  Fall dieselbe Struktur ergibt wie ein zweiter Nachfolger.
+- **Prüfstand `2026100716`** (Gesamtlauf nach dem Abgleich der Auslieferungskopie):
+  E2E enrol 6, mod 14, local 57 bestanden und 1 übersprungen (bekannter
+  Fehler „Eigentümer von der Bearbeiterliste genommen"); PHPUnit local 372
+  (2 neue; 1 übersprungen, 1 unvollständig — wie bisher), enrol 57, mod 25.
+  Ausgeliefert unter local_adele #594.
