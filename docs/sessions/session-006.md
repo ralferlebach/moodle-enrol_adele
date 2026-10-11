@@ -534,3 +534,26 @@ werden nur als Tatsache genannt, wenn sie belegt sind.
   entspricht O1, L4 (Master-Abschluss) entspricht O3 — jeweils gemeinsam
   umzusetzen, damit nichts doppelt gebaut wird oder zwischen den Ketten
   verloren geht.
+
+## Teil 24 — L3/O1 manueller Abschluss
+
+- **L3 und O1 gemeinsam**, eigener Pfad „E2E Manueller Abschluss" (Knoten 1
+  schließt nur über „Finish node manually" ab): regulär → von der Lehrkraft
+  abgeschlossen → zurückgenommen. In jedem Zustand Knotenstatus, Folgeknoten,
+  Routenstand und Prozent, realer Zugriff auf T02 und Einschreibung (nicht
+  vorhanden → Active → Suspended). Zweimal grün.
+- **Testtechnik:** Die Infokarte öffnet nur ein Klick auf das Symbol; die
+  Zeichenfläche schneidet es teils ab. Der Test löst das Klickereignis direkt
+  aus (`dispatchEvent`), gleicher Vue-Handler.
+- **Befund 1 (Barrierefreiheit, Produkt):** Die Infokarte eines Knotens ist
+  per Tastatur nicht erreichbar. Der Container ist fokussierbar
+  (`tabindex="0"`), `handleFocus` hebt aber nur die z-Ebene an; öffnen geht
+  nur per Mausklick (`NodeInformation.vue`). Nicht geändert, für die
+  Entscheidung festgehalten.
+- **Befund 2 (Meldung):** Die Infokarte von Knoten 1 lautet in allen drei
+  Zuständen „manual completion recorded" — auch ohne gesetzten Abschluss.
+  Ob das bei editorerstellten Pfaden ebenso ist oder aus der Fixture stammt,
+  klärt Kette F; bis dahin prüft L3/O1 den Wortlaut bewusst nicht.
+- **Eigene Umwege unterwegs:** großes Fenster und Fokus als Ersatz für den
+  Klick ausprobiert, beides wirkungslos; erst der Blick in die Komponente
+  zeigte, dass nur der Klick die Karte öffnet.
