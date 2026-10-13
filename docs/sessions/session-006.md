@@ -1659,3 +1659,136 @@ Version `2026100719`. Nur Tests und Dokumentation, keine Produktänderung.
   drei neuen gesondert mit `ADELE_RUN_KNOWN_DEFECTS=1` gelaufen: rot an der
   erwarteten Stelle); PHPUnit local 372, enrol 57, mod 25. Ausgeliefert ohne
   Issue-Nummer (Tests und Dokumentation); drei Entwürfe warten auf Ablage.
+
+## Teil 53 — CI rot (local_adele): Codechecker und PHPDoc-Checker (2026-10-12)
+
+Version `2026100720`. Grundlage: Logs des CI-Laufs vom 2026-10-11 (drei
+Matrix-Jobs, Moodle 4.5, pgsql/mariadb/mysqli), vom Auftraggeber übergeben.
+
+- **Befund (belegt aus den Logs):** In allen drei Jobs schlugen zwei Schritte
+  fehl, alles andere war grün (PHPUnit 372, Behat 12 Szenarien, Jest 370):
+  1. `codechecker --max-warnings=0`: 36 Warnungen
+     `moodle.PHPUnit.TestCaseCovers.Missing` in fünf Testdateien
+     (`issue587_participants_test`, `security/learner_data_embedding_test`,
+     `roster_course_scope_test`, `save_learningpath_refusal_test`,
+     `view_and_edit_capability_test`).
+  2. `phpdoc`: `feedback_language_test::condition has incomplete parameters
+     list`.
+- **Ursache 1 (belegt):** Die Dateien haben `@covers` auf Klassenebene, aber
+  zwischen Klassenkommentar und `final class` stehen PHP-Attribute
+  (`RunTestsInSeparateProcesses`, `PreserveGlobalState`). Der Sniff sucht
+  den Kommentar nur unmittelbar über der Klasse (`TestCaseCoversSniff`,
+  „first non skip token must be end of phpdoc comment") und findet ihn so
+  nicht. Gegenprobe: Attribute über den Kommentar gesetzt → keine Warnung.
+- **Ursache 2 (belegt):** `@param array $feedback` bei `?array $feedback`.
+- **Eigener Fehler:** Alle fünf Dateien stammen aus dieser Session. Geprüft
+  hatte ich mit phpcs auf die Arbeitskopie außerhalb des Moodle-Baums; dort
+  greift der Sniff nicht (er erkennt Testdateien nur im Moodle-Baum). Den
+  PHPDoc-Checker hatte ich lokal gar nicht.
+- **Behoben:** Attribute in den fünf Dateien über den Klassenkommentar
+  verschoben (mit Begründung im Code); Typ korrigiert.
+- **Ablauf ergänzt:** phpcs jetzt über alle drei Plugins **im Moodle-Baum**
+  der Testinstanz; `local_moodlecheck` v1.3.2 (dieselbe Version wie in der
+  CI) auf der Testinstanz installiert und vor jeder Auslieferung über alle
+  drei Plugins. Beide nachgestellt: zuerst dieselben Befunde wie die CI,
+  nach der Korrektur keine.
+- **Prüfstand `2026100720`:** PHPUnit local 372, enrol 57, mod 25; phpcs im
+  Moodle-Baum über alle drei Plugins ohne Befund; PHPDoc-Checker über alle
+  drei ohne Befund. E2E nicht erneut gelaufen: geändert sind nur
+  Kommentare und Attributpositionen in PHPUnit-Dateien.
+  Ausgeliefert als „local_adele: CI-Fix" (kein Issue).
+
+## Teil 54 — E2E-Issue, Paket 1: die vier bekannten Fehler behoben (2026-10-12)
+
+Version `2026100721`. Auftrag: E2E-Issue „Vollständige, nachweiswirksame
+Playwright-E2E-Abdeckung der User-Stories R–Z" (vom Auftraggeber
+übergeben). Entscheidungen 2026-10-12: Der Auftrag des Issues genügt für die
+Produktfixes der vier bekannten Fehler (die Entwürfe müssen nicht erst
+abgelegt werden); `tests/e2e` bleibt nur manuell auslösbar.
+
+- **Regel B (Eigentümer):** Dienst lehnt das Entfernen ab
+  (`editorremoveowner`; ein anderer Bearbeiter scheitert schon vorher an
+  `nopermissions`), kein Knopf auf der Eigentümerkarte, Upgrade-Schritt
+  trägt fehlende Eigentümer nach. **Befund dabei:** Auf der Testinstanz
+  fehlten 41 Eigentümer auf ihren Listen — die Fixtures setzten die
+  Bearbeiter fixer Pfade ohne den Eigentümer (Administrator). Fixtures
+  folgen jetzt der Regel; R4b/R5 entsprechend angepasst (Schritt „der letzte
+  Bearbeiter ist geschützt" geht in „der Eigentümer bleibt" auf).
+- **„Vor" eingefügter Vorgänger fehlt in der Bedingung:** behoben
+  (`addAutoRestrictions`, Fall `parent`).
+- **Veraltete Vorgängerzahl:** Die im Entwurf vermutete Ursache (Store) war
+  nicht die ganze. Nach dem ersten Fix blieb der E2E-Test rot; eigentliche
+  Ursache: Beim parallelen Knoten wurden die Listen der Nachbarn nicht
+  nachgezogen (der Nachfolger kannte den neuen Vorgänger erst nach Speichern
+  und Neuladen). Behoben mit `linkParallelNode()`; beide Änderungen bleiben.
+- **Knoten „vor" verdeckt den Zielknoten:** neuer Vorgänger neben die
+  vorhandenen. Die Testhilfe klickt wieder echt; `dispatchEvent('click')`
+  ist aus den E2E-Hilfen verschwunden.
+- **Tests:** PHPUnit `owner_stays_editor_test` (5); Jest +15 (385);
+  Gegenproben für die PHPUnit- und Jest-Tests gegen den alten Code rot.
+  Die vier vormals bekannten Fehler laufen als reguläre E2E-Tests.
+- **Prüfstand `2026100721`:** E2E enrol 6, mod 14, local 70 bestanden,
+  keine übersprungen, keine bekannten Fehler mehr; PHPUnit local 377,
+  enrol 57, mod 25; Jest 385; phpcs im Moodle-Baum und PHPDoc-Checker über
+  alle drei Plugins ohne Befund.
+  Ausgeliefert als „local_adele: E2E-Issue (User-Story-Vervollständigung),
+  Paket 1".
+
+## Teil 55 — E2E-Issue, Paket 2: strenger Kurszugriff, Story-Abdeckung, Mutationen (2026-10-12)
+
+Version `2026100722`. Umgesetzt aus dem E2E-Issue: §3A (Kurszugriff),
+§3C (kein `--pass-with-no-tests`, Story-Abdeckungsmatrix, Abbruch bei
+übersprungen/fixme/flaky) und aus §4 je eine Mutation pro kritischer
+Domäne. Nur Testcode, Seed und Workflow geändert; kein Produktcode.
+
+- **`courseAccess()` streng** (alle drei bytegleichen `support/fixtures.ts`):
+  „offen" nur bei gerenderter Seite des richtigen Kurses, angemeldeter
+  Nicht-Administrator und serverseitig aktiver Einschreibung
+  (`enrolmentState()`, liest `user_enrolments` und Instanzstatus per CLI mit
+  der Server-Testuhr). Verweigerung nur als Einschreibeseite dieses Kurses
+  oder bekannte Meldung; alles andere ist Testfehler.
+  `expectCourseOpen*` verlangt zusätzlich eine aktive ADELE-Einschreibung
+  (`accessThroughAdele()`).
+- **Story-Abdeckung:** Tags `@story:<ID>` an allen 90 E2E-Tests (local 70,
+  mod 14, enrol 6), `stories.json` je Plugin, `story-coverage.mjs` erzeugt
+  `coverage.md/.json` und bricht ab bei übersprungenen, fixme-, flaky- oder
+  roten Tests, fehlendem oder unbekanntem Tag und (ungefiltert) fehlender
+  Pflicht-Story. Workflow-Schritt „Check the story coverage" in allen drei
+  `e2e.yml`; `--pass-with-no-tests` entfernt. actionlint ohne Befund.
+- **Eigener Fehler, behoben:** Der JSON-Reporter schreibt Tags ohne „@";
+  die erste Fassung von `story-coverage.mjs` erwartete „@story:" und meldete
+  deshalb für enrol „keine Tags". Liest jetzt beide Schreibweisen.
+- **Befund (Seed nahm Wirkung vorweg):** Mutation „`enrol_user()`
+  unterdrückt" ließ V1 zunächst grün. Ursache belegt: Der Seed setzte die
+  Zuweisung der importierten Referenzpfade neu, ließ aber die
+  ADELE-Einschreibungen früherer Läufe stehen; der Reconciler reaktivierte
+  sie nur. Seed ruft jetzt `reconciler::purge_user()` vor dem erneuten
+  Zuweisen; danach V1 rot wie erwartet.
+- **Mutationsproben** (Tabelle in `docs/e2e-suite.md`, Nachtrag
+  `2026100722`): Zugang (Testhilfe, Produkt, Fremdeinschreibung), Entzug,
+  Prozent, Feedback, Rolle, Datenschutz, Abschluss, Bedienbarkeit — jede
+  macht den zuständigen Test rot, mit der fachlich passenden Meldung.
+  Bedienbarkeit im ersten Versuch grün, danach dreimal rot; Ursache des
+  ersten Versuchs nicht belegt (siehe e2e-suite).
+- **Offen aus dem Issue (folgende Pakete):** Kettenlücken nach §2 (u. a.
+  R1/R2 Speichern+Wiederöffnen+neue Sitzung, E1 vollständiger Referenzpfad,
+  E2 Laufzeit-Wahrheitstabelle, Zeitgrenzen T, Master-2×2 mit Rücknahmen,
+  echte CAT-Journey D, H Quelle×Modus, P alle Rollen), Isolierung der
+  `zz-`-Reihenfolge, `waitForTimeout`-Abbau, deterministische Titel statt
+  `Date.now()`. „Verbindliches Gate": Auslöser bleibt nach Entscheidung des
+  Auftraggebers manuell.
+- **Nachtrag zu `2026100721` (eigener Fehler):** `tests/owner_stays_editor_test.php`
+  hatte nach dem Lizenzkopf zwei Leerzeilen; phpcs meldet das als Fehler
+  („Boilerplate comment must be followed by a single blank line"). Mein
+  Prüfschritt zeigte nur die letzten Zeilen der phpcs-Zusammenfassung und
+  übersah die Fehlerzeile; `2026100721` ist mit diesem Befund ausgeliefert
+  worden. Behoben in `2026100722`; der Prüfschritt wertet jetzt die
+  TOTAL-Zeile aus.
+- **Prüfstand `2026100722`:** E2E enrol 6, mod 14, local 70 bestanden,
+  Story-Abdeckung aller drei Plugins „complete" (Pflicht-Stories je mit
+  bestandenem Test, kein Test ohne Tag); PHPUnit local 377, enrol 57,
+  mod 25; Jest unverändert 385 (kein Vue-Code geändert); phpcs im
+  Moodle-Baum und PHPDoc-Checker über alle drei ohne Befund; actionlint
+  ohne Befund.
+  Ausgeliefert als „local_adele: E2E-Issue (User-Story-Vervollständigung),
+  Paket 2".

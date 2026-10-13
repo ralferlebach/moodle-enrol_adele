@@ -52,6 +52,7 @@ junit.xml            dasselbe im JUnit-Format
 run.log              Konsolenausgabe
 environment.md       Moodle, PHP, exakter Commit jedes Plugins
 summary.md           eine Zeile je Test mit Videopfad (auch als Job-Summary)
+coverage.md/.json    Story-Abdeckung: Story -> Test -> Spec -> Status -> Video
 moodle-server.log.gz Anfrageprotokoll
 ```
 
@@ -66,6 +67,17 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
 - **Realer Zugriff statt Datenbankeintrag.** `expectCourseOpen` /
   `expectCourseClosed` rufen die Kursseite auf; eine Zeile in der
   Teilnehmerliste gilt nicht als Beweis (Plan §2).
+- **Und Browser und Server müssen übereinstimmen** (seit `2026100722`).
+  `courseAccess()` gibt „offen" nur zurück, wenn die Seite **dieses** Kurses
+  gerendert ist (URL, `body#page-course-view-*`, Klasse `course-<id>`,
+  `M.cfg.courseId`), jemand angemeldet ist, der kein Administrator ist, und
+  der Server ihn als aktiv eingeschrieben zählt. `expectCourseOpen*` verlangt
+  zusätzlich eine aktive **ADELE**-Einschreibung (Nutzer- und
+  Instanzstatus); eine manuelle oder andere Einschreibung zählt nicht.
+  Verweigerung ist nur die Einschreibeseite dieses Kurses (Server: nicht
+  eingeschrieben) oder eine bekannte Moodle-Meldung (`REFUSALS`).
+  Login-Verlust, Serverfehler, fremder Kurs, unbekannte Fehlerseite und
+  Widersprüche zwischen Browser und Server sind **Testfehler**.
 - **Ein Artefakt je Lauf, immer.** Auch die Smoke-Workflows laden seit
   `2026100202` Report und Videos bei grünem **und** rotem Lauf hoch; vorher
   gab es bei Fehlschlag nur die fehlgeschlagenen Verzeichnisse ohne Video —
@@ -80,11 +92,14 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
   erkennt Lernpfade am Namen; eine Kette, die einen Pfad umbenennt und so
   liegen lässt, erzeugt beim nächsten Seed-Lauf eine zweite Kopie. R2 und R3
   stellen den Namen deshalb in einem `finally` wieder her.
-- **Der letzte Bearbeiter ist geschützt.** Die Entfernen-Schaltfläche
-  erscheint erst, wenn mindestens zwei Personen eingetragen sind; ein Pfad
-  soll nicht ohne Bearbeiter zurückbleiben. Eine Kette, die ein Recht vergibt,
-  kann es daher nicht immer vollständig zurücknehmen — der Seed leert die
-  Bearbeitertabelle der Fixture-Pfade deshalb bei jedem Lauf.
+- **Der Owner ist geschützt** (Regel B, seit `2026100721`). Seine Karte
+  in der Bearbeiterliste hat keine Entfernen-Schaltfläche, und der Dienst
+  lehnt das Entfernen mit `editorremoveowner` ab. Der Seed setzt die
+  Bearbeiter der Fixture-Pfade bei jedem Lauf neu, den Owner eingeschlossen.
+- **Der Seed nimmt keine Wirkung vorweg** (seit `2026100722`). Er entfernt
+  vor dem erneuten Zuweisen eines Fixture-Lernenden dessen ADELE-
+  Einschreibungen aus früheren Läufen; sonst sähe eine Kette Zugang, den
+  dieser Lauf nie erteilt hat.
 - **Lernpfade nie roh aus der Datenbank löschen.** Die zugehörigen
   ADELE-Einschreibungen bleiben dann verwaist zurück, und spätere Ketten
   scheitern an Zugriffen, die niemand mehr erklären kann. Löschen gehört in
@@ -577,3 +592,55 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - Was Lernende aus diesen Kombinationen bekommen, prüft F3 (folgt).
 - `local_adele`: 66 bestanden, 4 übersprungen.
 
+
+## Nachtrag `2026100721`: die vier bekannten Fehler behoben
+
+- Die drei `knownDefect`-Tests in `editor-brackets.spec.ts` und der in
+  `roles-parallel-permissions.spec.ts` laufen als reguläre Tests; kein Test
+  nutzt mehr `knownDefect`.
+- `openAccessCriteria()` klickt echt; `dispatchEvent('click')` ist aus den
+  E2E-Hilfen verschwunden. Ein verdeckter Knoten macht den Test rot.
+- `local_adele`: 70 bestanden, keiner übersprungen.
+
+## Nachtrag `2026100722`: strenger Kurszugriff und Story-Abdeckung
+
+- **`courseAccess()` streng**, `enrolmentState()` liest die Einschreibungen
+  serverseitig, `accessThroughAdele()` verlangt die ADELE-Einschreibung
+  (siehe Abschnitt 3). Alle drei Kopien von `support/fixtures.ts` sind
+  bytegleich.
+- **Story-Tags.** Jeder E2E-Test nennt die Stories, die er belegt:
+  `test('…', { tag: ['@story:R3'] }, …)`. Die Pflicht-Stories je Plugin
+  stehen in `tests/e2e/stories.json`.
+- **`support/story-coverage.mjs`** (in allen drei Plugins gleich) liest
+  `results.json` und schreibt `coverage.md`/`coverage.json`. Es schlägt fehl
+  bei: übersprungenen, `fixme`-, `flaky`- oder roten Tests, Tests ohne
+  Story-Tag, unbekannten Tags und – bei ungefilterten Läufen – Pflicht-Stories
+  ohne bestandenen Test. Der Workflow-Schritt „Check the story coverage"
+  läuft immer und schreibt die Matrix in die Job-Zusammenfassung.
+- **`--pass-with-no-tests` entfernt.** Ein Filter, der nichts trifft, ist
+  ein roter Lauf. Gefilterte Läufe sind diagnostisch: Sie prüfen die
+  Pflicht-Stories nicht (`--filtered`) und gelten nicht als Abnahme.
+- **Mutationsproben** (jeweils auf der Testinstanz eingespielt, Lauf, dann
+  zurückgesetzt; danach Gesamtlauf grün):
+
+  | Domäne | Mutation | Rot wird |
+  |---|---|---|
+  | Zugang (Testhilfe) | `courseAccess()` liefert immer „offen" | V1 „gesperrter Knoten", V1 „Person ohne Pfad" |
+  | Zugang (Produkt) | `reconciler`: `enrol_user()` unterdrückt | V1 „erreichbarer Kurs", „neue Sitzung", „Übersicht" |
+  | Zugang (fremd) | Lernender zusätzlich manuell eingeschrieben, ADELE unterdrückt | V1 „erreichbarer Kurs" (`open-not-through-adele`) |
+  | Entzug | `reconciler`: Suspendieren und Abmelden unterdrückt | V2 „Berechtigung endet" |
+  | Prozent | `getnodeprogress()`: `round(50 * …)` statt `100` | L1 „1/4" (12,5 statt 25) |
+  | Feedback | `relation_update`: Abschlusstext nicht übernommen | F1/F2 „Vorgänger 1 von 1" |
+  | Rolle | `save_learningpath`: Prüfung beim Anlegen entfernt | R3 „Server nennt fehlendes Recht" |
+  | Datenschutz | `get_lp_user_path_relations`: Eigene-Ergebnisse-Filter entfernt | P1 „nicht die andere Person" |
+  | Abschluss | `path_completion::is_finished`: `>` statt `>=` | Z1 „regulärer Abschluss" |
+  | Bedienbarkeit | `pointer-events: none` auf den Knoten-Schaltflächen | E2 „(A UND B) ODER C" |
+
+  Die Bedienbarkeits-Probe war im **ersten** Versuch grün, in drei
+  folgenden Versuchen rot (Playwright: „<span> intercepts pointer events").
+  Vor dem zweiten Versuch war belegt, dass Moodle das veränderte Stylesheet
+  ausliefert; ob es das beim ersten schon tat, ist nicht belegt.
+- **Befund aus der Zugangs-Mutation:** Der Seed ließ ADELE-Einschreibungen
+  der importierten Referenzpfade aus früheren Läufen stehen. Mit
+  unterdrücktem `enrol_user()` blieb V1 deshalb zunächst grün. Behoben im
+  Seed (`purge_user()` vor dem erneuten Zuweisen); danach rot wie erwartet.

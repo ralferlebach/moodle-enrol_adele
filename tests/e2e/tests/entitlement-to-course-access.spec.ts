@@ -48,7 +48,7 @@ import {
 } from '../support/fixtures';
 
 test.describe('ADELE-E2E-V1 — entitlement reaches the real course', () => {
-  test('the learner can open the reachable course of their path', async ({ page }) => {
+  test('the learner can open the reachable course of their path', { tag: ['@story:V1'] }, async ({ page }) => {
     await loginAs(page, referencePath.learner, fixturePassword());
 
     await expectCourseOpen(
@@ -58,7 +58,7 @@ test.describe('ADELE-E2E-V1 — entitlement reaches the real course', () => {
     );
   });
 
-  test('a locked node grants no access to its course', async ({ page }) => {
+  test('a locked node grants no access to its course', { tag: ['@story:V1'] }, async ({ page }) => {
     await loginAs(page, referencePath.learner, fixturePassword());
 
     // T02 sits behind T01 and nothing has been completed yet. An enrolment
@@ -70,7 +70,7 @@ test.describe('ADELE-E2E-V1 — entitlement reaches the real course', () => {
     );
   });
 
-  test('a learner on no path receives nothing', async ({ page }) => {
+  test('a learner on no path receives nothing', { tag: ['@story:V1'] }, async ({ page }) => {
     await loginAs(page, controlUser(), fixturePassword());
 
     await expectCourseClosed(
@@ -80,7 +80,7 @@ test.describe('ADELE-E2E-V1 — entitlement reaches the real course', () => {
     );
   });
 
-  test('the enrolment survives a fresh session', async ({ page }) => {
+  test('the enrolment survives a fresh session', { tag: ['@story:V1'] }, async ({ page }) => {
     // Persistence (plan section 2 F): the state must not depend on the
     // session that produced it.
     await loginAs(page, referencePath.learner, fixturePassword());
@@ -96,7 +96,7 @@ test.describe('ADELE-E2E-V1 — entitlement reaches the real course', () => {
     );
   });
 
-  test('the course appears on the learner overview, and only the released one', async ({ page }) => {
+  test('the course appears on the learner overview, and only the released one', { tag: ['@story:V1'] }, async ({ page }) => {
     await loginAs(page, referencePath.learner, fixturePassword());
     await page.goto('/my/courses.php');
 

@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `editor`
 **Stand:** 2026-10-08, Session 006 — gefunden mit Testkette E2 (Klammerung)
-**GitHub:** noch nicht abgelegt
+**GitHub:** nicht abgelegt — erledigt im Rahmen des E2E-Issues (User-Story-Vervollständigung)
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -43,3 +43,7 @@ nicht einstellen — und wer es nicht merkt, speichert „1 / 1".
 `editor-brackets.spec.ts`, bekannter Fehler „the predecessor condition
 counts the predecessors drawn, saved or not". Der reguläre Test
 „node level: A AND (B OR C)" speichert deshalb vorher und öffnet neu.
+
+## Umsetzung
+
+Umgesetzt mit `2026100721` im Rahmen des E2E-Issues. Die im Entwurf genannte Ursache (Store-Stand) war nur ein Teil: Die eigentliche Ursache war, dass beim Ablegen eines parallelen Knotens die Listen der Nachbarknoten (`parentCourse` des Nachfolgers, `childCourse` des Vorgängers) nicht nachgezogen wurden. Behoben: `linkParallelNode()`; zusätzlich liest `parent_courses.vue` den Pfad, den der Editor gerade hält. Tests: Jest `linkParallelNode.spec`, `parent_courses.spec`; E2E `editor-brackets` regulär.

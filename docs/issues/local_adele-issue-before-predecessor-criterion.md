@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `editor`
 **Stand:** 2026-10-08, Session 006 — gefunden mit Testkette E2 (Klammerung)
-**GitHub:** noch nicht abgelegt
+**GitHub:** nicht abgelegt — erledigt im Rahmen des E2E-Issues (User-Story-Vervollständigung)
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -47,3 +47,7 @@ bleibt (Voreinstellung 1 = einer genügt).
 `editor-brackets.spec.ts`, bekannter Fehler „a predecessor placed before a
 node counts in its criterion without opening the criteria" (läuft mit
 `ADELE_RUN_KNOWN_DEFECTS=1` und schlägt dann genau hier fehl).
+
+## Umsetzung
+
+Umgesetzt mit `2026100721` im Rahmen des E2E-Issues: `addAutoRestrictions` behandelt „vor" wie die seitliche Zone (#584). Tests: Jest `addAutoRestrictions.spec` (Gegenprobe rot), E2E `editor-brackets` (bisher bekannter Fehler, jetzt regulär).

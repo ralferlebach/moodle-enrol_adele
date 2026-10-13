@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `permissions`
 **Stand:** 2026-10-07, Session 006 — gefunden mit Testkette R5 (parallele Berechtigungsgründe)
-**GitHub:** noch nicht abgelegt
+**GitHub:** nicht abgelegt — erledigt im Rahmen des E2E-Issues (User-Story-Vervollständigung)
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -87,3 +87,7 @@ für B wird er umgeschrieben.
 - Dasselbe für eine Eigentümerin, die keine Assistentenrolle (mehr) hat.
 - Ob der Manager, der danach einziger Bearbeiter ist, das Eigentum
   übernehmen muss, damit der Pfad wieder jemandem „gehört".
+
+## Umsetzung
+
+Umgesetzt mit `2026100721` im Rahmen des E2E-Issues (Entscheidung 2026-10-08: Auftrag des E2E-Issues genügt): Dienst `remove_lp_edit_users` lehnt das Entfernen des Eigentümers ab (`editorremoveowner`), Oberfläche ohne Entfernen-Knopf auf der Eigentümerkarte, Upgrade-Schritt `ownership::ensure_owners_are_editors()` (auf der Testinstanz: 41 Eigentümer nachgetragen), Fixtures folgen der Regel. Tests: PHPUnit `owner_stays_editor_test` (Gegenprobe gegen den alten Dienst rot), Jest `userSearch.spec`, E2E R5.

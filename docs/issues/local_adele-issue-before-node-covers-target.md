@@ -3,7 +3,7 @@
 **Repository:** `Wunderbyte-GmbH/moodle-local_adele`
 **Labels (Vorschlag):** `bug`, `editor`, `accessibility`
 **Stand:** 2026-10-08, Session 006 — gefunden mit Testkette E2 (Klammerung)
-**GitHub:** noch nicht abgelegt
+**GitHub:** nicht abgelegt — erledigt im Rahmen des E2E-Issues (User-Story-Vervollständigung)
 
 Zum Kopieren in GitHub. Alles unterhalb der Trennlinie ist der Issue-Text.
 
@@ -50,3 +50,7 @@ weiter), nicht auf den Zielknoten.
 with the keyboard does not cover it". Der reguläre Test „node level: (A AND
 B) OR C" erreicht die Schaltfläche des verdeckten Knotens deshalb nur über
 ein direkt ausgelöstes Klick-Ereignis.
+
+## Umsetzung
+
+Umgesetzt mit `2026100721` im Rahmen des E2E-Issues: Ein weiterer Vorgänger wird rechts neben die vorhandenen Vorgänger in deren Reihe gesetzt. Der Test `node level: (A AND B) OR C` klickt jetzt wieder echt (kein `dispatchEvent` mehr). E2E `editor-brackets` regulär.
