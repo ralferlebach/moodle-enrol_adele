@@ -1899,3 +1899,54 @@ Jest-Issue „Systematische Jest-Testschicht".
   actionlint (inkl. `jest.yml`) ohne Befund. Kein Vue-Quellcode geändert,
   daher kein neuer Build.
   Ausgeliefert als „local_adele: E2E-Issue Paket 3 + Jest-Issue Teil 1".
+
+## Teil 58 — Jest-Issue, Teil 2: Matrizen P1, drei Befunde (2026-10-13)
+
+Version `2026100724`. Nur Jest-Tests, Coverage-Gate und Doku geändert; kein
+Produktcode, kein PHP, keine E2E-Datei.
+
+- **Neue Matrizen:** `CustomNodeEdit` (Sicht × Status × Zeitbedingung ×
+  Feedback-Einstellungen; #574-Hooks und #575-Rolle/Name; manuelle Controls
+  nur in der Lehrendensicht, nicht ohne Bearbeitungsrecht), manuelle
+  Freigabe/Abschluss (je false→true→false, 2×2, Unabhängigkeit),
+  `timed_duration` (Startmodus × Einheit × Menge, Store-Prüfung gleich,
+  „0" als echte Wahl), `parent_courses` (1/1, 1/2, 2/2, 2/3), `specific_course`,
+  `modQuiz` (Schwelle 0/49/50/51/100, außerhalb geklemmt), `catQuiz` (ohne
+  catquiz, Test wählen, leeren, gespeicherter Wert, Schwelle setzen),
+  Graphstruktur des Pfad-Editors (A, A→B, A∧B, A∨B, (A∧B)∨C, A∧(B∨C), keine
+  doppelten Bezüge), `LearningPathList` (Sicht × Eigentum, ownerless),
+  `userSearch` (Sicht × Hinzufügen/Entfernen/Übertragen, kein Treffer,
+  Warnung, doppelt, Abbruch), `UserList` (0/Teil/100/Alternativroute ×
+  Lehrende/Lernende mit „alle"/„nur eigene"), `feedbackNodeRestriction`.
+- **Befunde (Entwürfe, Tests als `knownDefect`):**
+  - `local_adele-issue-unknown-status-shows-play.md`: Knoten mit
+    unbekanntem Status zeigt Play und Kurslink, `data-status` sagt
+    „unknown".
+  - `local_adele-issue-manual-checkboxes-share-id.md`: manuelle Freigabe
+    und manueller Abschluss eines Knotens tragen dieselbe ID; das Label
+    „Finish node manually" schaltet die Freigabe.
+  - `local_adele-issue-editor-list-optimistic.md`: Bearbeiterliste ändert
+    sich vor (und ohne) Antwort des Servers.
+- **Festgehalten, nicht bewertet:** `catQuiz` – ein Eintrag mit der ID 0
+  zählt als keine Wahl, der Elternskalen-Zweig ist über die Auswahl nicht
+  erreichbar (der Server bietet keine ID 0 an). `feedbackNodeRestriction`
+  nennt verborgene Bedingungen in der Information, `feedbackNode` nicht.
+- **Mutationsproben (Jest):** Ring bei jeder Bedingung → 12 rot; Assistenz
+  dupliziert fremde Pfade → 2 rot; Einheit 0 als leer → 1 rot; eine Zahl
+  zu wenig angeboten → 5 rot; manueller Abschluss an die Freigabe gebunden
+  → 5 rot. Jeweils zurückgesetzt.
+- **Coverage-Gate:** weitere Dateien mit eigenem Gate; der globale Boden ist
+  neu gemessen (Jest misst ihn ohne die Dateien mit eigenem Gate) und
+  zweimal gleich bestätigt.
+- **Jest:** 94 Suiten, 688 bestanden, 6 übersprungen (bekannte Fehler);
+  nach Teil 1: 509.
+- **Offen im Jest-Issue:** Store-Matrizen (`store.spec`/`store.mutations`),
+  Zeitanzeige `TimeWarning` mit Fake-Timern (K), weitere #575-Semantik (M:
+  `aria-expanded`/`aria-pressed`/Fokus in Dialogen), CI-Gate-Nachweis auf
+  GitHub (lokal nicht prüfbar).
+- **Prüfstand `2026100724`:** Jest 688 bestanden, 6 übersprungen, Gate grün
+  (zweimal); PHPUnit local 402, enrol 57, mod 25; phpcs im Moodle-Baum und
+  PHPDoc-Checker ohne Befund; E2E enrol 6 bestanden (Upgrade-Probe). Die
+  übrigen E2E-Suiten nicht erneut: weder Produktcode noch E2E-Dateien
+  geändert (Stand `2026100723`: mod 17, local 78).
+  Ausgeliefert als „local_adele: Jest-Issue Teil 2".
