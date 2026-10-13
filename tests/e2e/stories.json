@@ -4,5 +4,9 @@
     "V1",
     "V2"
   ],
-  "note": "Section 27 of the test plan: the central E2E contract - entitlement reaches the real course, and leaves it again."
+  "note": "Section 27 of the test plan: the central E2E contract - entitlement reaches the real course, and leaves it again.",
+  "withdrawal": [
+    "V2"
+  ],
+  "withdrawalNote": "Stories that are reversible: each needs a passed test tagged @withdrawal that takes the setting back (E2E issue, addendum of 2026-10-13)."
 }
