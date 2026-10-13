@@ -644,3 +644,98 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   der importierten Referenzpfade aus früheren Läufen stehen. Mit
   unterdrücktem `enrol_user()` blieb V1 deshalb zunächst grün. Behoben im
   Seed (`purge_user()` vor dem erneuten Zuweisen); danach rot wie erwartet.
+
+## Nachtrag `2026100723`: Isolierung, Zeitmodell, echte Klicks, R1/R2, E1 vollständig
+
+- **Jede Datei startet vom Seed** (`reseedFixtures()` in `support/fixtures.ts`,
+  `test.beforeAll` in jeder Spec-Datei; die beiden Zeit-Dateien vor **jedem**
+  Test). Die Variablen des Seeds werden im laufenden Prozess übernommen.
+  Damit hängt kein Test mehr von der Reihenfolge ab; die Zeit-Dateien heißen
+  jetzt `time-conditions.spec.ts` und `time-feedback.spec.ts` (vorher `zz-…`,
+  um zuletzt zu laufen). Kosten: rund zehn Sekunden je Datei.
+- **Seed:** entfernt außer früheren ADELE-Einschreibungen des zugewiesenen
+  Lernenden (`2026100722`) jetzt auch **alle anderen Fixture-Lernenden** von
+  den importierten Pfaden. Befund: Der Referenz-Lernende von Linear A1 stand
+  zusätzlich auf Linear A2 und „Verzweigt gestapelt B1" und behielt über
+  Linear A2 eine aktive Einschreibung in T01; V2 („Zugang endet") konnte so
+  nicht grün werden.
+- **Namen statt Zeitstempel:** `runLabel('E2 ODER')` → „E2 ODER · run<id>"
+  (Run-ID aus `ADELE_E2E_RUN_ID`, im Workflow `run<run_id>-<attempt>`).
+  Kein `Date.now()` mehr in Titeln.
+- **Zeitmodell an einer Stelle** (`support/timing.ts`): die verbleibenden
+  Pausen folgen dem Editor (Zeiger-Abtastung 100 ms in `SidebarPath.vue`,
+  Zoom-Sperre 500 ms in `RestrictionFlow.vue`/`CompletionFlow.vue`) oder
+  sind ein Abwesenheitsfenster bei absichtlich zurückgehaltener Antwort
+  (#585). Feste Wartezeiten für Fit-/Zoom-Animationen sind ersetzt durch
+  „Leinwand in Ruhe" (Transform der `.vue-flow__transformationpane`); die
+  4 s nach dem Tippen des Titels durch `networkidle`.
+- **Befund dabei:** Die frühere Hilfe las den Transform von
+  `.vue-flow__viewport` – das Element trägt keinen; gemessen wird jetzt die
+  Transformationsebene.
+- **Echte Klicks überall:** kein `dispatchEvent` mehr in den E2E-Hilfen und
+  -Specs (Infokarte, Sprechblase, Master- und Abschluss-Kästchen). Weil die
+  Leinwand ein fester Rahmen ist, holt `fitPathView()` den ganzen Pfad
+  vorher über die eigene „Ansicht anpassen"-Schaltfläche ins Bild (gemessen:
+  das i-Symbol von Knoten 1 lag sonst unter der Navigationsleiste).
+  Der Zoom-Schieberegler wird per Tastatur bedient; die Anzeige daneben
+  bestätigt den Wert.
+- **Neu `roles-direct-access.spec.ts`** (R3/R6, 5 Tests): Kontroll-Lernende,
+  Referenz-Lernende und Assistenz schicken jede ändernde Anfrage direkt an
+  den Server (umbenennen, verbergen, sich selbst eintragen, Bearbeiter
+  lesen, Eigentum übernehmen, duplizieren, löschen) – jede wird abgelehnt,
+  und der gespeicherte Pfad ist danach unverändert (Name, Owner,
+  Sichtbarkeit, Bearbeiter, Anzahl Pfade). Lesen: der eigene Pfad ja, ein
+  fremder nicht. Positivkontrolle: der Manager darf.
+- **Neu `roles-own-and-foreign-paths.spec.ts`** (R1/R2): Administrator auf
+  einem Pfad des Managers, Manager auf einem eigenen (in der Oberfläche
+  angelegt). Sichtbar schalten, umbenennen, gespeichert (Server), Reload,
+  wieder öffnen, Assistenz als Bearbeiter, deren eigene neue Sitzung,
+  zurücknehmen, Owner bleibt, wieder neue Sitzung – jeweils am Server und
+  in der Oberfläche geprüft.
+- **Neu `editor-reference-path.spec.ts`** (E1): T01 → T02 → T03 per Drag&Drop
+  **mit** Konfiguration: Abschluss je Knoten, Vorgänger T02/T03, für T03
+  zusätzlich UND Zeitfenster (2030-01-15 10:00–12:00 UTC, im Browser
+  eingetippt) und eigener Autorentext. Gespeichert, neue Sitzung, wieder
+  geöffnet; jeder Knoten, jede Kante, jede Bedingung, jeder Wert und der
+  Text einzeln geprüft – am Server und im Editor.
+- **Beobachtung (zur Entscheidung):** Eine Assistenz, die als Bearbeiter
+  eines **verborgenen** Pfads eingetragen ist, den sie nicht angelegt hat,
+  sieht ihn in der Übersicht nicht (`learning_paths.php`, #472) und kommt
+  damit nicht an ihn heran. Die Kette R1/R2 schaltet den Pfad deshalb
+  sichtbar, bevor sie ihn teilt.
+- **Erweiterte Ketten:** C1 – je Variante eine zweite Person auf demselben
+  Pfad (über denselben Gastkurs, Seed `local_adele_fixture_negative_person`),
+  die nichts abschließt und gesperrt bleibt; das Feedback nennt den noch
+  fehlenden Vorgänger. L1 – realer Zugang je Stufe (nächster Kurs offen,
+  übernächster zu). A – neue Sitzung zählt dieselbe Route; die nicht
+  gewählte Alternative bleibt unerledigt; T04 nennt gesperrt beide
+  Alternativen. M – eine unbeteiligte Person auf einem anderen Pfad mit T02
+  behält ihren Zugang durch beide Änderungen. O4 – Prozentwert der
+  Fortschrittsanzeige je Kombination. Z – Startzustand in Z2–Z4; Z1: der
+  Autor hängt T04 an den abgeschlossenen Pfad, der Abschluss geht zurück
+  (3/4, 75 %), nach T04 wieder 100 %.
+- **D ist ein Vertragstest** und heißt so: das CAT-Ergebnis wird als Signal
+  eingespielt, keine Browser-Journey durch einen CAT-Test.
+- **PHPUnit `timed_duration_boundaries_test`:** relative Frist (ab Zuweisung
+  und ab erster Einschreibung) sekundengenau um Beginn und Ende, für zwei
+  Personen mit verschiedenem Start; im Browser prüft T3 nur beidseits des
+  Neuberechnungs-Puffers.
+- **H (mod_adele):** Quelle „jeder Kurs des Pfads" jetzt auch mit den Modi
+  „hidden" (gelistet, gesperrt, Kurs zu) und „none" (nicht eingeschrieben);
+  neue Gastkurse E2EHOST7/8. Neu E2EHOST9: eine Einschreibung, die ADELE
+  selbst erzeugt (Quelle „Startknoten"), trägt niemanden auf einen weiteren
+  Pfad, der im selben Kurs für „diesen Kurs" eingebettet ist (#37).
+  Mutationsprobe: rot erst, wenn beide Schutzregeln im Beobachter fehlen
+  (Einschreibemethode „adele" und `has_foreign_enrolment`) – jede allein
+  genügt; rot schon im Vorbedingungsschritt.
+- **PHPUnit-Wahrheitstabellen:** Zeitfenster UND/ODER Vorgänger je sechs
+  Zeilen (`uc21`, `uc22`), die Klammerung (P UND T) ODER M zur Laufzeit mit
+  allen acht Zeilen (`uc23`). Gegenprobe: Zeitbedingung invertiert – genau
+  die zwei Zeilen rot, in denen die Zeit entscheidet.
+- **Seed:** vergisst bei Fixture-Lernenden die Abschlüsse in **allen**
+  Fixture-Kursen (T01, T02, …), nicht nur in den Kursen ihres Pfads. Befund:
+  Z1 hängt T04 an; der Abschluss von T04 aus dem Lauf davor war noch da
+  (Datenbank geprüft), der verlängerte Pfad war sofort wieder fertig.
+- **Beobachtung, nicht reproduziert:** Ein Lauf von `final-completion`
+  meldete für Z3 und Z4 im Bericht „Not completed <Datum vom 7. Oktober>"
+  statt „Not completed"; der nächste Lauf war grün. Ursache nicht belegt.

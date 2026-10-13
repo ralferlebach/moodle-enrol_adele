@@ -1792,3 +1792,110 @@ Domäne. Nur Testcode, Seed und Workflow geändert; kein Produktcode.
   ohne Befund.
   Ausgeliefert als „local_adele: E2E-Issue (User-Story-Vervollständigung),
   Paket 2".
+
+## Teil 56 — E2E-Issue, Paket 3: Isolierung, Zeitmodell, Kettenlücken (2026-10-12)
+
+Version `2026100723`. Aus dem E2E-Issue §3B (Isolierung, keine pauschalen
+Wartezeiten, echte Klicks, deterministische Namen) und §2 (Kettenlücken
+R1/R2, R3–R6 direkt, E1, C1, L1, A, M, O4, Z, T, D). Kein Produktcode
+geändert; Seed, Testhilfen, Specs, Workflow, eine PHPUnit-Datei.
+
+- **Isolierung:** `reseedFixtures()` vor jeder Spec-Datei (Zeit-Dateien:
+  vor jedem Test); `zz-`-Präfix entfällt (`time-conditions`,
+  `time-feedback`). Gesamtlauf local 78 Tests in 36,5 min (vorher 70 in
+  rund 22 min; Mehrkosten durch Seeds und neue Tests).
+- **Befund, Ursache belegt:** V2 („Zugang endet, wo der Kurs den Pfad
+  verlässt") war im ersten Lauf mit Reseed rot. Der Referenz-Lernende
+  (`student01`) stand aus einem früheren Lauf zusätzlich auf Linear A2 und
+  „Verzweigt gestapelt B1" und hatte über Linear A2 eine aktive
+  ADELE-Einschreibung in T01 (Datenbank geprüft). Seed entfernt jetzt alle
+  anderen Fixture-Lernenden von den importierten Pfaden; danach V2 grün.
+  Wie `student01` auf die beiden Pfade kam, ist nicht ermittelt.
+- **Befund, Ursache belegt:** Die Testhilfe las den Leinwand-Transform von
+  `.vue-flow__viewport`; das Element trägt keinen (Messung). Gemessen wird
+  jetzt `.vue-flow__transformationpane`. Erst damit ließ sich „Leinwand in
+  Ruhe" statt fester Wartezeiten verwenden.
+- **Befund:** Mit echten Klicks war das i-Symbol von Knoten 1 in der
+  Lernendenansicht (Standard-Viewport) nicht klickbar – es lag unter der
+  Navigationsleiste, weil die Leinwand ein fester Rahmen ist. Die Ketten
+  holen den Pfad jetzt mit der eigenen Schaltfläche „Ansicht anpassen" ins
+  Bild (`fitPathView()`), wie eine Person es tun würde.
+- **Befund (Produktverhalten, zur Entscheidung):** Eine Assistenz, die als
+  Bearbeiter eines verborgenen Pfads eingetragen ist, den sie nicht angelegt
+  hat, sieht ihn in der Übersicht nicht (`learning_paths.php`, #472).
+- **Neue Tests:** `roles-direct-access` (5), `roles-own-and-foreign-paths`
+  (2), `editor-reference-path` (1), PHPUnit `timed_duration_boundaries_test`
+  (5; Gegenprobe mit verschobenem Periodenende rot).
+- **Erweitert:** C1 (Negativperson je Variante über denselben Gastkurs,
+  Feedback nennt fehlenden Vorgänger), L1 (realer Zugang je Stufe), A (neue
+  Sitzung, nicht gewählte Alternative), M (unbeteiligte Person auf anderem
+  Pfad behält T02), O4 (Prozentwert je Kombination), Z (Startzustand in
+  Z2–Z4; Z1: Autor hängt T04 an – nicht mehr abgeschlossen, nach T04 wieder
+  abgeschlossen), D (als Vertragstest gekennzeichnet).
+- **Nachgezogen im selben Paket:** E2-Laufzeit-Wahrheitstabelle (PHPUnit
+  `uc23`, acht Zeilen), T-UND/ODER-Wahrheitstabellen (`uc21`, `uc22`),
+  H Quelle „jeder Kurs" × hidden/none und Quereinschreibung #37 (E2E, mod).
+  F: jede Lesung der Kette meldet sich neu an (`learnerReads`), damit ist
+  „neue Sitzung" je Zustand bereits abgedeckt. P: die vorhandenen Ketten
+  decken Rollen, `contextid` und Schreibversuche ab (keine Änderung).
+- **Befund, Ursache belegt:** Z1 (Pfad wird um T04 verlängert) war in einem
+  Gesamtlauf rot: Der Abschluss von T04 aus dem gezielten Lauf davor bestand
+  noch (Datenbank). Seed vergisst jetzt Abschlüsse in allen Fixture-Kursen.
+- **Beobachtung, Ursache nicht belegt:** ein Lauf mit Z3/Z4 rot
+  („Not completed <7. Oktober>" aus `completionReport`), der nächste grün.
+- **Offen aus §2:** echte CAT-Journey im Browser – in den Fixtures gibt es
+  keinen kalibrierten Itempool; D bleibt als Vertragstest gekennzeichnet.
+  „Verbindliches Gate": Auslöser bleibt nach Entscheidung manuell.
+
+## Teil 57 — Jest-Issue, Teil 1: Fixtures, Matrizen P0, Coverage-Gate (2026-10-13)
+
+Version `2026100723` (zusammen mit Teil 56 ausgeliefert). Auftrag:
+Jest-Issue „Systematische Jest-Testschicht".
+
+- **Fixtures** `vue3/tests/unit/fixtures/`: `nodeFactory`, `feedbackFactory`,
+  `learningPathFactory`, `relationFactory`, `storeFactory` (Strings
+  antworten mit ihrem Schlüssel, wenn ein Test keinen Text vorgibt),
+  `conditionFactory`, `merge`, `knownDefect`. Keine Produktlogik.
+- **Matrizen (P0):** `useStatusMessage` (Tabelle aller Codes, Teil- und
+  Fehldaten, reaktiver Lebenszyklus), `MasterConditions` (2×2, beide
+  Richtungen, Unabhängigkeit, Altdaten), `ProgressBar` (Grenzwerte, jeder
+  Status × 0/Mitte/100; Werte außerhalb 0..100 als *ist*-Verhalten
+  festgehalten – Spezifikation offen), neue Specs `feedbackNode`,
+  `timed_dates` (Komponente und Store-Prüfung stimmen überein),
+  `parent_node_completed`, `UserInformation`/`UserFeedbackBlock`
+  (Fallback before_active→before_valid, ODER zwischen Spalten,
+  Abschlusstexte je Zustand).
+- **Befund (Entwurf `local_adele-issue-feedback-first-letter.md`):**
+  `UserFeedbackBlock.capitalize()` verwirft den großgeschriebenen ersten
+  Text. Test als `knownDefect` (übersprungen, sichtbar).
+- **Befund, Ursache belegt:** Mit `coverageProvider: "v8"` lieferten zwei
+  Läufe desselben Codes verschiedene Abdeckung (ProgressBar.vue 100 % und
+  87,87 %, useStatusMessage.js 98,59 % und 67,6 %), auch `--runInBand`.
+  Umgestellt auf Istanbul (`babel`): zweimal identisch. Die Zahlen sind
+  niedriger, weil Istanbul die kompilierten Templates mitzählt.
+- **Coverage-Gate** in `jest.config.js`: global die gemessene Basis
+  (abgerundet), eigene Gates für die Matrix-Dateien. `npm test` scheitert,
+  wenn die Abdeckung sinkt.
+- **CI:** neuer Workflow `jest.yml` lädt Testreport, Log und lcov hoch; der
+  Lauf in „Moodle Plugin CI" bleibt als Gate.
+- **README:** Abschnitt „Tests: which layer proves what".
+- **ESLint:** Für `vue3/` gibt es keine ESLint-Konfiguration im Repository
+  (ESLint 9 findet keine `eslint.config.*`); nicht geprüft.
+- **Mutationsproben (Jest):** `d`/`e` vertauscht → 6 rot; before_valid vor
+  before_active → 3 rot; Master-Abschluss an Master-Zugang gebunden → 5 rot;
+  UND-Verbinder entfernt → 3 rot; Balkenbreite halbiert → 26 rot. Jeweils
+  zurückgesetzt, danach grün.
+- **Jest:** 82 Suiten, 509 bestanden, 1 übersprungen (bekannter Fehler);
+  vorher 385.
+- **Offen (folgende Teile):** CustomNodeEdit-Matrix (A2), manuelle Zustände
+  (C), feedbackNodeRestriction (D3), UserList/LearningPathList/userSearch
+  (F3, G), Completion-Conditions (I), Graphstruktur (J), #574/#575 (L/M),
+  Mutationsproben der Jest-Matrizen.
+- **Prüfstand `2026100723` (Teile 56 und 57):** E2E enrol 6, mod 17,
+  local 78 bestanden (Gesamtlauf nach dem letzten Seed-Stand),
+  Story-Abdeckung in allen drei „complete"; PHPUnit local 402, enrol 57,
+  mod 25; Jest 509 bestanden, 1 übersprungen (bekannter Fehler), Gate grün,
+  zweimal gleich; phpcs im Moodle-Baum und PHPDoc-Checker ohne Befund;
+  actionlint (inkl. `jest.yml`) ohne Befund. Kein Vue-Quellcode geändert,
+  daher kein neuer Build.
+  Ausgeliefert als „local_adele: E2E-Issue Paket 3 + Jest-Issue Teil 1".

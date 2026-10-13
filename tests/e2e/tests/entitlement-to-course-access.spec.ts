@@ -45,7 +45,12 @@ import {
   fixtureCourse,
   fixturePassword,
   referencePath,
+  reseedFixtures,
 } from '../support/fixtures';
+
+// Every file starts from the seeded state, whatever ran before it
+// (support/fixtures: reseedFixtures; E2E issue, section 3B).
+test.beforeAll(() => reseedFixtures());
 
 test.describe('ADELE-E2E-V1 — entitlement reaches the real course', () => {
   test('the learner can open the reachable course of their path', { tag: ['@story:V1'] }, async ({ page }) => {

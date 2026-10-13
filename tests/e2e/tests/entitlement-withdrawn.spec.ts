@@ -49,6 +49,7 @@ import {
   fixtureCourse,
   fixturePassword,
   referencePath,
+  reseedFixtures,
 } from '../support/fixtures';
 
 /** The learner of the second path, which keeps the course. */
@@ -56,6 +57,10 @@ const otherLearner = () => fixture('ADELE_FIXTURE_LEARNER_LINEAR_A2');
 
 /** The Vue application's mount point. */
 const app = (page: Page) => page.locator('[id^="local-adele-app"]');
+
+// Every file starts from the seeded state, whatever ran before it
+// (support/fixtures: reseedFixtures; E2E issue, section 3B).
+test.beforeAll(() => reseedFixtures());
 
 test.describe('ADELE-E2E-V2 — a course that leaves the path takes its access with it', () => {
   test('refused save, removed condition, moved entitlement, deleted path', { tag: ['@story:V2'] }, async ({ page }) => {
