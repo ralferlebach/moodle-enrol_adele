@@ -62,8 +62,57 @@ class observer {
             return;
         }
 
-        $userid = (int) $event->relateduserid;
-        $courseid = (int) $event->courseid;
+        self::left_course((int) $event->courseid, (int) $event->relateduserid, false);
+    }
+
+    /**
+     * A user lost a role in some course.
+     *
+     * Taking part in a course is a matter of the role (local_adele #587): a
+     * participant who becomes a teacher of the course has left its learners
+     * exactly like somebody who was unenrolled - with the same consequences
+     * and the same grace period for the learning history. Whether anything
+     * still carries the user is decided by {@see is_user_carried()}; a
+     * teacher who merely lost one of several roles and still takes part is
+     * carried, and nothing happens.
+     *
+     * @param \core\event\role_unassigned $event The event.
+     * @return void
+     */
+    public static function role_unassigned(\core\event\role_unassigned $event): void {
+        global $DB;
+
+        $context = $event->get_context();
+        if (!$context || $context->contextlevel != CONTEXT_COURSE) {
+            return;
+        }
+        // ADELE's own role bookkeeping is nobody leaving.
+        if (($event->other['component'] ?? '') === 'enrol_adele') {
+            return;
+        }
+        if (!class_exists('\local_adele\enrol_state')) {
+            return;
+        }
+        if (!$DB->get_manager()->table_exists('local_adele_path_user')) {
+            return;
+        }
+        self::left_course((int) $context->instanceid, (int) $event->relateduserid, true);
+    }
+
+    /**
+     * Somebody stopped being a participant of a course - by unenrolment or
+     * by losing the role: withdraw what the learning paths embedded there
+     * gave them, unless something still carries them.
+     *
+     * @param int $courseid The course.
+     * @param int $userid The user.
+     * @param bool $learnersonly Skip paths the user has no subscription to. For role
+     *     changes: a teacher losing one of two teaching roles never was a learner
+     *     and has nothing to be withdrawn. Unenrolment keeps its unconditional purge.
+     * @return void
+     */
+    private static function left_course(int $courseid, int $userid, bool $learnersonly): void {
+        global $DB;
 
         // Learning paths embedded in the course the user just left. Read via
         // local_adele's own host-course index rather than mod_adele's {adele}
@@ -77,6 +126,12 @@ class observer {
             if (self::is_user_carried($lpid, $userid)) {
                 continue;
             }
+            if (
+                $learnersonly
+                && !$DB->record_exists('local_adele_path_user', ['learning_path_id' => $lpid, 'user_id' => $userid])
+            ) {
+                continue;
+            }
             // Withdraw access NOW — that part is correct and wanted the
             // moment entitlement ends — but do not destroy the learning
             // history yet. The user path record is the only copy of node
@@ -87,7 +142,9 @@ class observer {
             // prove durable (issue #3).
             $task = new \enrol_adele\task\remove_user_path_adhoc();
             $task->set_custom_data(['learningpathid' => $lpid, 'userid' => $userid]);
-            $task->set_next_run_time(time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS);
+            $runat = \core\di::get(\core\clock::class)->time()
+                + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS;
+            $task->set_next_run_time($runat);
             \core\task\manager::queue_adhoc_task($task, true);
 
             reconciler::purge_user($lpid, $userid);
@@ -118,7 +175,8 @@ class observer {
      * enrolled in a starting-node course, option 3 while enrolled in any node
      * course. For options 2 and 3, enrolments created by ADELE's own
      * instances do not count — otherwise access would keep itself alive
-     * circularly.
+     * circularly. In every case "enrolled" means: as a participant
+     * (local_adele #587) — teaching a course carries nobody.
      *
      * @param int $lpid The learning path id.
      * @param int $userid The user id.
@@ -185,7 +243,8 @@ class observer {
     }
 
     /**
-     * Whether the user holds any non-ADELE enrolment in one of the given courses.
+     * Whether the user takes part in one of the given courses by their own
+     * right: a non-ADELE enrolment, as a participant.
      *
      * Suspended enrolments count. Expired enrolments (timeend passed),
      * not-yet-started enrolments (timestart in the future) and enrolments
@@ -202,8 +261,8 @@ class observer {
             return false;
         }
         [$insql, $inparams] = $DB->get_in_or_equal(array_unique($courseids), SQL_PARAMS_NAMED);
-        $now = time();
-        $sql = "SELECT 1
+        $now = \core\di::get(\core\clock::class)->time();
+        $sql = "SELECT DISTINCT e.courseid
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON e.id = ue.enrolid
                  WHERE ue.userid = :userid
@@ -212,11 +271,20 @@ class observer {
                        AND (ue.timestart = 0 OR ue.timestart <= :now1)
                        AND (ue.timeend = 0 OR ue.timeend > :now2)
                        AND e.courseid {$insql}";
-        return $DB->record_exists_sql($sql, [
+        $enrolledin = $DB->get_fieldset_sql($sql, [
             'userid' => $userid,
             'enabled' => ENROL_INSTANCE_ENABLED,
             'now1' => $now,
             'now2' => $now,
         ] + $inparams);
+        // ... and only as a PARTICIPANT (local_adele #587). The definition is
+        // local_adele's, shared with mod_adele's participant sources; the
+        // declared dependency guarantees the method.
+        foreach ($enrolledin as $courseid) {
+            if (\local_adele\enrol_state::is_participant((int) $courseid, $userid)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

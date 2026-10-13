@@ -1,0 +1,42 @@
+[DE start] dndnode_1 status=accessible
+    INFO: Zugangskriterien: unbeschränkt zugänglich Abschlusskriterien: • diesen Kurs bearbeiten.
+    FEEDBACK: Dieser Kurs/Stapel ist freigeschaltet. Um diesen Kurs/Stapel abzuschließen, müssen Sie: diesen Kurs erfolgreich bearbeiten.
+[DE start] dndnode_2 status=not_accessible
+    INFO: Zugangskriterien: - Abschluss des Vorgängers „Testkurs 01“ Abschlusskriterien: • diesen Kurs bearbeiten.
+    FEEDBACK: Sie haben keinen Zugang zu diesem Kurs/Stapel. Eine Freischaltung erfolgt, wenn: Abschluss des Vorgängers „Testkurs 01“. Um diesen Kurs/Stapel abzuschließen, müssen Sie: diesen Kurs erfolgreich bearbeiten.
+[DE start] dndnode_3 status=not_accessible
+    INFO: Zugangskriterien: - Abschluss des Vorgängers „Testkurs 02“ Abschlusskriterien: • diesen Kurs bearbeiten.
+    FEEDBACK: Sie haben keinen Zugang zu diesem Kurs/Stapel. Eine Freischaltung erfolgt, wenn: Abschluss des Vorgängers „Testkurs 02“. Um diesen Kurs/Stapel abzuschließen, müssen Sie: diesen Kurs erfolgreich bearbeiten.
+[DE after T01] dndnode_1 status=completed
+    INFO: Zugangskriterien: unbeschränkt zugänglich Abschlusskriterien: • Complete diesen Kurs.
+    FEEDBACK: Dieser Kurs/Stapel ist freigeschaltet. Dieser Kurs/Stapel gilt als abgeschlossen, weil Sie: successfully completed diesen Kurs.
+[DE after T01] dndnode_2 status=accessible
+    INFO: Zugangskriterien: - Abschluss des Vorgängers „Testkurs 01“ Abschlusskriterien: • Complete diesen Kurs.
+    FEEDBACK: Dieser Kurs/Stapel ist freigeschaltet. Um diesen Kurs/Stapel abzuschließen, müssen Sie: successfully complete diesen Kurs.
+[AND start (both missing)] dndnode_2 status=not_accessible
+    INFO: Access criteria: - Completion of the predecessor „Testkurs 01“ and 15/01/31, 10:00 to 15/01/31, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: You do not have access to this course/stack. It will be unlocked when: Completion of the predecessor „Testkurs 01“ and from 15/01/31, 10:00. From subscription you have access until 15/01/31, 12:00. To complete this course/stack, you need to: successfully complete this course.
+[OR start (both missing)] dndnode_2 status=not_accessible
+    INFO: Access criteria: - Completion of the predecessor „Testkurs 01“ - 15/01/31, 10:00 to 15/01/31, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: You do not have access to this course/stack. It will be unlocked when: Completion of the predecessor „Testkurs 01“ or from 15/01/31, 10:00. To complete this course/stack, you need to: successfully complete this course.
+[AND predecessor done, before window] dndnode_2 status=not_accessible
+    INFO: Access criteria: - Completion of the predecessor „Testkurs 01“ and 15/01/31, 10:00 to 15/01/31, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: You do not have access to this course/stack. It will be unlocked when: from 15/01/31, 10:00. From subscription you have access until 15/01/31, 12:00. To complete this course/stack, you need to: successfully complete this course.
+[OR predecessor done] dndnode_2 status=accessible
+    INFO: Access criteria: - Completion of the predecessor „Testkurs 01“ - 15/01/31, 10:00 to 15/01/31, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: This course/stack is unlocked. To complete this course/stack, you need to: successfully complete this course.
+[TIME before] dndnode_1 status=not_accessible
+    INFO: Access criteria: - 15/01/30, 10:00 to 15/01/30, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: You do not have access to this course/stack. It will be unlocked when: from 15/01/30, 10:00. From subscription you have access until 15/01/30, 12:00. To complete this course/stack, you need to: successfully complete this course.
+[TIME inside] dndnode_1 status=not_accessible
+    INFO: Access criteria: - 15/01/30, 10:00 to 15/01/30, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: You do not have access to this course/stack. It will be unlocked when: from 15/01/30, 10:00. From subscription you have access until 15/01/30, 12:00. To complete this course/stack, you need to: successfully complete this course.
+[TIME after] dndnode_1 status=not_accessible
+    INFO: Access criteria: - 15/01/30, 10:00 to 15/01/30, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: This course/stack can no longer be unlocked by you. To complete this course/stack, you need to: successfully complete this course.
+[AND in window, predecessor done] dndnode_2 status=not_accessible
+    INFO: Access criteria: - Completion of the predecessor „Testkurs 01“ and 15/01/31, 10:00 to 15/01/31, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: You do not have access to this course/stack. It will be unlocked when: from 15/01/31, 10:00. From subscription you have access until 15/01/31, 12:00. To complete this course/stack, you need to: successfully complete this course.
+[OR in window, predecessor done] dndnode_2 status=accessible
+    INFO: Access criteria: - Completion of the predecessor „Testkurs 01“ - 15/01/31, 10:00 to 15/01/31, 12:00 Completion criteria: • Complete this course.
+    FEEDBACK: This course/stack is unlocked. To complete this course/stack, you need to: successfully complete this course.

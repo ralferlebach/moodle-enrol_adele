@@ -231,7 +231,7 @@ class reconciler {
         // management page reads this back instead. Stored as plugin config
         // rather than in a table of its own, because a single last-run
         // summary does not justify a schema.
-        set_config('lastreport', json_encode($report + ['timestamp' => time()]), 'enrol_adele');
+        set_config('lastreport', json_encode($report + ['timestamp' => \core\di::get(\core\clock::class)->time()]), 'enrol_adele');
 
         if ($trace) {
             $trace->output(
@@ -511,7 +511,9 @@ class reconciler {
 
             $task = new \enrol_adele\task\remove_user_path_adhoc();
             $task->set_custom_data(['learningpathid' => $lpid, 'userid' => $userid]);
-            $task->set_next_run_time(time() + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS);
+            $runat = \core\di::get(\core\clock::class)->time()
+                + \enrol_adele\task\remove_user_path_adhoc::DELAY_SECONDS;
+            $task->set_next_run_time($runat);
             \core\task\manager::queue_adhoc_task($task, true);
             $queued++;
         }
@@ -566,7 +568,7 @@ class reconciler {
             return 0;
         }
 
-        $cutoff = time() - ($days * DAYSECS);
+        $cutoff = \core\di::get(\core\clock::class)->time() - ($days * DAYSECS);
         $expired = $DB->get_records_sql(
             "SELECT ue.id, ue.userid, ue.enrolid
                FROM {user_enrolments} ue

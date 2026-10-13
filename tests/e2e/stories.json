@@ -1,0 +1,8 @@
+{
+  "plugin": "enrol_adele",
+  "required": [
+    "V1",
+    "V2"
+  ],
+  "note": "Section 27 of the test plan: the central E2E contract - entitlement reaches the real course, and leaves it again."
+}

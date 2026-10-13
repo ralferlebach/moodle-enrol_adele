@@ -33,4 +33,10 @@ $observers = [
         'eventname' => '\core\event\user_enrolment_deleted',
         'callback' => '\enrol_adele\observer::user_enrolment_deleted',
     ],
+    // So does losing the participant's role there (local_adele #587): who
+    // only teaches a course is not carried by it.
+    [
+        'eventname' => '\core\event\role_unassigned',
+        'callback' => '\enrol_adele\observer::role_unassigned',
+    ],
 ];

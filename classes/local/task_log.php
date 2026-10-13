@@ -80,7 +80,7 @@ class task_log {
                 'affected' => $affected,
                 'outcome' => $outcome,
                 'message' => \core_text::substr($message, 0, 200),
-                'timefinished' => time(),
+                'timefinished' => \core\di::get(\core\clock::class)->time(),
             ]);
             set_config(self::CONFIG_KEY, json_encode(array_slice($entries, 0, self::KEEP)), 'enrol_adele');
         } catch (\Throwable $e) {

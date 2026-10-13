@@ -26,19 +26,18 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
-$plugin->release = '0.4.0';
-$plugin->version = 2026082903;
-$plugin->requires = 2022112800;
+$plugin->release = '0.5.0';
+$plugin->version = 2026100724;
+// Moodle 4.5 (2024100700) is the lowest supported version; 4.4 and older
+// are no longer supported. The trio could not be installed below 4.5 anyway,
+// because mod_adele requires 2024100700.
+$plugin->requires = 2024100700;
 $plugin->maturity = MATURITY_ALPHA;
-// The lower bound is 4.5, not 4.1: this plugin alone would run on 4.1,
-// but it depends on local_adele, which depends on mod_adele, which
-// requires 2024100700. The trio is therefore only installable from 4.5.
-// $plugin->requires stays at 4.1 so an existing installation is not
-// locked out by a metadata change alone.
-$plugin->supported = [405, 502];
+$plugin->supported = [405, 405];
 // Requires a local_adele version that provides enrol_state::
 // get_host_entitlement(), get_host_embeddings() and
 // get_learningpaths_with_host_embeddings(), which the host sweep calls.
 $plugin->dependencies = [
-    'local_adele' => 2026082902,
+    // 2026100708: enrol_state::is_participant(), the rule of who takes part in a course (local_adele #587).
+    'local_adele' => 2026100708,
 ];

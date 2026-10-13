@@ -24,7 +24,7 @@ This plugin requires Moodle 4.5+
 It also requires the other AdeLe plugins. All three are developed together and must be installed in matching versions:
 
 * **local_adele (AdeLe learning paths)** - required dependency, declared in version.php\
-  https://github.com/Wunderbyte-GmbH/moodle_local_adele
+  https://github.com/Wunderbyte-GmbH/moodle-local_adele
 * **mod_adele (AdeLe activity)** - part of the same set, required by local_adele\
   https://github.com/Wunderbyte-GmbH/moodle-mod_adele
 
