@@ -2120,3 +2120,113 @@ Produktcode, kein PHP, keine E2E-Datei.
   Ausgeliefert als „E2E-Issue (Addendum Negativkontrollen)",
   „local_adele: NVDA-Workflow" und „local_adele+enrol_adele+mod_adele:
   Abnahmeregel Withdrawal".
+
+## Teil 61 — Entscheidungen zu Quellen-Entzug und „none"; umgesetzt und getestet (2026-10-13)
+
+- **Entscheidungen des Nutzers** (zu den zwei in Teil 60 festgeschriebenen
+  Regeln): „1. ja. Bitte auch abtesten! 2. sperren, später löschen - beides
+  aber mittesten".
+  1. Das Entfernen einer Teilnehmerquelle wirkt **beim Speichern**.
+  2. „none" nach aktiver Host-Einschreibung: **sofort sperren, nach der
+     Aufbewahrungsfrist löschen**.
+- **Umsetzung (Produkt):**
+  - enrol_adele `reconciler::remove_uncarried_user()` – die eine Stelle,
+    die prüft (`observer::is_user_carried`) und entfernt (Abo,
+    Knoten- und Host-Einschreibungen). `remove_user_path_adhoc` nutzt sie
+    nach seiner Verzögerung, neu `withdraw_uncarried_subscriptions()` sofort.
+    Dieselbe Sicherung: Ist mod_adele nicht erreichbar, wird nichts
+    entfernt.
+  - enrol_adele `reconcile_host_embedding_adhoc`: mit `withdrawuncarried`
+    in den Daten folgt dem Host-Abgleich der sofortige Entzug.
+  - mod_adele `adele_update_instance()` setzt dieses Kennzeichen (für den
+    aktuellen und, bei Pfadwechsel, den vorherigen Pfad). Ein älteres
+    enrol_adele ignoriert es (dann wie bisher nächtlich).
+  - **Bewusst unverändert:** Die Verzögerung von 300 s für
+    Einschreibungs-Ereignisse (enrol_adele #3, Resync/Bulk-Import) bleibt.
+    Das **Löschen einer Aktivität** löst weiterhin nur den Host-Abgleich
+    aus; ob auch dort sofort entzogen werden soll, ist nicht entschieden.
+  - **Folge, festgehalten:** Wer eine Quelle entfernt und gleich wieder
+    hinzufügt, nimmt den Betroffenen ihre Lernhistorie auf diesem Pfad
+    (neues Abo, leerer Verlauf). Das war vorher durch die Verzögerung
+    geschützt.
+  - enrol_adele Pass 8 (`purge_expired_suspensions`): Eine gesperrte
+    Host-Einschreibung einer **berechtigten** Person bleibt nur noch im
+    Modus „hidden" dauerhaft; im Modus „none" wird sie nach
+    `suspendedretention` (Standard 90 Tage) entfernt.
+- **PHPUnit (enrol, neu `withdrawn_settings_test.php`, 4 Tests):** Quelle
+  entfernt mit Kennzeichen → A sofort ohne Abo, B (andere Quelle) behält
+  es samt Verlauf, A's eigene Hostkurs-Einschreibung bleibt; ohne
+  Kennzeichen → nichts sofort (Gegenprobe); mod_adele nicht erreichbar →
+  nichts entfernt; „none" gesperrt, 89 Tage bleibt, 91 Tage entfernt,
+  „hidden" bleibt auch nach 91 Tagen. Mutationsproben: alte Pass-8-Regel
+  → rot; Kennzeichen ignoriert → rot.
+- **E2E (`withdrawn-settings.spec.ts`):**
+  - B: A verliert Pfad, ADELE-Einschreibung im Eingangskurs und Zugang
+    **direkt nach dem Speichern** – kein nächtlicher Lauf, keine Uhr.
+  - A: visible → hidden → (Aufbewahrungsfrist + 1 Tag auf der Testuhr,
+    nächtlicher Abgleich) „hidden" bleibt → none: „Suspended" →
+    (Aufbewahrungsfrist + 1 Tag) entfernt, Liste „absent", die Person mit
+    eigener Einschreibung hat nur noch diese und weiter Zugang → visible:
+    „Active", Zugang.
+  - Mutationsproben: kein sofortiger Entzug → B rot; alte Pass-8-Regel →
+    A rot („Suspended" statt „absent"); Pass 8 löscht auch „hidden" → A
+    rot („absent" statt „Suspended"). Jeweils zurückgesetzt.
+- **Nebenbei:** Die Umgebung war stundenlang unbenutzt; PostgreSQL lief
+  nicht mehr und wurde neu gestartet (`ensure.sh`).
+
+## Teil 62 — local_adele #596–#599 behoben (2026-10-13)
+
+- **Auftrag:** „Bitte weiter mit den noch offenen Issues, vor allem #596 bis
+  #599". Die vier sind die Jest-Befunde aus Teil 58, vom Nutzer eingereicht
+  (Wunderbyte-GmbH/moodle-local_adele; Inhalt per Webseite gelesen – die
+  GitHub-API meldet weiter „No linked GitHub account").
+- **#596 Erster Feedbacktext ohne Großbuchstaben** –
+  `UserFeedbackBlock.vue` `capitalize()`: das großgeschriebene Ergebnis wird
+  jetzt zugewiesen. Jest: der Known-Defect-Test läuft regulär; sechs
+  Matrix-Erwartungen hatten das alte Verhalten festgeschrieben und sind
+  angepasst, die Abwesenheitsprüfung „inbetween" vergleicht jetzt ohne
+  Groß-/Kleinschreibung (sonst bestünde sie auch, wenn der Text groß
+  geschrieben doch erscheint). **E2E-Kette F (AK 3):** gemessen geändert –
+  erster Eintrag jeder Liste groß, auf Englisch und Deutsch („Successfully
+  complete this course.", „Manual release by the teacher.", „From
+  15/01/32, 10:00.", „Diesen Kurs erfolgreich bearbeiten." …); Erwartungen in
+  `support/feedback.ts`, `feedback-texts.spec.ts`, `time-feedback.spec.ts`
+  angepasst, beide Specs 10/10.
+- **#597 Unbekannter Status zeigt Play** – `CustomNodeEdit.vue`: das Symbol
+  ist jetzt ein `computed` aus `useNodeStatus().status` (Play nur bei
+  `accessible`/`completed` und nicht `status_restriction = after`), statt in
+  `onMounted` selbst entschieden. Die zwei Known-Defect-Zeilen laufen
+  regulär.
+- **#598 Gleiche ID für beide manuellen Kästchen** – IDs
+  `<node>_manual_restriction` und `<node>_manual_completion`, jedes Label
+  zeigt auf sein Kästchen. Jest: Known-Defect-Test regulär; der ältere
+  `manual_output.spec.js` erwartete die alte ID und prüft jetzt die neue
+  samt `for`. **E2E (AK 3):** `teacherSets` und die Hilfen in
+  `access-manual-release`, `manual-completion`, `final-completion` prüfen,
+  dass das per Label gefundene Kästchen die ID seiner Art trägt.
+- **#599 Bearbeiterliste vor der Antwort des Servers** –
+  `store.js` `createLpEditUsers`/`removeLpEditUsers` geben die Anfrage
+  zurück; `userSearch.vue` `addUser`/`removeUser` warten und ändern die
+  Liste nur bei Erfolg. Den Grund einer Ablehnung meldet `ajax()` bereits
+  (`Notification.exception`). Die zwei Known-Defect-Tests laufen regulär.
+  **Coverage-Gate:** userSearch fiel bei Zweigen auf 72,1 % (Gate 74) –
+  nicht durch neuen ungetesteten Code (dieselben 17 Zweige wie vorher offen,
+  10 davon in Babels async-Hilfsfunktion), sondern weil `removeUser` weniger
+  Zweige hat. Statt das Gate zu senken: drei neue Tests für echtes
+  Verhalten – Vorschlagsliste schließt bei Klick außerhalb, abgelehnte
+  Eigentumsübergabe ändert nichts, Eigentümeranzeige (Name / „ohne
+  Eigentümer" / keins, #571). Gate grün.
+- **Jest:** 94 Suiten, 699 bestanden, **0 übersprungen** (alle bekannten
+  Fehler behoben). Vue gebaut, `amd/build/app-lazy*` ersetzt.
+- **Prüfstand `2026100727`** (Teil 61 und 62 zusammen): phpcs im
+  Moodle-Baum und PHPDoc-Checker ohne Befund; actionlint ohne Befund;
+  PHPUnit local 402, enrol 61 (+4), mod 25; Jest 94 Suiten, 699 bestanden,
+  0 übersprungen, Gates grün; Smoke 17; Behat `mod_adele_use` grün (mit dem
+  neuen Build); E2E local 78/78, enrol 6/6, mod 21/21, Story-Abdeckung
+  einschließlich „Withdrawal control" in allen drei vollständig.
+  Ein erster Gesamtlauf für `2026100727` starb mit dem Webserver und
+  PostgreSQL, als die Umgebung während einer Unterbrechung pausiert war; der
+  zweite wurde nach den Korrekturen für #596–#599 gestartet.
+  Ausgeliefert als „local_adele #596, #597, #598, #599",
+  „enrol_adele+mod_adele: Entscheidungen Quellen-Entzug / none" und
+  „E2E-Issue (Addendum)".

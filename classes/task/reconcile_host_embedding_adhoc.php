@@ -61,5 +61,11 @@ class reconcile_host_embedding_adhoc extends \core\task\adhoc_task {
             return;
         }
         reconciler::reconcile_host_embedding($learningpathid, $hostcourseid);
+        // Queued by a teacher's save (mod_adele): subscriptions this change
+        // left without a carrying embedding go now, not after the nightly
+        // sweep (decision of 2026-10-13).
+        if (!empty($data->withdrawuncarried)) {
+            reconciler::withdraw_uncarried_subscriptions($learningpathid);
+        }
     }
 }

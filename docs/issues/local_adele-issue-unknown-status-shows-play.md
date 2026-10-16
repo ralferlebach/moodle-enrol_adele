@@ -1,5 +1,7 @@
 # Issue-Entwurf (local_adele): Knoten mit unbekanntem Status zeigt „Zum Kurs" (Play)
 
+> **Stand:** eingereicht als local_adele #597 (2026-10-13), behoben mit `2026100727` (Protokoll Teil 62).
+
 **Gefunden:** Jest-Matrix `CustomNodeEdit.matrix.spec.js` (Jest-Issue,
 Bereich A2/L), Session 006, Teil 58.
 

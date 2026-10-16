@@ -786,3 +786,15 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **Festgehaltene Regeln (offen zur Entscheidung):** Entfernen einer
   Quelle wirkt erst nach nächtlichem Abgleich + 300 s (enrol_adele #3);
   „none" nach aktiver Einschreibung sperrt statt zu löschen (#587).
+
+## Nachtrag `2026100727`: die zwei Regeln entschieden und getestet
+
+- **Quelle entfernt → Entzug beim Speichern** (Entscheidung 2026-10-13).
+  Kette B prüft das ohne Abgleich und ohne Uhr; die Verzögerung von
+  enrol_adele #3 gilt nur noch für Einschreibungs-Ereignisse.
+- **„none" → sperren, nach der Aufbewahrungsfrist löschen; „hidden" bleibt.**
+  Kette A schiebt die Testuhr je einmal um Frist + 1 Tag, lässt den
+  nächtlichen Abgleich laufen und prüft beides: „hidden" bleibt, „none"
+  verschwindet; die eigene Einschreibung der zweiten Person bleibt.
+- Die Einträge „offen zur Entscheidung" im Nachtrag `2026100726` sind damit
+  erledigt.
