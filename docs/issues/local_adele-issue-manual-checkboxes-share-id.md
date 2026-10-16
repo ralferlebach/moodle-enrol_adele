@@ -1,5 +1,7 @@
 # Issue-Entwurf (local_adele): „Knoten manuell freischalten" und „Knoten manuell abschließen" teilen eine ID
 
+> **Stand:** eingereicht als local_adele #598 (2026-10-13), behoben mit `2026100727` (Protokoll Teil 62).
+
 **Gefunden:** Jest-Matrix `ManualControls.matrix.spec.js` (Jest-Issue,
 Bereich C), Session 006, Teil 58.
 

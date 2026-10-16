@@ -26,7 +26,6 @@
 namespace enrol_adele\task;
 
 use enrol_adele\local\reconciler;
-use enrol_adele\observer;
 
 /**
  * Deletes a user's local_adele_path_user record — but only once the reason
@@ -113,22 +112,12 @@ class remove_user_path_adhoc extends \core\task\adhoc_task {
             return;
         }
 
-        if (observer::is_user_carried($learningpathid, $userid)) {
-            // The removal did not stick — a resync, a corrected mistake, a
-            // rebuilt membership. The snapshot stays and the user picks up
-            // where they left off; access is restored by the reconciler,
-            // which the re-enrolment event has already triggered.
-            return;
-        }
-
-        $DB->delete_records(
-            'local_adele_path_user',
-            ['learning_path_id' => $learningpathid, 'user_id' => $userid]
-        );
-
-        // Close the window described above: anything re-enrolled while the
-        // record was still active goes now.
-        reconciler::purge_user($learningpathid, $userid);
-        reconciler::purge_all_host_user($learningpathid, $userid);
+        // If the user is carried again - a resync, a corrected mistake, a
+        // rebuilt membership - the snapshot stays and the user picks up where
+        // they left off; access is restored by the reconciler, which the
+        // re-enrolment event has already triggered. Otherwise the record goes,
+        // and with it anything re-enrolled while it was still active (the
+        // window described above).
+        reconciler::remove_uncarried_user($learningpathid, $userid);
     }
 }

@@ -1,5 +1,7 @@
 # Issue-Entwurf (local_adele): Erster Feedbacktext beginnt nicht mit Großbuchstaben
 
+> **Stand:** eingereicht als local_adele #596 (2026-10-13), behoben mit `2026100727` (Protokoll Teil 62).
+
 **Gefunden:** Jest-Matrix `UserInformation.matrix.spec.js` (Jest-Issue
 „Systematische Jest-Testschicht", Bereich E), Session 006, Teil 57.
 

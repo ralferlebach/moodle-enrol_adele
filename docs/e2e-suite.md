@@ -9,7 +9,7 @@ Zwei Playwright-Suiten je Plugin, bewusst getrennt:
 |---|---|---|---|
 | Smoke | `tests/playwright/`, `playwright.yml` | wie bisher | schnelle Rauchprobe |
 | **E2E** | `tests/e2e/`, **`e2e.yml`** | **nur manuell** | ganze Ketten über alle drei Plugins |
-| **Screenreader** | `local_adele/tests/a11y-screenreader/`, **`a11y-screenreader.yml`** | **nur manuell**, Windows | was NVDA tatsächlich vorliest |
+| **Screenreader** | `local_adele/tests/a11y-screenreader/`, **`a11y-screenreader.yml`** | **nur manuell**, Linux-Instanz + Windows/NVDA über Tunnel | was NVDA tatsächlich vorliest |
 
 ## 1. Starten
 
@@ -237,17 +237,25 @@ Seite, und der Test liest NVDAs Sprachprotokoll.
 - **Keine Wiederholungen.** Ein Lauf, der erst im zweiten Anlauf grün wird,
   sagt nichts darüber, was eine Person beim ersten Mal gehört hätte.
 
-**Der Workflow baut keine Moodle-Instanz.** Service-Container gibt es nur
-unter Linux, und NVDA nur unter Windows. Der Lauf richtet sich deshalb gegen
-eine **bestehende** Instanz:
+**Der Workflow baut seine Instanz selbst** (seit `2026100726`, nach dem
+Vorbild von local_stackmatheditor `a11y-nvda.yml`). Keine Eingabe einer
+Adresse, keine Secrets. Zwei Jobs:
 
-| Eingabe/Geheimnis | Bedeutung |
-|---|---|
-| `base_url` | Adresse der Instanz, auf der die drei Plugins und die Fixtures liegen |
-| `ADELE_A11Y_USER`, `ADELE_A11Y_PASSWORD` | Konto auf dieser Instanz (Repository-Secrets) |
+| Job | Runner | Aufgabe |
+|---|---|---|
+| `site` | ubuntu-24.04 | baut, seedet (`seed.php` + `seed_fixtures.php`) und betreibt dieselbe Instanz wie `e2e.yml`, öffnet einen temporären Cloudflare-Tunnel, setzt `wwwroot` darauf (`sslproxy`), übergibt Adresse und Seed-Werte als Artefakt `nvda-site` und bleibt oben, bis `nvda-done` erscheint |
+| `nvda` | windows-2025 | Guidepup-Setup 0.24.1, `npm ci`, NVDA passend zur installierten Bibliothek, wartet auf `nvda-site`, prüft die Erreichbarkeit über den Tunnel, führt die Suite aus, lädt das Ergebnis hoch und meldet `nvda-done` |
+
+Eingaben: nur der Titelfilter (`grep`), die Geschwister-Referenz
+(`sibling_ref`) und die Aufbewahrungsdauer. **Feste Versionen:**
+`@guidepup/guidepup` 0.33.0 mit `@guidepup/playwright` 0.19.1 und
+`@guidepup/setup` 0.24.1 – die Kombination, die Guidepups eigenes
+Playwright-Projekt fährt. Mit einer neueren Bibliothek (das Lockfile hatte
+0.35.0) installiert das Setup ein NVDA, das die Integration nicht findet.
 
 Im Artefakt liegt neben Report und Video das **Sprachprotokoll** je Test
-(`nvda-spoken-phrases.txt`, als Anhang im HTML-Report). Es ist das, was eine
+(`nvda-spoken-phrases.txt`, als Anhang im HTML-Report, und als
+`transcripts/*.txt` mit Commit, Datum und Adresse im Kopf). Es ist das, was eine
 Durchsicht zuerst lesen sollte; das Video zeigt denselben Lauf von außen.
 
 Umgesetzt ist bisher `ADELE-SR-01`: Die Übersicht wird vorgelesen, und die
@@ -256,8 +264,10 @@ zusätzlich mit seinem Zustand (gedrückt/nicht gedrückt). Das ist die
 Gegenprobe zu #575 B2.
 
 **Noch nie gelaufen.** Diese Suite ist in der Linux-Umgebung der Entwicklung
-nicht ausführbar; geprüft sind bisher nur Typen, Konfiguration und Workflow
-(actionlint). Der erste echte Lauf muss auf einem Windows-Runner erfolgen.
+nicht ausführbar; geprüft sind Workflow (actionlint), Lockfile-Auflösung und
+die Übergabedatei gegen eine echte Seed-Ausgabe (genau eine
+`ADELE_BASE_URL`, Konto aus dem Seed). Tunnel und Windows-Job zeigt erst
+der erste Lauf auf GitHub.
 
 ## 5c. Drag&Drop im Editor
 
@@ -739,3 +749,62 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **Beobachtung, nicht reproduziert:** Ein Lauf von `final-completion`
   meldete für Z3 und Z4 im Bericht „Not completed <Datum vom 7. Oktober>"
   statt „Not completed"; der nächste Lauf war grün. Ursache nicht belegt.
+
+## Nachtrag `2026100725`: kein Test in zwei Dateien
+
+- **Anlass:** Im Fork lief `2026100724` (Run 38391579634) mit zwei
+  liegengebliebenen Vorgängerdateien (`zz-time-conditions.spec.ts`,
+  `zz-time-feedback.spec.ts`, umbenannt in `2026100723`). Sie liefen als
+  zweite, veraltete Fassung derselben Tests und waren rot (5); die 78
+  aktuellen Tests waren grün. Beide Dateien sind im Fork entfernt
+  (2026-10-13).
+- **Neu:** `support/unique-tests.mjs` und der Workflow-Schritt „Check that no
+  test exists twice" (vor der Suite, alle drei Plugins). Liste aus
+  `npx playwright test --list --reporter=json`; derselbe Titel in zwei
+  Dateien → Fehler mit den Dateinamen, die Suite startet nicht.
+- **Smoke (`tests/playwright`, local_adele):** B4-Lernendenzugang aus
+  PR #8 (Fork) aufgenommen; siehe Protokoll Teil 59.
+- **Behat (mod_adele):** `tests/behat/mod_adele_use.feature` aus PR #16 –
+  Aktivität anlegen, Pfad wählen, Teilnehmendenliste (nur bewertete
+  Rollen), Pfad eines Lernenden mit gesperrten Knoten. Läuft in Moodle
+  Plugin CI von mod_adele, nicht im E2E-Workflow.
+
+## Nachtrag `2026100726`: Rücknahmen als Negativkontrollen, Abnahmeregel
+
+- **Neu `withdrawn-settings.spec.ts` (mod_adele, 4 Tests):** Einstellungen,
+  die schon gewirkt haben, werden im Formular derselben Aktivität
+  zurückgenommen – Hostmodus (H3, für „Startknoten" und „irgendein Kurs"),
+  eine Teilnehmerquelle (H2), „Teilnehmerergebnisse" (P1/P2). Geprüft
+  werden Anzeige, Server und echter Zugang, Unbeteiligte und die Rückkehr.
+  Seed: `E2EHOST10`–`12`, `fx_h_dual`, `fx_h_source`, Einbettung
+  „E2E P switchable results".
+- **Formular-Hilfen** liegen jetzt in `mod_adele/tests/e2e/support/host.ts`
+  (vorher in `host-course-participants.spec.ts`), dazu `editEmbedding`,
+  `embeddingCmid`, `storedEmbedding`.
+- **Abnahmeregel:** `stories.json` → `withdrawal`; eine dort genannte Story
+  ist nur abgenommen mit einem bestandenen Test, der `@withdrawal` trägt.
+- **Festgehaltene Regeln (offen zur Entscheidung):** Entfernen einer
+  Quelle wirkt erst nach nächtlichem Abgleich + 300 s (enrol_adele #3);
+  „none" nach aktiver Einschreibung sperrt statt zu löschen (#587).
+
+## Nachtrag `2026100727`: die zwei Regeln entschieden und getestet
+
+- **Quelle entfernt → Entzug beim Speichern** (Entscheidung 2026-10-13).
+  Kette B prüft das ohne Abgleich und ohne Uhr; die Verzögerung von
+  enrol_adele #3 gilt nur noch für Einschreibungs-Ereignisse.
+- **„none" → sperren, nach der Aufbewahrungsfrist löschen; „hidden" bleibt.**
+  Kette A schiebt die Testuhr je einmal um Frist + 1 Tag, lässt den
+  nächtlichen Abgleich laufen und prüft beides: „hidden" bleibt, „none"
+  verschwindet; die eigene Einschreibung der zweiten Person bleibt.
+- Die Einträge „offen zur Entscheidung" im Nachtrag `2026100726` sind damit
+  erledigt.
+
+## Nachtrag `2026100728`: gelöscht ist weg, Neustart aus dem Kursstand, D
+
+- **H1 „gelöscht ist sauber weg"** (mod, `withdrawn-settings.spec.ts`):
+  Löschen entzieht sofort; Wiederherstellen aus dem Papierkorb schreibt
+  wieder ein, mit dem Stand aus den Kursen (T01 abgeschlossen).
+- **Neues Abo = faktischer Lernstand** (Entscheidung 2026-10-15), auch in
+  Kette B geprüft.
+- **D:** ein späterer, schlechterer CAT-Versuch nimmt nichts zurück
+  (Bestergebnis); die anderen Lernenden bleiben unverändert.

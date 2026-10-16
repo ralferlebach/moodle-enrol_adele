@@ -1950,3 +1950,358 @@ Produktcode, kein PHP, keine E2E-Datei.
   übrigen E2E-Suiten nicht erneut: weder Produktcode noch E2E-Dateien
   geändert (Stand `2026100723`: mod 17, local 78).
   Ausgeliefert als „local_adele: Jest-Issue Teil 2".
+
+## Teil 59 — PRs integriert (mod_adele #16, local_adele PR #8 aus dem Fork); E2E im Fork rot durch Altdateien (2026-10-13)
+
+- **Auftrag:** „Bitte schaue dir einmal folgende PRs an und integriere diese
+  (wenn noch nicht geschehen) in die development-Versionen:
+  mod_adele/pull/16, ralferlebach/moodle-local_adele/pull/8. Dann liefere
+  wieder aus." Danach: „Dann bitte den E2E-Test fixen." (mit den Logs des
+  E2E-Laufs local_adele im Fork).
+- **Stand vorher:** keiner der beiden PRs war in development. Die Basis
+  beider PRs war in den betroffenen Dateien byte-gleich mit den
+  Arbeitskopien; die Patches ließen sich ohne Konflikt anwenden.
+- **local_adele PR #8 (azadehebrahimpour, Smoke-Suite `tests/playwright`):**
+  übernommen. `seed.php` legt dem Playwright-Lernenden ein Passwort, einen
+  Hostkurs mit ADELE-Aktivität auf dem Smoke-Pfad und exportiert
+  `ADELE_STUDENT_USERNAME` und `ADELE_B4_ACTIVITY_CMID`; `support/env.ts`
+  liest beide; neu `tests/issue470-b4-student-access.spec.ts` (B4: keine
+  Navigation „Lernpfade", Verwaltung per URL abgelehnt, Pfad in der
+  Aktivität ohne Bearbeitungselemente). Angepasst nur in der Form:
+  Einrückung, Docblock, Leerzeichen nach Komma in der Liste der erwarteten
+  Variablen. Smoke-Suite: 17 bestanden (vorher 14).
+  **Hinweis zum dritten B4-Test:** gemessen, dass auf
+  `mod/adele/view.php` auch der Administrator kein `#save-learning-path`
+  hat (0 für Admin und Lernenden) – die Prüfung „keine
+  Bearbeitungselemente" kann dort nicht rot werden. Der Test ist wie
+  geliefert übernommen; ein trennscharfes Merkmal wäre mit der Autorin zu
+  klären.
+- **mod_adele #16 (Andrii Semenets):**
+  - `tests/backup_restore_test.php` (`userlist` 1, `participantslist` [1]):
+    übernommen, grün.
+  - `tests/behat/mod_adele_use.feature` (neu): übernommen und an die
+    development-Texte angepasst, weil der PR gegen den Stand von Februar
+    geschrieben ist: Feld „Learning path enrolment" mit „for people
+    enrolled in this course" (vorher „Choose an option for how people get
+    subscribed …"/„Everyone who is subscribed to that course"),
+    „Hide  User list", Spalten „First name"/„Last name"/„Completed nodes",
+    „No progress", „0/3", „Learning path for:", App-Container per
+    `[id^='local-adele-app']` (die ID trägt die cmid). **Inhaltlich
+    geändert:** Die Lehrperson steht nicht mehr in der Teilnehmendenliste –
+    in development zählen nur bewertete Rollen (local_adele #593); der
+    Schritt prüft das jetzt ausdrücklich („should not exist").
+    Lokal mit Behat (Chromium 141, passender ChromeDriver) dreimal grün,
+    32 Schritte.
+  - `moodle-plugin-ci.yml`: **nicht übernommen.** Der PR fügt einen Job für
+    Moodle 4.1 hinzu und holt `Wunderbyte-GmbH/moodle_local_adele` (alter
+    Name) und `local_wunderbyte_table` auf festen DEV-Branches. Das
+    widerspricht der Entscheidung vom 2026-10-06 (nur Moodle 4.5) und der
+    Geschwister-Auflösung über Owner/Branch in development.
+- **E2E im Fork rot (Lauf vom 2026-10-13, Commit `10d5b60`, `2026100724`):**
+  78 bestanden, 5 rot – alle fünf in `zz-time-conditions.spec.ts` und
+  `zz-time-feedback.spec.ts`. **Ursache (belegt):** Der Fork-Stand ist bis
+  auf diese zwei Dateien gleich dem ausgelieferten `2026100724`. Die beiden
+  sind die Vorgänger von `time-conditions.spec.ts`/`time-feedback.spec.ts`
+  (umbenannt in `2026100723`); beim Entpacken über den Checkout blieben sie
+  liegen. Alle 78 aktuellen Tests waren grün. enrol_adele und mod_adele im
+  Fork: keine Altdateien.
+  - **Behebung im Repository:** die zwei Dateien löschen – vom Nutzer am
+    2026-10-13 erledigt
+    (`git rm tests/e2e/tests/zz-time-conditions.spec.ts
+    tests/e2e/tests/zz-time-feedback.spec.ts`). Aus dieser Sitzung kein
+    Push möglich.
+  - **Damit es nicht wieder still passiert:** neuer Schritt „Check that no
+    test exists twice" in `e2e.yml` (alle drei) vor der Suite,
+    `support/unique-tests.mjs`: Derselbe Titel (describe › test) in zwei
+    Dateien beendet den Job sofort und nennt die Dateien. Probe: mit den
+    beiden Altdateien genau die 5 Titel gemeldet, Exit 1; ohne sie local 78,
+    enrol 6, mod 17 Tests, Exit 0. actionlint ohne Befund.
+  - Ab jetzt nennt jede Auslieferung die Dateien, die gegenüber der
+    vorigen entfallen sind.
+- **Behat-Umgebung lokal:** `config.php` des Prüfstands um
+  `behat_wwwroot` (Port 8002), `behat_dataroot` und ein Chrome-Profil
+  ergänzt; nur Prüfstand, nichts davon im Plugin.
+
+## Teil 60 — Addendum Negativkontrollen (A–C), Abnahmeregel, NVDA im Tunnel (2026-10-13)
+
+- **Auftrag:** „Bitte die integrierten PRs ausliefern, dann erst mit der
+  Erweiterung um die Negativ-Kontrollen in den E2E-Tests beginnen.
+  Außerdem die NVDA-Tests in Github Actions umsetzen, so wie bei
+  mod_flexaccess oder mod_elang!" – Vorbild präzisiert: „nimm
+  …/moodle-local_stackmatheditor/actions/workflows/a11y-nvda.yml".
+  Dann: „OK, mache 0726 fertig und liefer diesen dann ebenso aus."
+- **Stand `2026100725` nachgetragen:** E2E local 78/78, enrol 6/6, Story-
+  Abdeckung beide vollständig. Der mod-Lauf wurde für `2026100726`
+  abgebrochen; dessen mod-Lauf umfasst den Stand von 25 (dieselben Specs
+  plus die neuen).
+- **Neu `mod_adele/tests/e2e/tests/withdrawn-settings.spec.ts`** (4 Tests),
+  jede Kette: Ausgangslage → Wirkung (Liste UND echter Zugang) → dieselbe
+  Aktivität im Moodle-Formular ändern, speichern → Aufgaben abarbeiten →
+  neue Sitzung → sichtbar → echter Zugang → Unbeteiligte unverändert →
+  zurück. Gespeicherte Einstellung jeweils am Server gelesen.
+  - **A (H3), zweimal** („Startknoten", „irgendein Kurs des Pfads"):
+    visible → hidden → none → visible. Eine Person mit eigener manueller
+    Einschreibung im Hostkurs (`fx_h_dual`) behält sie und den Zugang in
+    jeder Stufe.
+  - **B (H2):** Quellen „dieser Kurs" + „Startknoten"; „dieser Kurs"
+    entfernt: A (`fx_h_source`, nur über diese Quelle auf dem Pfad) verliert
+    Pfad und Eingangskurs, behält die eigene Hostkurs-Einschreibung; B
+    (Startknoten) behält Hostkurs, Liste „Active". Wiederhergestellt: A
+    wieder auf dem Pfad und im Eingangskurs.
+  - **C (P1/P2):** eigene Einbettung „E2E P switchable results" (startet
+    „alle"). Auf „nur eigene": eine vorher geöffnete Seite zeigt nach dem
+    Neuladen Beta nicht mehr, eine neue Sitzung ebenso, und die Antworten
+    des Servers enthalten Beta nicht – auch nicht die vorher erfolgreiche
+    Anfrage, auch nicht mit Betas userid. Lehrperson sieht weiter beide.
+    Zurück auf „alle": Alpha sieht beide, Außenstehende weiter nichts.
+- **Zwei Regeln des Produkts, festgehalten statt behauptet (offene
+  Entscheidungen, keine Befunde):**
+  - **Quelle entfernt → Abmeldung verzögert.** Das Speichern entfernt das
+    Pfad-Abo nicht. Erst der nächtliche Abgleich (Pass 7,
+    `sweep_uncarried_subscriptions`) stellt die Entfernung ein, mit
+    300 s Verzögerung (`remove_user_path_adhoc::DELAY_SECONDS`, Schutz der
+    Lernhistorie, enrol_adele #3). Die Kette prüft genau diesen Ablauf
+    (Testuhr +360 s) und hält fest, dass A direkt nach dem Speichern noch
+    auf dem Pfad steht. **Frage:** Soll das Entfernen einer Quelle sofort
+    wirken?
+  - **„none" nach aktiver Einschreibung → gesperrt, nicht gelöscht.**
+    Zugang weg, Eintrag bleibt als „Suspended" (suspend-not-delete, Pass 8
+    entfernt nach der Aufbewahrungsfrist). Hängt an der offenen
+    Entscheidung „löschen vs. sperren" (#587); bis dahin festgeschrieben.
+- **Befunde beim Bau (Test, nicht Produkt):** Der Link einer Aktivität
+  trägt im zugänglichen Namen mehr als ihren Namen – exakte Suche fand
+  nichts; jetzt über Ziel und sichtbaren Text. Zugang über eine
+  nicht-ADELE-Einschreibung braucht eine eigene Prüfung
+  (`expectCourseOpenAnyEnrolment`), `expectCourseOpenAfterTasks` verlangt
+  ADELE als Grund. Seed: meine Schleife überschrieb `$shortnames` und
+  damit die Kurs-Exporte – umbenannt.
+- **Mutationsproben:** (A) Speichern ohne Reconcile → **grün** – der
+  Observer `saved_module` setzt den Modus ebenfalls; die Probe sagt also
+  nur: doppelt abgesichert. (A') bestehende Host-Einschreibungen werden
+  nie herabgestuft → beide A-Tests rot („Active" statt „Suspended").
+  (B) Pass 7 aus → rot (A bleibt auf dem Pfad). (C) Server ignoriert „nur
+  eigene" → rot (Antwort enthält Beta). Jeweils zurückgesetzt.
+- **D (CAT-Signal):** nicht begonnen – laut Addendum erst nach der
+  fachlichen Entscheidung, welcher Versuch maßgeblich ist und ob ein
+  späteres Ergebnis eine Freigabe widerruft.
+- **Abnahmeregel umgesetzt:** `stories.json` hat je Plugin eine Liste
+  `withdrawal`; `story-coverage.mjs` (alle drei, byte-gleich) verlangt für
+  jede dieser Stories einen bestandenen Test, der zusätzlich `@withdrawal`
+  trägt, und zeigt eine zweite Tabelle „Withdrawal control". Getaggt:
+  local C3, L3/O1, O2 (Variante 5), O4, L4/O3, R4, R5, M1/M2, Z1, Z3, Z4;
+  enrol V2; mod H1 (H1b), H2, H3, P1/P2. Probe gegen das alte mod-Ergebnis
+  ohne Tags: H1, H2, H3, P1, P2 „missing", nicht abgenommen.
+- **NVDA:** `a11y-screenreader.yml` neu nach local_stackmatheditor: Job
+  `site` (Ubuntu) baut und seedet die Instanz wie `e2e.yml`, Tunnel über
+  cloudflared, `wwwroot` + `sslproxy`, Übergabe als Artefakt; Job `nvda`
+  (windows-2025) mit Guidepup-Setup 0.24.1, Bibliothek 0.33.0,
+  Integration 0.19.1 (vorher löste das Lockfile 0.35.0 auf – genau die
+  Kombination, bei der stackmatheditor „NVDA not installed" bekam).
+  Keine URL-Eingabe, keine Secrets mehr. Transkripte als
+  `transcripts/*.txt`. Lokal geprüft: actionlint, Lockfile, Übergabedatei
+  gegen echte Seed-Ausgabe (genau eine `ADELE_BASE_URL`, Admin-Konto aus
+  dem Seed – ein festes `Admin!23` wäre falsch gewesen, `seed.php` setzt
+  das Passwort neu). Tunnel und Windows-Job: erst auf GitHub prüfbar.
+- **Befund im Gesamtlauf (Test):** H1 rot im ersten mod-Lauf – „strict
+  mode violation": der Link der Aktivität stand für das Mitglied zweimal da,
+  im Kursinhalt und im Kursindex links. Warum der Kursindex diesmal offen
+  war, ist nicht belegt. Die Suche nach dem Aktivitätslink ist jetzt an
+  allen drei Stellen auf den Hauptbereich beschränkt
+  (`host-course-participants.spec.ts` zweimal, `support/host.ts`).
+- **Prüfstand `2026100726`:** phpcs (nach Korrektur dreier
+  Kommentar-Einrückungen im Seed) und PHPDoc-Checker ohne Befund;
+  actionlint ohne Befund; PHPUnit local 402, enrol 57, mod 25; Jest 94
+  Suiten, 688 bestanden, 6 übersprungen, Gate grün; Smoke 17; E2E local
+  78/78, enrol 6/6, mod 21/21 (nach der Korrektur; vorher 20/21) – Story-
+  Abdeckung einschließlich „Withdrawal control" in allen drei vollständig;
+  Duplikat-Prüfung local 78, enrol 6, mod 21. Behat nicht erneut (mod-
+  Produktcode und Feature unverändert seit `2026100725`). NVDA: siehe oben,
+  erst auf GitHub prüfbar.
+  Ausgeliefert als „E2E-Issue (Addendum Negativkontrollen)",
+  „local_adele: NVDA-Workflow" und „local_adele+enrol_adele+mod_adele:
+  Abnahmeregel Withdrawal".
+
+## Teil 61 — Entscheidungen zu Quellen-Entzug und „none"; umgesetzt und getestet (2026-10-13)
+
+- **Entscheidungen des Nutzers** (zu den zwei in Teil 60 festgeschriebenen
+  Regeln): „1. ja. Bitte auch abtesten! 2. sperren, später löschen - beides
+  aber mittesten".
+  1. Das Entfernen einer Teilnehmerquelle wirkt **beim Speichern**.
+  2. „none" nach aktiver Host-Einschreibung: **sofort sperren, nach der
+     Aufbewahrungsfrist löschen**.
+- **Umsetzung (Produkt):**
+  - enrol_adele `reconciler::remove_uncarried_user()` – die eine Stelle,
+    die prüft (`observer::is_user_carried`) und entfernt (Abo,
+    Knoten- und Host-Einschreibungen). `remove_user_path_adhoc` nutzt sie
+    nach seiner Verzögerung, neu `withdraw_uncarried_subscriptions()` sofort.
+    Dieselbe Sicherung: Ist mod_adele nicht erreichbar, wird nichts
+    entfernt.
+  - enrol_adele `reconcile_host_embedding_adhoc`: mit `withdrawuncarried`
+    in den Daten folgt dem Host-Abgleich der sofortige Entzug.
+  - mod_adele `adele_update_instance()` setzt dieses Kennzeichen (für den
+    aktuellen und, bei Pfadwechsel, den vorherigen Pfad). Ein älteres
+    enrol_adele ignoriert es (dann wie bisher nächtlich).
+  - **Bewusst unverändert:** Die Verzögerung von 300 s für
+    Einschreibungs-Ereignisse (enrol_adele #3, Resync/Bulk-Import) bleibt.
+    Das **Löschen einer Aktivität** löst weiterhin nur den Host-Abgleich
+    aus; ob auch dort sofort entzogen werden soll, ist nicht entschieden.
+  - **Folge, festgehalten:** Wer eine Quelle entfernt und gleich wieder
+    hinzufügt, nimmt den Betroffenen ihre Lernhistorie auf diesem Pfad
+    (neues Abo, leerer Verlauf). Das war vorher durch die Verzögerung
+    geschützt.
+  - enrol_adele Pass 8 (`purge_expired_suspensions`): Eine gesperrte
+    Host-Einschreibung einer **berechtigten** Person bleibt nur noch im
+    Modus „hidden" dauerhaft; im Modus „none" wird sie nach
+    `suspendedretention` (Standard 90 Tage) entfernt.
+- **PHPUnit (enrol, neu `withdrawn_settings_test.php`, 4 Tests):** Quelle
+  entfernt mit Kennzeichen → A sofort ohne Abo, B (andere Quelle) behält
+  es samt Verlauf, A's eigene Hostkurs-Einschreibung bleibt; ohne
+  Kennzeichen → nichts sofort (Gegenprobe); mod_adele nicht erreichbar →
+  nichts entfernt; „none" gesperrt, 89 Tage bleibt, 91 Tage entfernt,
+  „hidden" bleibt auch nach 91 Tagen. Mutationsproben: alte Pass-8-Regel
+  → rot; Kennzeichen ignoriert → rot.
+- **E2E (`withdrawn-settings.spec.ts`):**
+  - B: A verliert Pfad, ADELE-Einschreibung im Eingangskurs und Zugang
+    **direkt nach dem Speichern** – kein nächtlicher Lauf, keine Uhr.
+  - A: visible → hidden → (Aufbewahrungsfrist + 1 Tag auf der Testuhr,
+    nächtlicher Abgleich) „hidden" bleibt → none: „Suspended" →
+    (Aufbewahrungsfrist + 1 Tag) entfernt, Liste „absent", die Person mit
+    eigener Einschreibung hat nur noch diese und weiter Zugang → visible:
+    „Active", Zugang.
+  - Mutationsproben: kein sofortiger Entzug → B rot; alte Pass-8-Regel →
+    A rot („Suspended" statt „absent"); Pass 8 löscht auch „hidden" → A
+    rot („absent" statt „Suspended"). Jeweils zurückgesetzt.
+- **Nebenbei:** Die Umgebung war stundenlang unbenutzt; PostgreSQL lief
+  nicht mehr und wurde neu gestartet (`ensure.sh`).
+
+## Teil 62 — local_adele #596–#599 behoben (2026-10-13)
+
+- **Auftrag:** „Bitte weiter mit den noch offenen Issues, vor allem #596 bis
+  #599". Die vier sind die Jest-Befunde aus Teil 58, vom Nutzer eingereicht
+  (Wunderbyte-GmbH/moodle-local_adele; Inhalt per Webseite gelesen – die
+  GitHub-API meldet weiter „No linked GitHub account").
+- **#596 Erster Feedbacktext ohne Großbuchstaben** –
+  `UserFeedbackBlock.vue` `capitalize()`: das großgeschriebene Ergebnis wird
+  jetzt zugewiesen. Jest: der Known-Defect-Test läuft regulär; sechs
+  Matrix-Erwartungen hatten das alte Verhalten festgeschrieben und sind
+  angepasst, die Abwesenheitsprüfung „inbetween" vergleicht jetzt ohne
+  Groß-/Kleinschreibung (sonst bestünde sie auch, wenn der Text groß
+  geschrieben doch erscheint). **E2E-Kette F (AK 3):** gemessen geändert –
+  erster Eintrag jeder Liste groß, auf Englisch und Deutsch („Successfully
+  complete this course.", „Manual release by the teacher.", „From
+  15/01/32, 10:00.", „Diesen Kurs erfolgreich bearbeiten." …); Erwartungen in
+  `support/feedback.ts`, `feedback-texts.spec.ts`, `time-feedback.spec.ts`
+  angepasst, beide Specs 10/10.
+- **#597 Unbekannter Status zeigt Play** – `CustomNodeEdit.vue`: das Symbol
+  ist jetzt ein `computed` aus `useNodeStatus().status` (Play nur bei
+  `accessible`/`completed` und nicht `status_restriction = after`), statt in
+  `onMounted` selbst entschieden. Die zwei Known-Defect-Zeilen laufen
+  regulär.
+- **#598 Gleiche ID für beide manuellen Kästchen** – IDs
+  `<node>_manual_restriction` und `<node>_manual_completion`, jedes Label
+  zeigt auf sein Kästchen. Jest: Known-Defect-Test regulär; der ältere
+  `manual_output.spec.js` erwartete die alte ID und prüft jetzt die neue
+  samt `for`. **E2E (AK 3):** `teacherSets` und die Hilfen in
+  `access-manual-release`, `manual-completion`, `final-completion` prüfen,
+  dass das per Label gefundene Kästchen die ID seiner Art trägt.
+- **#599 Bearbeiterliste vor der Antwort des Servers** –
+  `store.js` `createLpEditUsers`/`removeLpEditUsers` geben die Anfrage
+  zurück; `userSearch.vue` `addUser`/`removeUser` warten und ändern die
+  Liste nur bei Erfolg. Den Grund einer Ablehnung meldet `ajax()` bereits
+  (`Notification.exception`). Die zwei Known-Defect-Tests laufen regulär.
+  **Coverage-Gate:** userSearch fiel bei Zweigen auf 72,1 % (Gate 74) –
+  nicht durch neuen ungetesteten Code (dieselben 17 Zweige wie vorher offen,
+  10 davon in Babels async-Hilfsfunktion), sondern weil `removeUser` weniger
+  Zweige hat. Statt das Gate zu senken: drei neue Tests für echtes
+  Verhalten – Vorschlagsliste schließt bei Klick außerhalb, abgelehnte
+  Eigentumsübergabe ändert nichts, Eigentümeranzeige (Name / „ohne
+  Eigentümer" / keins, #571). Gate grün.
+- **Jest:** 94 Suiten, 699 bestanden, **0 übersprungen** (alle bekannten
+  Fehler behoben). Vue gebaut, `amd/build/app-lazy*` ersetzt.
+- **Prüfstand `2026100727`** (Teil 61 und 62 zusammen): phpcs im
+  Moodle-Baum und PHPDoc-Checker ohne Befund; actionlint ohne Befund;
+  PHPUnit local 402, enrol 61 (+4), mod 25; Jest 94 Suiten, 699 bestanden,
+  0 übersprungen, Gates grün; Smoke 17; Behat `mod_adele_use` grün (mit dem
+  neuen Build); E2E local 78/78, enrol 6/6, mod 21/21, Story-Abdeckung
+  einschließlich „Withdrawal control" in allen drei vollständig.
+  Ein erster Gesamtlauf für `2026100727` starb mit dem Webserver und
+  PostgreSQL, als die Umgebung während einer Unterbrechung pausiert war; der
+  zweite wurde nach den Korrekturen für #596–#599 gestartet.
+  Ausgeliefert als „local_adele #596, #597, #598, #599",
+  „enrol_adele+mod_adele: Entscheidungen Quellen-Entzug / none" und
+  „E2E-Issue (Addendum)".
+
+## Teil 63 — Löschen = sauber weg, Wiederherstellung aus dem Kursstand, D mit Bestergebnis (2026-10-15)
+
+- **Entscheidungen des Nutzers:** „1. wie Vorschlag" (Löschen einer
+  mod_adele-Instanz entzieht sofort, leere Host-Methode wird aufgeräumt,
+  Wiederherstellen = neuer Start). „2. … ‚gelöscht ist weg' wie 1. … Der
+  Fortschritt in einem Lernpfad bestimmt sich durch die Kursmitgliedschaften
+  und die Ergebnisse darin, die bereits bestehen. D.h. ein neues
+  Lernpfad-Abo beginnt nicht von Null, sondern vom faktischen Lernstand in
+  der Kurslandschaft!" „3. so, wie es vorgesehen ist: Bestergebnis".
+- **Richtigstellung zu Teil 61:** Dort stand, ein Entfernen und
+  Wiederhinzufügen nehme „die Lernhistorie". Zu weit: Kursabschlüsse und
+  Ergebnisse liegen in den Kursen und werden beim neuen Abo wieder
+  gelesen. Verloren geht nur, was es nur in ADELE gibt (manuelle und
+  Master-Häkchen der Lehrperson, Startzeitpunkt relativer Zeitfenster).
+- **Umsetzung:**
+  - mod_adele `adele_delete_instance()`: Host-Abgleich **mit**
+    Entzugs-Kennzeichen (wie beim Speichern).
+  - enrol_adele `reconciler::remove_unused_host_instance()`: entfernt die
+    Host-Einschreibemethode eines Pfads aus einem Kurs, wenn dort keine
+    Einbettung mit „Startknoten"/„irgendein Kurs" mehr existiert – samt
+    restlicher Zeilen. Aufgerufen im Host-Abgleich mit Kennzeichen (also
+    beim Löschen und beim Speichern einer eingeengten Einbettung).
+  - **Befund (belegt) und Behebung:** Eine Wiederherstellung aus dem
+    Papierkorb löst kein `course_module_created` aus, nur
+    `course_bin_item_restored` (Log gemessen) – die wiederhergestellte
+    Einbettung schrieb niemanden ein. mod_adele
+    `restore_adele_activity_structure_step::after_restore()` tut jetzt
+    dasselbe wie das Anlegen (`mod_adele_observer::saved_module`) plus
+    Host-Abgleich. Gilt ebenso für Sicherung/Import.
+    (Ein erster Entwurf rief `\mod_adele\observer` auf – die Klasse heißt
+    `mod_adele_observer`; die E2E-Kette fiel darauf, behoben.)
+- **PHPUnit:** enrol `withdrawn_settings_test` +2 (gelöschte Einbettung:
+  A und B weg, C – von einer anderen Einbettung getragen – bleibt,
+  Host-Methode weg, eigene Einschreibung bleibt; Gegenprobe: Methode bleibt,
+  solange eine Einbettung sie braucht). mod neu `restore_subscribes_test`
+  (über den Papierkorb gelöscht und wiederhergestellt → Mitglied wieder
+  abonniert, Außenstehende nicht). **Probe:** Ein erster Entwurf nutzte
+  `duplicate_module()` – blieb ohne Behebung grün, weil das Duplizieren
+  selbst `course_module_created` auslöst; jetzt über den Papierkorb, ohne
+  Behebung rot.
+- **E2E (mod `withdrawn-settings.spec.ts`):**
+  - **neu H1 „gelöscht ist sauber weg":** Einbettung (dieser Kurs) → Person
+    schließt T01 ab → Löschen über Moodles Löschseite → sofort ohne Abo,
+    ohne ADELE-Einschreibung in T01, T01 zu, eigene Kursmitgliedschaft
+    bleibt → Wiederherstellen aus dem Papierkorb → wieder auf dem Pfad,
+    T01 abgeschlossen, T02 wie vorher.
+  - **B ergänzt:** A schließt T01 vor dem Entfernen der Quelle ab; nach dem
+    Wiederherstellen ist T01 abgeschlossen, T02 wie vorher.
+  - **Erwartung korrigiert (kein Befund):** „T02 wieder offen" war falsch –
+    im Fixture-Pfad Linear A1 verlangt Knoten 2 „Vorgänger UND Zeitfenster
+    bis 13.03.2026"; das Fenster ist vorbei. Die Ketten vergleichen T02
+    jetzt mit seinem Zustand vor der Änderung.
+  - Seed: `E2EHOST13`, Person `fx_h_delete`; Abschlüsse der
+    Ketten-Personen in allen `T__`-Kursen werden je Lauf vergessen.
+  - Mutationsproben: Löschen ohne Kennzeichen → rot („must no longer be on
+    the path"); `after_restore` ohne Einschreibung → rot.
+- **D (local `diagnosis-catquiz.spec.ts`):** Fall x+ε um zwei Schritte
+  ergänzt: ein späterer Versuch mit x−ε nimmt nichts zurück (Knoten 1
+  abgeschlossen, T02 offen); die anderen Lernenden sind danach genau wie
+  vorher (Momentaufnahme, unabhängig von Reihenfolge und Titelfilter).
+  **Wie das Produkt entscheidet (gelesen):** Die Bedingung gilt als
+  erfüllt, sobald **irgendein** Versuch besteht – bestandene Versuche
+  sammeln sich; `$bestresult` speist nur Platzhalter. Das ist
+  „Bestergebnis". Mutationsproben: bester → schlechtester Versuch für die
+  Anzeige → grün (zeigt: die Anzeige entscheidet nicht); „nur der letzte
+  Versuch zählt" → rot („the best result still counts").
+- **Prüfstand `2026100728`:** phpcs (nach Korrektur zweier Warnungen in
+  den neuen Tests: Zeilenlänge, Kommentaranfang) und PHPDoc-Checker ohne
+  Befund; PHPUnit local 402, enrol 63 (+2), mod 26 (+1); Jest 94 Suiten,
+  699 bestanden, 0 übersprungen; Smoke 17; Behat `mod_adele_use` grün; E2E
+  local 78/78, enrol 6/6, mod 22/22 (+1), Story-Abdeckung einschließlich
+  „Withdrawal control" in allen drei vollständig.
+  Ausgeliefert als „mod_adele+enrol_adele: Löschen = sauber weg,
+  Wiederherstellung schreibt ein" und „E2E-Issue (Addendum D)".

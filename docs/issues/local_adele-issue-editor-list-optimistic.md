@@ -1,5 +1,7 @@
 # Issue-Entwurf (local_adele): Bearbeiterliste zeigt Änderungen, die der Server abgelehnt hat
 
+> **Stand:** eingereicht als local_adele #599 (2026-10-13), behoben mit `2026100727` (Protokoll Teil 62).
+
 **Gefunden:** Jest-Matrix `userSearch.matrix.spec.js` (Jest-Issue, Bereich
 G2: „UI bleibt nach Fehler konsistent"), Session 006, Teil 58.
 

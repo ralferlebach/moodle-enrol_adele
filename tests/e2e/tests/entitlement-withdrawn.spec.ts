@@ -63,7 +63,7 @@ const app = (page: Page) => page.locator('[id^="local-adele-app"]');
 test.beforeAll(() => reseedFixtures());
 
 test.describe('ADELE-E2E-V2 — a course that leaves the path takes its access with it', () => {
-  test('refused save, removed condition, moved entitlement, deleted path', { tag: ['@story:V2'] }, async ({ page }) => {
+  test('refused save, removed condition, moved entitlement, deleted path', { tag: ['@story:V2', '@withdrawal'] }, async ({ page }) => {
     const entry = fixtureCourse('T01');
     const second = fixtureCourse('T02');
 
