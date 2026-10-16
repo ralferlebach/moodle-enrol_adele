@@ -40,6 +40,7 @@ use enrol_adele\task\reconcile_host_embedding_adhoc;
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers      \enrol_adele\local\reconciler::withdraw_uncarried_subscriptions
  * @covers      \enrol_adele\local\reconciler::remove_uncarried_user
+ * @covers      \enrol_adele\local\reconciler::remove_unused_host_instance
  * @covers      \enrol_adele\task\reconcile_host_embedding_adhoc
  */
 final class withdrawn_settings_test extends \advanced_testcase {
@@ -326,5 +327,80 @@ final class withdrawn_settings_test extends \advanced_testcase {
             $DB->record_exists('user_enrolments', ['id' => $uehidden->id]),
             '"hidden" is suspended by design and keeps the learner countable: never removed while entitled.'
         );
+    }
+
+    /**
+     * Deleted is (cleanly) gone (decision of 2026-10-15): deleting an
+     * embedding takes the subscriptions only it carried and the host
+     * enrolment method it needed; a learner another embedding carries keeps
+     * everything.
+     *
+     * @return void
+     */
+    public function test_deleted_embedding_is_cleanly_gone(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+
+        $node = $this->getDataGenerator()->create_course();
+        $host = $this->getDataGenerator()->create_course();
+        $otherhost = $this->getDataGenerator()->create_course();
+        $lpid = $this->path((int) $node->id);
+        $adeleid = $this->embed($lpid, (int) $host->id, '1,2');
+        $this->embed($lpid, (int) $otherhost->id, '1');
+
+        // A: member of the host course. B: in the starting node course - and
+        // so in the host course through ADELE. C: member of the OTHER course.
+        $a = $this->getDataGenerator()->create_user();
+        $b = $this->getDataGenerator()->create_user();
+        $c = $this->getDataGenerator()->create_user();
+        $suba = $this->subscribe($lpid, (int) $a->id);
+        $subb = $this->subscribe($lpid, (int) $b->id);
+        $subc = $this->subscribe($lpid, (int) $c->id);
+        $this->getDataGenerator()->enrol_user($a->id, $host->id, 'student', 'manual');
+        $this->getDataGenerator()->enrol_user($b->id, $node->id, 'student', 'manual');
+        $this->getDataGenerator()->enrol_user($c->id, $otherhost->id, 'student', 'manual');
+        reconciler::reconcile_all();
+        $this->assertNotFalse($this->host_ue($lpid, (int) $host->id, (int) $b->id), 'Precondition: B is in the host course.');
+
+        $DB->delete_records('adele', ['id' => $adeleid]);
+        $this->saved($lpid, (int) $host->id, true);
+
+        $this->assertFalse(
+            $DB->record_exists('local_adele_path_user', ['id' => $suba]),
+            'A: only the deleted embedding carried them.'
+        );
+        $this->assertFalse($DB->record_exists('local_adele_path_user', ['id' => $subb]), 'B: the same.');
+        $this->assertTrue($DB->record_exists('local_adele_path_user', ['id' => $subc]), 'C: carried by the other embedding.');
+        $this->assertEmpty(
+            instance_manager::get_instances($lpid, instance_manager::KIND_HOST)[(int) $host->id] ?? null,
+            'No embedding in the course needs the host enrolment method any more: it is gone, with its rows.'
+        );
+        $this->assertFalse($this->host_ue($lpid, (int) $host->id, (int) $b->id));
+        $this->assertTrue(is_enrolled(\context_course::instance($host->id), $a->id), "A's own enrolment stays.");
+    }
+
+    /**
+     * Counter-check: the host method stays while an embedding in the course
+     * still needs it.
+     *
+     * @return void
+     */
+    public function test_host_method_stays_while_an_embedding_needs_it(): void {
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+
+        $node = $this->getDataGenerator()->create_course();
+        $host = $this->getDataGenerator()->create_course();
+        $lpid = $this->path((int) $node->id);
+        $this->embed($lpid, (int) $host->id, '2');
+        $b = $this->getDataGenerator()->create_user();
+        $this->subscribe($lpid, (int) $b->id);
+        $this->getDataGenerator()->enrol_user($b->id, $node->id, 'student', 'manual');
+        reconciler::reconcile_all();
+
+        $this->assertFalse(reconciler::remove_unused_host_instance($lpid, (int) $host->id));
+        $this->assertNotEmpty(instance_manager::get_instances($lpid, instance_manager::KIND_HOST)[(int) $host->id] ?? null);
+        $this->assertNotFalse($this->host_ue($lpid, (int) $host->id, (int) $b->id));
     }
 }

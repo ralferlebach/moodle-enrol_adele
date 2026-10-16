@@ -798,3 +798,13 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   verschwindet; die eigene Einschreibung der zweiten Person bleibt.
 - Die Einträge „offen zur Entscheidung" im Nachtrag `2026100726` sind damit
   erledigt.
+
+## Nachtrag `2026100728`: gelöscht ist weg, Neustart aus dem Kursstand, D
+
+- **H1 „gelöscht ist sauber weg"** (mod, `withdrawn-settings.spec.ts`):
+  Löschen entzieht sofort; Wiederherstellen aus dem Papierkorb schreibt
+  wieder ein, mit dem Stand aus den Kursen (T01 abgeschlossen).
+- **Neues Abo = faktischer Lernstand** (Entscheidung 2026-10-15), auch in
+  Kette B geprüft.
+- **D:** ein späterer, schlechterer CAT-Versuch nimmt nichts zurück
+  (Bestergebnis); die anderen Lernenden bleiben unverändert.

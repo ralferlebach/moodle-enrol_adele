@@ -66,6 +66,10 @@ class reconcile_host_embedding_adhoc extends \core\task\adhoc_task {
         // sweep (decision of 2026-10-13).
         if (!empty($data->withdrawuncarried)) {
             reconciler::withdraw_uncarried_subscriptions($learningpathid);
+            // Deleted is (cleanly) gone (decision of 2026-10-15): a host
+            // enrolment method no embedding in this course needs any more
+            // goes too, with whatever rows it still held.
+            reconciler::remove_unused_host_instance($learningpathid, $hostcourseid);
         }
     }
 }

@@ -2230,3 +2230,78 @@ Produktcode, kein PHP, keine E2E-Datei.
   Ausgeliefert als „local_adele #596, #597, #598, #599",
   „enrol_adele+mod_adele: Entscheidungen Quellen-Entzug / none" und
   „E2E-Issue (Addendum)".
+
+## Teil 63 — Löschen = sauber weg, Wiederherstellung aus dem Kursstand, D mit Bestergebnis (2026-10-15)
+
+- **Entscheidungen des Nutzers:** „1. wie Vorschlag" (Löschen einer
+  mod_adele-Instanz entzieht sofort, leere Host-Methode wird aufgeräumt,
+  Wiederherstellen = neuer Start). „2. … ‚gelöscht ist weg' wie 1. … Der
+  Fortschritt in einem Lernpfad bestimmt sich durch die Kursmitgliedschaften
+  und die Ergebnisse darin, die bereits bestehen. D.h. ein neues
+  Lernpfad-Abo beginnt nicht von Null, sondern vom faktischen Lernstand in
+  der Kurslandschaft!" „3. so, wie es vorgesehen ist: Bestergebnis".
+- **Richtigstellung zu Teil 61:** Dort stand, ein Entfernen und
+  Wiederhinzufügen nehme „die Lernhistorie". Zu weit: Kursabschlüsse und
+  Ergebnisse liegen in den Kursen und werden beim neuen Abo wieder
+  gelesen. Verloren geht nur, was es nur in ADELE gibt (manuelle und
+  Master-Häkchen der Lehrperson, Startzeitpunkt relativer Zeitfenster).
+- **Umsetzung:**
+  - mod_adele `adele_delete_instance()`: Host-Abgleich **mit**
+    Entzugs-Kennzeichen (wie beim Speichern).
+  - enrol_adele `reconciler::remove_unused_host_instance()`: entfernt die
+    Host-Einschreibemethode eines Pfads aus einem Kurs, wenn dort keine
+    Einbettung mit „Startknoten"/„irgendein Kurs" mehr existiert – samt
+    restlicher Zeilen. Aufgerufen im Host-Abgleich mit Kennzeichen (also
+    beim Löschen und beim Speichern einer eingeengten Einbettung).
+  - **Befund (belegt) und Behebung:** Eine Wiederherstellung aus dem
+    Papierkorb löst kein `course_module_created` aus, nur
+    `course_bin_item_restored` (Log gemessen) – die wiederhergestellte
+    Einbettung schrieb niemanden ein. mod_adele
+    `restore_adele_activity_structure_step::after_restore()` tut jetzt
+    dasselbe wie das Anlegen (`mod_adele_observer::saved_module`) plus
+    Host-Abgleich. Gilt ebenso für Sicherung/Import.
+    (Ein erster Entwurf rief `\mod_adele\observer` auf – die Klasse heißt
+    `mod_adele_observer`; die E2E-Kette fiel darauf, behoben.)
+- **PHPUnit:** enrol `withdrawn_settings_test` +2 (gelöschte Einbettung:
+  A und B weg, C – von einer anderen Einbettung getragen – bleibt,
+  Host-Methode weg, eigene Einschreibung bleibt; Gegenprobe: Methode bleibt,
+  solange eine Einbettung sie braucht). mod neu `restore_subscribes_test`
+  (über den Papierkorb gelöscht und wiederhergestellt → Mitglied wieder
+  abonniert, Außenstehende nicht). **Probe:** Ein erster Entwurf nutzte
+  `duplicate_module()` – blieb ohne Behebung grün, weil das Duplizieren
+  selbst `course_module_created` auslöst; jetzt über den Papierkorb, ohne
+  Behebung rot.
+- **E2E (mod `withdrawn-settings.spec.ts`):**
+  - **neu H1 „gelöscht ist sauber weg":** Einbettung (dieser Kurs) → Person
+    schließt T01 ab → Löschen über Moodles Löschseite → sofort ohne Abo,
+    ohne ADELE-Einschreibung in T01, T01 zu, eigene Kursmitgliedschaft
+    bleibt → Wiederherstellen aus dem Papierkorb → wieder auf dem Pfad,
+    T01 abgeschlossen, T02 wie vorher.
+  - **B ergänzt:** A schließt T01 vor dem Entfernen der Quelle ab; nach dem
+    Wiederherstellen ist T01 abgeschlossen, T02 wie vorher.
+  - **Erwartung korrigiert (kein Befund):** „T02 wieder offen" war falsch –
+    im Fixture-Pfad Linear A1 verlangt Knoten 2 „Vorgänger UND Zeitfenster
+    bis 13.03.2026"; das Fenster ist vorbei. Die Ketten vergleichen T02
+    jetzt mit seinem Zustand vor der Änderung.
+  - Seed: `E2EHOST13`, Person `fx_h_delete`; Abschlüsse der
+    Ketten-Personen in allen `T__`-Kursen werden je Lauf vergessen.
+  - Mutationsproben: Löschen ohne Kennzeichen → rot („must no longer be on
+    the path"); `after_restore` ohne Einschreibung → rot.
+- **D (local `diagnosis-catquiz.spec.ts`):** Fall x+ε um zwei Schritte
+  ergänzt: ein späterer Versuch mit x−ε nimmt nichts zurück (Knoten 1
+  abgeschlossen, T02 offen); die anderen Lernenden sind danach genau wie
+  vorher (Momentaufnahme, unabhängig von Reihenfolge und Titelfilter).
+  **Wie das Produkt entscheidet (gelesen):** Die Bedingung gilt als
+  erfüllt, sobald **irgendein** Versuch besteht – bestandene Versuche
+  sammeln sich; `$bestresult` speist nur Platzhalter. Das ist
+  „Bestergebnis". Mutationsproben: bester → schlechtester Versuch für die
+  Anzeige → grün (zeigt: die Anzeige entscheidet nicht); „nur der letzte
+  Versuch zählt" → rot („the best result still counts").
+- **Prüfstand `2026100728`:** phpcs (nach Korrektur zweier Warnungen in
+  den neuen Tests: Zeilenlänge, Kommentaranfang) und PHPDoc-Checker ohne
+  Befund; PHPUnit local 402, enrol 63 (+2), mod 26 (+1); Jest 94 Suiten,
+  699 bestanden, 0 übersprungen; Smoke 17; Behat `mod_adele_use` grün; E2E
+  local 78/78, enrol 6/6, mod 22/22 (+1), Story-Abdeckung einschließlich
+  „Withdrawal control" in allen drei vollständig.
+  Ausgeliefert als „mod_adele+enrol_adele: Löschen = sauber weg,
+  Wiederherstellung schreibt ein" und „E2E-Issue (Addendum D)".

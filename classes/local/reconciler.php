@@ -514,6 +514,38 @@ class reconciler {
     }
 
     /**
+     * Remove the host enrolment method of a path from a course that no longer
+     * has an embedding needing it (sources "starting node" / "any course").
+     *
+     * Decision of 2026-10-15, "deleted is (cleanly) gone": once the last such
+     * embedding is deleted or narrowed to "this course", the method would
+     * stay behind empty or with suspended rows nobody can explain. Removing
+     * the instance removes those rows with it. Same guard as everywhere:
+     * when mod_adele cannot be asked, nothing is removed.
+     *
+     * @param int $learningpathid The learning path id.
+     * @param int $courseid The course.
+     * @return bool Whether an instance was removed.
+     */
+    public static function remove_unused_host_instance(int $learningpathid, int $courseid): bool {
+        if (!self::is_active() || !self::host_policy_reachable()) {
+            return false;
+        }
+        foreach (\local_adele\enrol_state::get_host_embeddings($learningpathid) as $embedding) {
+            if ((int) $embedding['courseid'] === $courseid && ($embedding['option2'] || $embedding['option3'])) {
+                return false;
+            }
+        }
+        $instance = instance_manager::get_instances($learningpathid, instance_manager::KIND_HOST)[$courseid] ?? null;
+        $plugin = enrol_get_plugin('adele');
+        if (!$instance || !$plugin) {
+            return false;
+        }
+        $plugin->delete_instance($instance);
+        return true;
+    }
+
+    /**
      * Pass 7 — subscriptions that no embedding carries any more.
      *
      * The missing subtraction path. Everything else in this class starts from
