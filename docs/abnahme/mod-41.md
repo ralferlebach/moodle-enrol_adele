@@ -8,3 +8,7 @@
 - Vor der Behebung beide Original-Tests rot (gemessen: `visible` statt `none`).
 - PostgreSQL / MariaDB: grün; CI **offen**
 - Entscheidung: [x] schließen nach grünem CI-Lauf
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Feld im Backup und Restore aller drei Modi belegt (`backup_hostenrolmentmode_test`, neu `test_each_mode_restored_with_users_gives_its_enrolments`).
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

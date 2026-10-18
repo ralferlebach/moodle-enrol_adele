@@ -10,3 +10,7 @@
 - PostgreSQL / MariaDB: PHPUnit beide grün; Behat PostgreSQL; CI **offen**
 - Verbleibende Abweichungen: keine
 - Entscheidung: [x] schließen nach grünem CI-Lauf
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Leere und gefüllte Kursübersicht unter Developer-Debugging: Behat `@mod_adele_index` (Szenarien siehe Prüfstand), `index_event_test`.
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

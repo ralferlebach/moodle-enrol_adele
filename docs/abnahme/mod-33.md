@@ -13,3 +13,8 @@
 - PHPUnit: `--group adele_release` 36 Tests und Konformitätsprüfung 12 Tests grün auf PostgreSQL 16 und MariaDB 10.11; Gesamtsuiten siehe Prüfstand in `README.md`
 - Verbleibende Abweichungen: AK 1 (CI-Lauf) und AK 3 (Branch-Schutz) nach Übernahme
 - Entscheidung: [x] offen lassen  [ ] schließen – bis zum ersten grünen Gate-Lauf und gesetztem Branch-Schutz
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Re-Audit TP-06: Negativfälle (fremde Daten, verwaiste Verweise, unberechtigte Rollenzuweisungen) sind Release-Blocker – Gruppe `adele_release` erweitert um `path_choice_test` (gefälschter Pfad), `adele_source_shared_node_test` und `participant_source_test` (ADELE-Einschreibung als fremde Quelle), `cross_plugin_consistency_test`, enrol `roles_and_retention_test` (fremde Rollenzuweisung bleibt); dazu die neuen Privacy- und Restore-Tests. `release-gate.yml` führt `--group adele_release --fail-on-risky --fail-on-warning` aus.
+  - Lokal grün auf PostgreSQL 16 und MariaDB 10.11 (Zahlen: Prüfstand `2026100736`). **Offen:** MySQL (hier nicht vorhanden) und der erste Gate-Lauf über die Matrix – CI ist nicht Teil des Re-Audit-Auftrags.
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): abnahmefähig**

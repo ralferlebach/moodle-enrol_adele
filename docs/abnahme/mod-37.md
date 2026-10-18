@@ -13,3 +13,7 @@
 - Dokumentation: Pflichtenheft 1d, 4; Protokoll Teil 68
 - Verbleibende Abweichungen: CI-Runs/MySQL **offen**
 - Entscheidung: [x] schließen nach grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Zwei Lernpfade, gemeinsamer Node-Kurs, ADELE-only-Zugang, A-4-Austritt als Negativtest: `adele_source_shared_node_test` (4, jetzt Release-Blocker); einheitliche Quelle 1/2/3: `participant_source_test`, `any_node_source_test`, `cross_plugin_consistency_test` (dieselbe Antwort in mod, enrol, local).
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

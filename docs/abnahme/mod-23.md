@@ -10,3 +10,7 @@
 - Mutationsprobe: Modus „zuletzt verarbeitet gewinnt" → 2 Fälle rot
 - Verbleibende Abweichungen: keine
 - Entscheidung: [ ] offen lassen  [x] schließen – **nach** grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - **Neu** alle Kombinationen und Reihenfolgen: `host_priority_order_test::test_most_generous_wins_in_every_combination_and_order` – 1–3 berechtigende Einbettungen mit allen drei Modi in jeder Einfügereihenfolge (39 Folgen) und eine nicht berechtigende Einbettung jedes Modus an jeder Stelle: über 300 Fälle, live (`get_affected_pairs`) und Abgleich (`get_entitlement`) gleich, stets „großzügigster Modus der berechtigenden Einbettungen“ (visible > hidden > none). Pflichtenheft 1a beschreibt die Regel.
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

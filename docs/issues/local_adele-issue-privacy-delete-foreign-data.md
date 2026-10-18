@@ -1,7 +1,7 @@
 # Issue-Entwurf (local_adele, mod_adele): Datenschutz-Löschung zerstört fremde Daten und lässt Verweise verwaist zurück
 
-> **Stand:** Entwurf (2026-10-17), noch nicht eingereicht. Gefunden beim
-> Abarbeiten von mod_adele #33 (Master-Issue #43, P1); die Behebung ist dort
+> **Stand:** eingereicht als **mod_adele #44**; Abnahme: `docs/abnahme/mod-44.md`. Gefunden beim
+> Abarbeiten von mod_adele #33 (Master-Issue P0–P2, Paket P1); die Behebung ist dort
 > mit umgesetzt (Entscheidung des Nutzers 2026-10-17: „Anonymisieren", dazu
 > dieses Issue).
 

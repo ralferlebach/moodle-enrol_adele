@@ -11,3 +11,7 @@
 - Dokumentation: `docs/pflichtenheft.md` 1a („Hard-Removal …, geändert 2026-10-17"), 2.5
 - Verbleibende Abweichungen: keine. Hinweis: In der Karenzzeit erscheint die Person in der Teilnehmerliste des Gastkurses als suspendiert (vgl. enrol_adele #7).
 - Entscheidung: [ ] offen lassen  [x] schließen – **nach** grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Austritt über A-4, zwei Host-Kurse, mehrere Einbettungen, unabhängige Fremdeinschreibung: `reconciler_test`, `node_enrolment_after_save_test::test_durable_departure_removes_the_suspended_host_enrolment`, `participant_list_cycles_test`; E2E H5.
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

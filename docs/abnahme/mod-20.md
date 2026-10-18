@@ -15,3 +15,7 @@
 - Dokumentation/Pflichtenheft: `docs/pflichtenheft.md` 1.3, 1.4, 1a, 1c, 2.5; Protokoll Session 006 Teile 68 und 69
 - Verbleibende Abweichungen: keine fachlichen; nur AK 8
 - Entscheidung: [x] offen lassen  [ ] schließen – schließen, sobald der CI-Lauf des finalen Commits grün ist (AK 8)
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Fallback-AK ohne `enrol_adele` durch Architekturentscheidung entfallen (harte Abhängigkeit in `mod/version.php`; Gegenprobe `no_manual_fallback_test`). Vorher-/Nachher-Subscription, letzter qualifizierender Node, Fall-1-Regression lokal abgenommen (Tests oben). Ein CI-Lauf ist nicht Teil des Re-Audit-Auftrags; AK 8 bleibt als Nachtrag nach Übernahme.
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

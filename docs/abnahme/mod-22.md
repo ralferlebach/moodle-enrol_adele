@@ -11,3 +11,7 @@
 - Weitere: `settings_propagation_test::test_host_enrolment_mode_matrix`, `reconciler_test::test_reconcile_host_user_visibility_modes`
 - Verbleibende Abweichungen: keine
 - Entscheidung: [ ] offen lassen  [x] schließen – **nach** grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Wechsel aller Modi, Bestands-Default, Erhalt suspendierter Datensätze, `none` ohne neuen Grant: `host_enrolment_mode_test` (3); **neu** Restore mit Nutzerdaten je Modus: `restore_policy_test::test_each_mode_restored_with_users_gives_its_enrolments` (visible → aktiv, hidden → suspendiert, none → keine).
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

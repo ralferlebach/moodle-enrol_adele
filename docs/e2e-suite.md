@@ -872,7 +872,7 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   Navigation (Weiterleitung auf die Anmeldung) wird zu Ende geführt, dann
   wird die Seite erneut verlassen; vorher brach H3 daran einmal ab.
 
-## Nachtrag `2026100734`: ADELE-Einschreibungen sind keine Quelle (#37, Master-Issue #43 P0)
+## Nachtrag `2026100734`: ADELE-Einschreibungen sind keine Quelle (#37, Master-Issue P0–P2, Paket P0)
 
 - **Neu mod `adele-source-shared-node.spec.ts`, Story H4** (`@withdrawal`,
   in `stories.json` unter `required` und `withdrawal`): zwei Pfade teilen den
@@ -916,3 +916,60 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **`support/host.ts`:** `nightlySweep()`, `enrolAsStudent()`,
   `unenrolMethod()` aus `adele-source-shared-node.spec.ts` hierher
   verschoben (von H4 und H5 genutzt).
+
+## Nachtrag `2026100736`: Aktualisierung, Auto-Fokus, gestapelte Kurse, erste Einbettung (Master-Issue P0–P2, Paket P2)
+
+- **Neu mod `path-refresh.spec.ts`:** Story R26 (`@story:R26`, 5 Tests:
+  Modus 0, 1, 2 mit langsamem Server, 3, fehlschlagender Server) und F27
+  (`@story:F27`, 2 Tests: Lernenden-Fokus nach Abschluss in einem zweiten
+  Tab, Ansicht bleibt bei unveränderten Abfragen; Auto-Fokus aus). Setzt
+  die Einstellungen per `admin/cli/cfg.php` und stellt die Standards am
+  Ende wieder her.
+- **Neu mod `stacked-courses.spec.ts`:** Story S17 (ausgeklappter Stapel
+  `E2EKZ`, Kurs-ID, Name, Tastatur, erneutes Ausklappen).
+- **Neu mod `first-embedding.spec.ts`:** Story S11 (neuer Kurs je Lauf).
+- **Seed (local), Block S26:** `fx_26_learner` auf „Linear A1" über
+  `E2E26`; Abschlüsse, Pfad-Datensatz und ADELE-Einschreibungen werden
+  zurückgesetzt. Exportiert `ADELE_FIXTURE_S26_{HOST,LEARNER,PATH,NODES}`.
+- **`playwright.config.ts` (mod):** Projekt `firefox` für R26, F27, S17,
+  aktiv bei `ADELE_E2E_FIREFOX`; `e2e.yml` installiert dann Firefox.
+- `stories.json`: S11, S17, R26, F27 unter `required`, F27 unter
+  `withdrawal`.
+
+### Nachtrag `2026100736`, Re-Audit 0735 (2026-10-18)
+
+- **Seed S26 geändert:** eigener Pfad „E2E26 Linear“ (Kopie von „Linear A1“
+  ohne die abgelaufenen Zeitfenster der Knoten 2 und 3) statt einer
+  Einbettung von „Linear A1“ – diese nahm den Referenz-Lernenden beim
+  nächsten Seed vom Pfad. Neu `fx_26_teacher` (Trainer/in in E2E26, keine
+  Pfadbearbeitung); Exporte zusätzlich `ADELE_FIXTURE_S26_{TEACHER,LEARNER_ID,CM}`.
+- **Seed S27P (neu):** „E2E27 Parallel“ – der S26-Pfad mit Knoten 3 neben
+  Knoten 2 (beide warten nur auf Knoten 1); `fx_27p_learner` über `E2E27P`.
+  Exporte `ADELE_FIXTURE_S27P_{CM,LEARNER}`.
+- **Seed S17 (neu):** „E2E17 Vertauscht“ – Kopie von „Verzweigt, gestapelt
+  B1“ mit den ersten beiden Kursen des Stapels in umgekehrter Reihenfolge;
+  `fx_17_learner` über `E2E17`. Exporte `ADELE_FIXTURE_S17_{CM,LEARNER,ORDER}`.
+- **Seed KZ:** Workaround für mod_adele #43 entfernt – die Bearbeiterzeile
+  der Trainerin am Pfad wird gelöscht; K16 speichert das Formular ohne
+  Pfadrecht.
+- **Seed S11:** eigene Pfade „E2E11 Erster/Zweiter Pfad“; ältere
+  `E2E11-*`-Kurse werden gelöscht.
+- **`path-refresh.spec.ts`:** neu „teacher default (Testfall 1, 2, 6)“,
+  „Testfall 8“ (Ziehen nicht unterbrochen) und „Testfall 4“ (parallele
+  nächste Knoten gemeinsam im Blick); `afterEach` entfernt Routen
+  (`unrouteAll`), Hilfsfunktionen `settled`, `inView` (sichtbarer Teil im
+  Fenster), `lookAway`, `learnerFinishes`, `teacherOpensLearner`.
+- **`stacked-courses.spec.ts`:** Karte mit Rolle, eindeutiger ID,
+  Überschrift und sichtbarer Beschreibung (Kurzname, Kurs-ID, Status);
+  keine doppelte DOM-ID außerhalb der Kanten (Issue-Entwurf
+  `local_adele-issue-duplicate-edges.md`); Ausklappknopf mit
+  `aria-expanded`/`aria-controls`, Escape aus einem Panel, sichtbarer
+  Fokus, erneutes Ausklappen per Enter; zweiter Test mit vertauschter
+  Reihenfolge.
+- **`support/fixtures.ts::setSystemRole()` (alle drei Plugins):** Suche
+  im Rollenzuweisungs-Dialog Taste für Taste (`pressSequentially`). Befund
+  (belegt, Gesamtlauf 2026-10-18): mit den neuen Fixture-Personen hat die
+  Website 109 mögliche Personen; Moodle zeigt ab 100 nur „Zu viele
+  Benutzer – bitte Suche verwenden“, und ein per `fill()` gesetzter
+  Suchtext startet die Suche nicht (sie reagiert auf Tastenereignisse).
+  R5 war dadurch rot, mit der Änderung grün.

@@ -1,0 +1,15 @@
+### Abnahmeprotokoll – enrol_adele #11 („Jetzt" konsequent über `\core\clock` lesen)
+- Ziel-Repository / Commit-SHA: enrol_adele – Lieferung `2026100736`; Commit-SHA: **offen**
+- Original-AK: erfüllt
+  - Sechs Stellen über die Core-Uhr, Produktionsverhalten unverändert – erledigt in früheren Lieferungen (alle `time()`-Aufrufe ersetzt): verzögerter Entzug (`classes/observer.php`, `classes/local/reconciler.php` Sweep), Aufbewahrungsgrenze (`reconciler::purge_expired_suspensions`), Zeitstempel des Berichts (`reconciler.php`), Aufgabenprotokoll (`classes/local/task_log.php`), `timestart`/`timeend` (heute in `local_adele\enrol_state::effective_enrolment_sql()`). Systematische Erfassung: `clock_usage_test::test_no_direct_wall_clock_reads` (statischer Scan aller Produktionsdateien) und Suche über alle drei Plugins – kein direkter `time()`-Aufruf mehr.
+  - `\frozen_clock`: Entzug wird genau nach `DELAY_SECONDS` fällig, eine Sekunde davor nicht – `clock_boundaries_test::test_the_removal_is_due_exactly_after_the_delay` (Aufgaben werden wie von Cron nur ausgeführt, wenn fällig; `runAdhocTasks()` ignoriert den Zeitpunkt).
+  - Aufbewahrung genau an der Grenze – `test_retention_ends_strictly_after_the_period`: bei genau N × 86 400 s gesperrt bleibt die Einschreibung, eine Sekunde später wird sie entfernt.
+  - Mindestversion: `$plugin->requires = 2024100700` (Moodle 4.5, `\core\clock` vorhanden), `supported = [405, 405]`.
+  - Mutationsprobe: Wanduhr statt Core-Uhr an Entzug und Aufbewahrung → beide Tests rot.
+- PHPUnit: `clock_boundaries_test` (2), `clock_frozen_test`, `clock_usage_test` – grün auf PostgreSQL und MariaDB; kein `sleep()`
+- Verbleibende Abweichungen: keine
+- Entscheidung: [ ] offen lassen  [x] schließen – nach grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Frozen-Clock-Grenzfälle lokal abgenommen: `clock_boundaries_test` (2), `clock_frozen_test`, `clock_usage_test` (keine direkte Wanduhr).
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

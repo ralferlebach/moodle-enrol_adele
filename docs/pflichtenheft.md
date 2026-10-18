@@ -241,6 +241,14 @@ konkrete Fehlerquelle kann ab `local_adele` 0.4.8/`mod_adele` 0.1.11 nicht
 mehr über diesen Pfad auftreten — weiterhin möglich bleibt sie nur über eine
 manuelle Einschreibung durch eine Lehrkraft selbst.
 
+**Regressionstest (mod_adele #11, 2026-10-17):** `first_embedding_test`
+(PHPUnit) und Story S11 (E2E, `first-embedding.spec.ts`): ein neuer Kurs,
+dessen manuelle Einschreibung die Willkommensnachricht sendet; erste und
+zweite Lernpfad-Aktivität über das Formular – keine Nachricht, keine
+Fehlermeldung, keine PHP-Ausgabe, keine fehlgeschlagene Anfrage, kein
+Konsolenfehler. Gegenprobe des Messinstruments: eine manuelle
+Einschreibung in diesem Kurs erzeugt eine Nachricht.
+
 **Kein Plugin-Bug, daher kein Codefix.** Behebbar nur auf Seiten der
 Moodle-Konfiguration: entweder „Willkommensnachricht senden" für die
 betroffene `enrol_manual`-Instanz (bzw. site-weit als Standard)
@@ -298,6 +306,23 @@ Observer, `host_policy::has_foreign_enrolment()`, Kandidaten), A-4
 (`get_nonparticipant_userids()`). Ereignisse: `user_enrolment_created`,
 `user_enrolment_updated` (Aussetzen/Reaktivieren, mod_adele),
 `user_enrolment_deleted`, `role_assigned`/`role_unassigned`.
+
+## 1e. Lernpfad-Auswahl im Aktivitätsformular (mod_adele #43; 2026-10-18)
+
+`mod_adele\local\path_choice` entscheidet serverseitig, nie aus den
+angezeigten Optionen:
+
+* Angeboten werden die Pfade, die die Person bearbeiten darf, und bei einer
+  bestehenden Aktivität zusätzlich der gespeicherte Pfad, sofern er noch
+  existiert.
+* Den gespeicherten Pfad behalten darf, wer die Aktivität bearbeiten darf –
+  ohne dadurch ein Bearbeitungsrecht am Pfad zu erhalten.
+* Ein anderer Pfad braucht das Bearbeitungsrecht an diesem Pfad
+  (Administrator/innen: jeder Pfad); ein gefälschter Wert wird abgewiesen
+  (`mform_path_not_editable`).
+* Ein gelöschter oder unbekannter Pfad kann nicht behalten werden
+  (`mform_path_missing`); das Formular zeigt den Hinweis
+  `mform_path_missing_stored`, ein neuer Pfad ist zu wählen.
 
 ## 2. Soll-Zustand
 
@@ -430,6 +455,15 @@ Einschreibungen existieren  ⇔  User-Path status = 'active'
   getragen.
 * Lernpfad gelöscht → User-Paths werden deaktiviert/archiviert **und**
   `purge_learning_path()`. (Snapshots bleiben laut #446 bewusst erhalten.)
+* **Suspendiert vs. endgültig entfernt (enrol_adele #7).** Eine
+  suspendierte ADELE-Einschreibung bleibt **sichtbar** in der
+  Teilnehmerliste (Status suspendiert, kein Kurszugang, von Hand nicht
+  entfernbar, weil enrol_adele sie besitzt) – bis die Frist
+  `enrol_adele/suspendedretention` (Tage seit der Suspendierung; 0 =
+  unbegrenzt) abgelaufen ist; dann entfernt der Abgleich sie **endgültig**
+  samt ihrer Rollen. Eine Einschreibung derselben Person über eine andere
+  Methode bleibt unberührt und aktiv (`roles_and_retention_test`,
+  `clock_boundaries_test`).
 
 **Entschieden (R-1):** Die Deaktivierung nach A-4 erfolgt als **Löschung** des
 `local_adele_path_user`-Datensatzes. Kursabgeleiteter Fortschritt re-deriviert
@@ -644,6 +678,100 @@ Beide Aktionen laufen als Ad-hoc-Task, wenn die Nutzerzahl eine Schwelle
 überschreitet (UI bleibt responsiv), und lösen die Events aus 7.3 aus.
 
 ---
+
+## 6a. Geöffneter Lernpfad: Aktualisierung, Auto-Fokus, gestapelte Kurse (mod_adele #26, #27, #17, #32; 2026-10-17)
+
+**Aktualisierung (#26).** Website-Einstellungen von local_adele (Abschnitt
+„Geöffneter Lernpfad"), beim Rendern der Seite einmal als Attribut
+`pathviewsettings` übergeben (`local_adele\path_view_settings`); gelesen in
+`composables/flowHelper/pathViewSettings.js`, ungültige Werte gelten als
+Standard.
+
+| Einstellung | Werte | Standard |
+|---|---|---|
+| `pathpollingmode` | 0 aus · 1 bei Fokus · 2 Fokus + Abfrage solange sichtbar und aktiv · 3 Fokus + Abfrage auch im Hintergrund | 2 |
+| `pathpollinginterval` | 1000–300000 ms | 3000 |
+| `pathpollingdebounce` | 0–10000 ms | 300 |
+
+`useUserPathRefresh` (Composable) macht beim Start keinen Abruf (der erste
+Abruf ist der der Seite), registriert Fokus-, Sichtbarkeits- und
+`pageshow`-Ereignisse (nur aus dem Vor-/Zurück-Cache), fasst Ereignisse im
+Zusammenfassungsfenster zusammen, plant die nächste Abfrage erst nach der
+Antwort der vorigen (nie zwei parallel), pausiert in Modus 2 bei
+Fokusverlust und setzt nach der nächsten Fokus-Aktualisierung fort,
+verdoppelt den Abstand nach Fehlern (höchstens ×8, höchstens 5 min), zeigt
+nach drei Fehlern in Folge einmal einen Hinweis und entfernt beim Unmount
+alle Listener und Timer. Jede Aktualisierung ruft nur
+`local_adele_get_user_path_relation` (reiner Lesezugriff; belegt: keine
+Schreibvorgänge, keine Ereignisse, keine Aufgaben). Die Liste der anderen
+Teilnehmenden (#568) folgt nur bei einer Rückkehr zur Seite, nicht bei
+jeder Abfrage. Die Lehrendenansicht eines Lernpfads aktualisiert sich
+ebenfalls, aber nicht während dort gearbeitet wird (offener Dialog,
+Eingabefeld im Graphen, Verschieben/Zoomen).
+
+**Auto-Fokus (#27).** `pathautofocusenabled` (Standard an),
+`pathautofocusteachermode` (Standard 1), `pathautofocuslearnermode`
+(Standard 2); Modi 0 kein Fokus · 1 zuletzt abgeschlossener/geänderter
+Knoten · 2 nächste geöffnete, nicht abgeschlossene Knoten. Rolle: Lehrende,
+wenn der Server die Lehrendenansicht gewählt hat (`view_mode`, aus den
+wirksamen Rechten) oder der Pfad einer anderen Person gezeigt wird; sonst
+Lernende. Drei getrennte Funktionen (`composables/flowHelper/autofocus.js`):
+`compareUserPathStates()` (nur Zustand – Status, Abschluss- und
+Restriktionsstatus –, nie Texte, Farben, Layout), `resolveAutofocusTarget()`
+(Modus 2: alle offenen Knoten ohne offenen Vorgänger gemeinsam; Rückfall:
+zuletzt abgeschlossen, zuletzt geändert, Startknoten),
+`focusNodes()` (nur `fitView`). Reihung „zuletzt": gespeicherte Zeit
+(`laststatechange`/`statuschangedat`/`completedat`, sofern vorhanden – heute
+schreibt der Server keines davon), dann Abschluss vor anderer Änderung, dann
+Knoten-ID. Fokussiert wird nur bei einer echten Änderung, einmal je Zustand,
+nicht während einer Interaktion; ohne Änderung bleibt die Ansicht, wo die
+Person sie hingeschoben hat. Kein Speichern, keine Neuberechnung.
+
+**Befund (belegt) und Behebung (#32):** `StudentView` gab den geladenen
+Pfad als Eigenschaft `userlearningpathparent` weiter, `UserPath` las
+`user_learningpath_parent` – jede Lernendenansicht lud den Pfad deshalb
+zweimal (gemessen: zwei Abrufe beim Laden; nach der Behebung einer).
+
+**Gestapelte Kurse (#17).** Jede ausgeklappte Kurs-Karte trägt die echte
+Kurs-ID: VueFlow-Knoten `…_expanded_courses_<Kurs-ID>`, Klasse
+`adele-expanded-course-<Kurs-ID>`, zugänglicher Name „<Kursname> (Kurs-ID
+<ID>)" (auch bei gleichen Kursnamen eindeutig), an der Karte
+`data-course-id`, `data-node-id`, `data-testid="expanded-course-<ID>"` und
+`title`. Unabhängig von Reihenfolge und erneutem Ausklappen
+(`composables/nodesHelper/expandedCourse.js`).
+
+**Ergänzungen aus dem Re-Audit 0735 (2026-10-18).**
+
+* *Überholte und hängende Anfragen (#26):* Jede Anfrage trägt eine
+  Generation; eine Antwort, die eine neuere Anfrage oder `stop()` überholt
+  hat, wird verworfen – ein älterer Zustand kommt nie zurück. Eine Anfrage
+  ohne Antwort gilt nach `requestTimeout()` = 3 × Intervall (mindestens
+  10 s, höchstens 60 s) als gescheitert; das Abfragen bleibt nicht hängen.
+* *Tastaturfokus (#27):* Auto-Fokus bewegt nur die Ansicht. Baut eine
+  Änderung den Graphen neu auf, bekommt das zuvor fokussierte Element (über
+  `data-testid`, sonst Knoten und Position) den Fokus zurück, ohne zu
+  scrollen (`composables/flowHelper/keyboardFocus.js`); liegt der Fokus
+  außerhalb des Graphen, wird er nicht angefasst; nach 3 s wird aufgegeben
+  (keine Fokusfalle).
+* *Kurs-Karten (#17):* Karte `role="group"` mit eindeutiger
+  DOM-ID `adele-expanded-course-<Knoten>-<Kurs-ID>`, benannt durch ihre
+  Überschrift, beschrieben durch eine sichtbare Zeile mit Kurzname, eigenem
+  Kursnamen (wenn die Überschrift einen vergebenen Namen zeigt), Kurs-ID
+  und Status in Worten; Kurz- und Kursname liefert der Server für jede
+  Ansicht (`course_node_id_description.<id>.shortname`/`.coursefullname`).
+  Der zugängliche Name des Knotens: „<Name> (<Kurzname>, Kurs-ID <ID>)".
+  „Zum Kurs" ist ein Link (neuer Tab). Die Infokarte trägt eine ID je
+  Stapel und Kurs (vorher bei allen gleich, `…-undefined`).
+* *Ausklappen (#17, TP-08):* Schaltfläche mit Namen, `aria-expanded`,
+  `aria-controls` (die Karten, nur solange sie da sind), `aria-disabled`
+  statt `disabled` während des Faltens (der Fokus bleibt), Escape auf der
+  Schaltfläche oder in einer Karte klappt ein und gibt der Schaltfläche den
+  Fokus, sichtbarer Fokus (`:focus-visible`). Gleich für beide
+  Stapel-Knoten.
+
+**Browser.** Die browserabhängigen Ketten (R26, F27, S17) laufen im
+E2E-Workflow zusätzlich in Firefox (Projekt `firefox`, sobald
+`ADELE_E2E_FIREFOX` gesetzt ist).
 
 ## 7. Ausbaustufen, API, Events
 

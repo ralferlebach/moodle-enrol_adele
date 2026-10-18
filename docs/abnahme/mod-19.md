@@ -13,3 +13,7 @@
 - Negativkontrollen: Person nur im Gastkurs bei Quelle 3 → nicht abonniert; Person in keinem Kurs → nichts
 - Verbleibende Abweichungen: keine
 - Entscheidung: [ ] offen lassen  [x] schließen – **nach** grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Bestehende und später eintretende Personen, Deduplizierung: `any_node_source_test` (5), `node_enrolment_after_save_test` (4), `participant_list_cycles_test` (2); Abhängigkeit zu local_adele über `enrol_state` (eine Definition, siehe `cross_plugin_consistency_test`).
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

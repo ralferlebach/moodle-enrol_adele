@@ -14,3 +14,7 @@
 - Dokumentation/Pflichtenheft: `docs/pflichtenheft.md` 1d, 4; Protokoll Session 006 Teil 68
 - Verbleibende Abweichungen: keine
 - Entscheidung: [ ] offen lassen  [x] schließen (alle AKs/DoDs belegt) – **nach** grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Standard ohne suspendierte Fremdeinschreibung und Ausnahme getrennt, Reaktivierung idempotent: `effective_source_test` (5); **neu** über alle drei Plugins gleich: `cross_plugin_consistency_test` (aktiv, suspendiert, suspendiert mit Ausnahme, abgelaufen, noch nicht begonnen, deaktivierte Methode, nur ADELE, Lehrrolle, Lehrrolle als bewertete Rolle, ohne Rolle).
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**

@@ -924,8 +924,11 @@ export async function setSystemRole(page: Page, rolename: string, person: string
     const [list, search, button] = held
       ? [others, page.locator('#addselect_searchtext'), page.locator('#add')]
       : [holders, page.locator('#removeselect_searchtext'), page.locator('#remove')];
-    // Searched for: a long list is not shown in full.
-    await search.fill(person);
+    // Searched for: a long list (more than 100 people) is not shown in
+    // full. Typed key by key - Moodle's user selector searches on key
+    // events, a filled-in value alone does not start the search.
+    await search.fill('');
+    await search.pressSequentially(person, { delay: 20 });
     const option = list.locator('option').filter({ hasText: person });
     await expect(option, `${person} must be offered in the list`).toHaveCount(1, { timeout: 30_000 });
     await list.selectOption({ label: (await option.innerText()).trim() });

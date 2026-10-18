@@ -1,6 +1,7 @@
 # Issue-Entwurf (mod_adele): Lehrende ohne Bearbeitungsrecht am Lernpfad können die Aktivität nicht speichern
 
-> **Stand:** Entwurf (2026-10-16), noch nicht eingereicht.
+> **Stand:** eingereicht als **mod_adele #43**; behoben in Lieferung `2026100736`
+> (Re-Audit 0735, TP-01) – Abnahme: `docs/abnahme/mod-43.md`.
 
 **Gefunden:** E2E-Kette `teacher-course-access-enrol.spec.ts` (local_adele
 #600, TP4), Session 006, Teil 67.

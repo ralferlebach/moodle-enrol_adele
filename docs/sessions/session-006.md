@@ -2740,7 +2740,7 @@ Produktcode, kein PHP, keine E2E-Datei.
   Ausgeliefert als „local_adele #600 (TP4)" mit Version 0.7.1 (beta).
   Als Nächstes TP5 (Abnahme).
 
-## Teil 68 — Master-Issue mod_adele #43, Paket P0 (2026-10-17)
+## Teil 68 — Master-Issue (P0–P2), Paket P0 (2026-10-17)
 
 - **Auftrag des Nutzers:** „…Master_Nacharbeitsissue… Ist eingefügt
   https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/43 bitte
@@ -2884,7 +2884,7 @@ Produktcode, kein PHP, keine E2E-Datei.
   („sofort suspendieren, nach der Karenzzeit austragen") ist bestätigt;
   Umsetzung in P1.
 
-## Teil 69 — Master-Issue mod_adele #43, Paket P1 (2026-10-17)
+## Teil 69 — Master-Issue (P0–P2), Paket P1 (2026-10-17)
 
 - **Lieferung P0 (`2026100734`) übergeben**; Rückfrage des Nutzers zu #20
   beantwortet (offen: AK 3–8; Schließen nach grünem CI-Lauf des finalen
@@ -2953,3 +2953,111 @@ Produktcode, kein PHP, keine E2E-Datei.
   `@mod_adele_use` 1, `@mod_adele_index` 4 Szenarien. Jest 749. phpcs,
   moodlecheck, actionlint ohne Befund. Offen: MySQL, Gate- und CI-Läufe des
   finalen Commits (nach Übernahme).
+
+## Teil 70 — Master-Issue (P0–P2), Paket P2 (2026-10-17)
+
+- **Lieferung P1 (`2026100735`) übergeben.** P2 umfasst #26, #27, #17, #11,
+  enrol #11 und das aus P1 verschobene #32.
+- **enrol #11:** Alle Zeitlesestellen nutzen die Core-Uhr bereits (frühere
+  Lieferungen; statischer Scan `clock_usage_test`). Neu
+  `clock_boundaries_test` (2): Entzug genau bei `DELAY_SECONDS` fällig, eine
+  Sekunde davor nicht; Aufbewahrung bei genau N Tagen noch nicht, eine
+  Sekunde später entfernt. Probe Wanduhr → beide rot.
+- **#17:** `expandedCourse.js` (Knoten-ID, Name, zugänglicher Name);
+  ausgeklappte Karten tragen `data-course-id`, `data-node-id`,
+  `data-testid`, `title`, der VueFlow-Knoten Klasse und `aria-label` mit
+  Kurs-ID. Jest (7), E2E S17 (`stacked-courses.spec.ts`; Lernendenansicht –
+  die Lehrenden-Übersicht klappt Stapel nicht aus).
+- **#11:** Kein Codeänderungsbedarf (Ursache seit #20 entfernt). Neu
+  `first_embedding_test` (2, mit Gegenprobe des Messinstruments) und E2E S11
+  (`first-embedding.spec.ts`, je Lauf ein neuer Kurs mit
+  Willkommensnachricht der manuellen Einschreibung).
+- **#26:** Einstellungen `pathpollingmode` (0–3, Standard 2),
+  `pathpollinginterval` (1000–300000, 3000), `pathpollingdebounce`
+  (0–10000, 300) mit `admin_setting_bounded_int`; Übergabe als Attribut
+  `pathviewsettings` (`path_view_settings`, fünf Render-Stellen). Composable
+  `useUserPathRefresh`. Die Teilnehmendenliste (#568) folgt nur der Rückkehr
+  zur Seite. Die Lehrendenansicht eines Pfads aktualisiert sich nun auch,
+  außer während dort gearbeitet wird.
+- **#27:** `autofocus.js` mit `compareUserPathStates`,
+  `resolveAutofocusTarget`, `focusNodes`, `autofocusRole`, `autofocusMode`;
+  Einstellungen `pathautofocusenabled` (1), `pathautofocusteachermode` (1),
+  `pathautofocuslearnermode` (2). Fokus erst, wenn die Knoten nach dem
+  Neuaufbau vermessen sind (vorher fand `fitView` keine Größen – in E2E F27
+  gemessen: Knoten 2 blieb außerhalb).
+- **#32, Befund (belegt), behoben:** Eigenschaftsname
+  `userlearningpathparent`/`user_learningpath_parent` – doppelter Abruf jeder
+  Lernendenansicht. Gegenprobe mit dem alten Namen: E2E R26 rot (2 statt 1).
+  Jest neu: `useUserPathRefresh.spec.js` (13), `autofocus.spec.js` (22),
+  `UserPath.refresh.spec.js` (9, Kindkomponenten gemockt, damit ihr
+  ungetesteter Code das Coverage-Gate nicht verfälscht). Firefox-Projekt in
+  der Playwright-Konfiguration von mod_adele für R26/F27/S17, im E2E-Workflow
+  installiert; lokal nicht verfügbar (offen).
+- **E2E neu:** `path-refresh.spec.ts` (R26: 5, F27: 2), Fixture S26 im
+  Seed. Zählung genau der Methode `local_adele_get_user_path_relation`
+  (zunächst zählte ein Teilstring auch `…_relations` mit).
+- **PHPUnit neu:** `path_view_settings_test` (4), `path_refresh_readonly_test`
+  (1, eigener Prozess wegen `externallib.php`).
+
+## Teil 71 — Re-Audit 0735, Nacharbeitsauftrag (2026-10-18)
+
+- **Auftrag:** „ADELE 2026100735 – Code-Re-Audit und verbindlicher
+  Nacharbeitsauftrag (ohne CI)“, TP-01 bis TP-08, einheitliche DoD mit
+  Entscheidung je Issue (codeseitig offen / testseitig offen / abnahmefähig
+  / schließbar). P2 und Re-Audit gehen gemeinsam in `2026100736`.
+- **Nummerierung korrigiert:** GitHub mod_adele #43 ist der Formularfehler
+  (TP-01), #44 der Privacy-Befund. Das Master-Issue (P0–P2) hieß in den
+  Protokollen fälschlich „#43“ – überall auf „Master-Issue (P0–P2)“
+  geändert.
+- **TP-01 #43:** `mod_adele\local\path_choice` (Optionen, Prüfung) im
+  Formular und in `validation()`; PHPUnit `path_choice_test` (a)–(e);
+  E2E-Workaround im Seed entfernt, K16 mit echter Konstellation grün,
+  Gegenprobe altes Formular rot.
+- **TP-02/03/04 #26, #27, #32:** Generation je Anfrage (überholte Antworten
+  verworfen), Zeitlimit `requestTimeout()` für hängende Anfragen;
+  Tastaturfokus über den Neuaufbau hinweg (`keyboardFocus.js`), getrennt vom
+  Viewport. E2E für alle acht Testfälle von #27 – neu Lehrenden-Test
+  (1, 2, 6), Testfall 8 (Ziehen nicht unterbrochen; Gegenprobe ohne Schutz
+  rot) und Testfall 4 (parallele nächste Knoten, Seed „E2E27 Parallel“;
+  Gegenprobe nur ein Ziel rot). Jest gesamt grün mit Coverage-Gate.
+- **TP-05/TP-08 #17, Kurs-Stapel:** DOM-Nachweis am gerenderten Panel
+  (Rolle, eindeutige ID, `aria-labelledby`/`aria-describedby` auf eigene,
+  sichtbare Elemente, Kurzname, Status in Worten); Server liefert Kurz- und
+  Kursname je Kurs. **Befund (belegt), behoben:** alle Infokarten trugen die
+  ID `adele-course-information-undefined`; Gegenprobe rot. Ausklappknopf mit
+  `aria-expanded`/`aria-controls`, `aria-disabled` statt `disabled`, Escape,
+  sichtbarem Fokus; „Zum Kurs“ als Link. E2E S17 erweitert (Escape, Fokus,
+  doppelte IDs) und neu Seed „E2E17 Vertauscht“ (vertauschte Reihenfolge).
+- **Neuer Fund (nicht behoben):** zwei Referenzpfade speichern Kanten
+  doppelt → doppelte DOM-IDs an Kanten; Issue-Entwurf
+  `docs/issues/local_adele-issue-duplicate-edges.md`. Ursache der Duplikate
+  nicht belegt.
+- **TP-06 Abnahme:** Privacy local `test_several_paths_in_bulk`, mod
+  `test_privacy_in_bulk_keeps_independent_access`; Restore je Modus mit
+  Nutzerdaten, Grantor ohne Zuordnung → 0; Negativtests in Gruppe
+  `adele_release` (Release-Blocker) erweitert.
+- **TP-07 Abnahme:** #23 alle Kombinationen und Reihenfolgen (über 300
+  Fälle, live und Abgleich gleich); enrol #7 Teilnehmerliste vor/nach Frist
+  mit unabhängiger Einschreibung; übrige Issues mit vorhandenen Tests belegt
+  (Protokolle).
+- **TP-08:** `cross_plugin_consistency_test` – dieselbe Antwort in mod,
+  enrol, local für aktiv, suspendiert (mit/ohne Ausnahme), abgelaufen, noch
+  nicht begonnen, deaktivierte Methode, nur ADELE, Lehrrolle, Lehrrolle als
+  bewertete Rolle, ohne Rolle; Rollenzuweisung und Einschreibung getrennt.
+  `test_opening_the_teacher_view_grants_nothing` (Policy 3).
+- **Angepasst:** `issue484_node_description_master_merge_test` (die
+  Kurstexte tragen jetzt zusätzlich Kurz- und Kursname),
+  `issue591_keyboard_toggles.spec.js` (neue ID der Infokarte).
+- **Entscheidungen je Issue:** `docs/abnahme/` (je Protokoll Abschnitt
+  „Re-Audit 0735“), Übersicht in `docs/abnahme/README.md`.
+- **Prüfstand `2026100736`:** PHPUnit PostgreSQL 16 und MariaDB 10.11 – local
+  429 (1 übersprungen, 1 unvollständig wie bisher), enrol 75, mod 139;
+  Gruppe `adele_release` 70; Konformitätsprüfung Privacy 12. Playwright –
+  mod 56/56 (zweiter Gesamtlauf; im ersten Gesamtlauf H2 einmal rot:
+  Abschlussknopf deaktiviert, Einzellauf grün, Ursache nicht belegt), enrol
+  6/6, local 77/78 im Gesamtlauf (R5: Rollendialog zeigt ab 100 Personen
+  keine Liste, `fill()` startet die Suche nicht – Hilfsfunktion korrigiert,
+  beide betroffenen Spezifikationen 6/6). Smoke 17/17. Behat
+  `@mod_adele_use` 1, `@mod_adele_index` 4 Szenarien (Behat-Seite neu
+  initialisiert). Jest 827. phpcs, moodlecheck, actionlint ohne Befund.
+  Nicht geprüft: MySQL, Firefox.

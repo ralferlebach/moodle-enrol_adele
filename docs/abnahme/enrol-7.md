@@ -9,3 +9,8 @@
 - PostgreSQL / MariaDB: grün auf beiden
 - Verbleibende Abweichungen: keine
 - Entscheidung: [ ] offen lassen  [x] schließen – **nach** grünem CI-Lauf des finalen Commits
+- **Re-Audit 0735 (2026-10-18), Lieferung `2026100736`:**
+  - Fachliche Unterscheidung (dokumentiert, Pflichtenheft 2.5 / Einstellung `enrol_adele/suspendedretention`): „suspendiert und noch sichtbar“ – die ADELE-Einschreibung bleibt suspendiert in der Teilnehmerliste (nicht aktiv, nicht von Hand entfernbar), bis die einstellbare Frist (Tage; 0 = unbegrenzt) abgelaufen ist; „endgültig entfernt“ – danach löscht der Abgleich die Einschreibung und ihre Rollen.
+  - **Neu** Nutzerliste vor/nach Frist mit unabhängiger Einschreibung: `roles_and_retention_test::test_participant_list_before_and_after_the_period` (suspendiert: gelistet, nicht aktiv; nach Frist: nur noch die Person mit eigener Einschreibung, aktiv und unberührt). Löschung der mod_adele-Instanz: `withdrawn_settings_test::test_deleted_embedding_is_cleanly_gone`. Grenzfälle der Frist mit eingefrorener Uhr: `clock_boundaries_test`.
+  - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
+- **Entscheidung (Re-Audit): schließbar**
