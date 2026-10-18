@@ -67,7 +67,7 @@ Reconciliation.
 |---|---|
 | `local_adele` | Fachliche Wahrheit. Berechnet User-Paths und Knotenstatus; liefert die Soll-Zustands-Funktion (2.2); ruft `enrol_adele` nach jedem Recompute optional auf. |
 | `enrol_adele` | Technische Ausführung: Instanzen, `user_enrolments`, Reconciliation, Observer für Hostkurs-Austragungen, Verwaltungsseite. Trifft keine fachliche Entscheidung. |
-| `mod_adele` | Anzeige und Eintrags-Auslöser (Optionen 1/2/3). Schreibt weiterhin per `enrol_manual` in den **Hostkurs** ein (F-7). Fasst Zielkurse nie an. |
+| `mod_adele` | Anzeige und Eintrags-Auslöser (Optionen 1/2/3). Host-Kurs-Einschreibungen (Optionen 2/3) entstehen ausschließlich über `enrol_adele` (Abschnitt 1a; Entscheidung #20, 2026-10-17: kein `enrol_manual`-Weg). Fasst Zielkurse nie an. |
 
 ### 1.4 Abhängigkeitsrichtung
 
@@ -85,6 +85,17 @@ wie zuvor. Es findet keine Einschreibung über `enrol_manual` mehr statt;
 `debugging()`. `local_adele`/`mod_adele` laufen weiterhin fehlerfrei (kein
 Fatal Error für Endnutzer/innen), aber ohne dass ADELE-Einschreibungen
 entstehen, solange `enrol_adele` fehlt.
+
+**Bestätigt (mod_adele #20, Entscheidung 2026-10-17):** `mod_adele` deklariert
+`enrol_adele` als harte Abhängigkeit in `version.php`; ein Betrieb ohne
+`enrol_adele` ist kein unterstütztes Szenario. Der im Issue ursprünglich
+geforderte `enrol_manual`-Rückfall entfällt endgültig, weil er den
+nachvollziehbaren Entzug über `enrol_adele` umginge. Ist `enrol_adele` in
+einem inkonsistenten Zustand nicht aktiv, entsteht keine Einschreibung, auch
+keine über eine andere Methode; es bleibt bei der Warnung. Die letzten Reste
+(`enrol_adele`s Übernahme von `local_adele/enroll_as_setting` bei der
+Installation, die Einstellung selbst) sind mit 2026100734 entfernt;
+`no_manual_fallback_test` belegt beides (statischer Scan und Laufzeit).
 
 ---
 
@@ -231,12 +242,12 @@ konfigurieren, damit der Versand tatsächlich gelingt statt fehlzuschlagen.
 
 ## 1c. D.5 umgesetzt: Ablösung von `local_adele/enroll_as_setting` (Teil 17)
 
-`local_adele/enroll_as_setting` ist jetzt in Sprachdatei und Beschreibung
+~~`local_adele/enroll_as_setting` ist jetzt in Sprachdatei und Beschreibung
 als veraltet gekennzeichnet, bleibt aber funktional erhalten — es wirkt nur
-noch als Rückfallebene für den `enrol_manual`-Pfad, wenn `enrol_adele` fehlt
-oder inaktiv ist (dieselben zwei Stellen wie in 1b:
-`node_completion.php`/`relation_update.php`). `enrol_adele/roleid` ist die
-alleinige Quelle, sobald `enrol_adele` aktiv ist.
+noch als Rückfallebene für den `enrol_manual`-Pfad.~~ **Überholt (2026100734,
+mod_adele #20):** Die Einstellung ist entfernt (`local_adele` Upgrade-Schritt
+2026100734 löscht sie, `enrol_adele` übernimmt sie bei der Installation nicht
+mehr). `enrol_adele/roleid` ist die einzige Quelle der Rolle.
 
 Einmalige Übernahme statt reiner Laufzeit-Rückfallebene: `enrol_adele`s
 `db/install.php` (Erstinstallation neben bereits konfiguriertem
@@ -246,6 +257,40 @@ Wert einmalig als Startwert für `enrol_adele/roleid`, sofern Letzteres noch
 nicht gesetzt ist — der effektiv zugewiesene Rolle bleibt über das Upgrade
 hinweg gleich, statt beim nächsten `instance_manager::get_role_id()`-Aufruf
 stillschweigend auf den Student-Archetyp-Standard zurückzufallen.
+
+## 1d. Teilnehmerquellen: die eine Definition einer wirksamen Einschreibung (mod_adele #30, #37; 2026-10-17)
+
+Ob jemand über eine Teilnehmerquelle (1 „dieser Kurs", 2 „Startknoten",
+3 „irgendein Kurs des Pfads") zu einem Lernpfad kommt und Zugang zu einem
+Gastkurs erhält, und ob er beim Austritt noch getragen wird (A-4), entscheidet
+**eine** Definition in `local_adele\enrol_state::effective_enrolment_sql()`
+(SQL-Baustein) bzw. `get_effectively_enrolled_courseids()` und
+`is_effective_participant()`. Eine Einschreibung zählt nur, wenn
+
+* sie **nicht von ADELE** angelegt wurde (`enrol <> 'adele'`) – **Entscheidung
+  zu #37:** ADELE-eigene Einschreibungen (Ziel-, Gast- und
+  Lehrenden-Instanzen) sind für keine der drei Quellen und nicht für A-4 eine
+  unabhängige Quelle; sonst setzte sich ein Abo über geteilte Kurse von Pfad
+  zu Pfad fort. Zweite, unabhängige Sicherung: eine von `enrol_adele`
+  vergebene Rolle (`component = 'enrol_adele'`) macht niemanden zum
+  Teilnehmenden (`is_participant()`, local_adele #587);
+* die Methode aktiviert ist, die Einschreibung im Zeitraum liegt
+  (`timestart`/`timeend`) und **nicht ausgesetzt** ist (`ue.status =
+  ENROL_USER_ACTIVE`, #30);
+* die Person darin eine der bewerteten Rollen der Website hat (#593).
+
+Website-Einstellung `mod_adele/sourcesincludesuspended` (Standard aus): an,
+zählen ausgesetzte Einschreibungen wieder mit (Verhalten vor #30); Zeitraum
+und Methodenstatus zählen immer. Eine Änderung wendet die Quellen aller
+Aktivitäten neu an und gleicht ihre Gastkurse ab.
+
+Verwendet von: Abo bei Einschreibung und Rollenvergabe (local_adele
+`enrollment`), Quellen 1–3 beim Ereignis und beim Speichern (mod_adele
+Observer, `host_policy::has_foreign_enrolment()`, Kandidaten), A-4
+(`enrol_adele\observer::is_user_carried()`), Kursliste der Lehrenden
+(`get_nonparticipant_userids()`). Ereignisse: `user_enrolment_created`,
+`user_enrolment_updated` (Aussetzen/Reaktivieren, mod_adele),
+`user_enrolment_deleted`, `role_assigned`/`role_unassigned`.
 
 ## 2. Soll-Zustand
 
@@ -414,23 +459,27 @@ Die Einschreibeoptionen (`{adele}.participantslist`, Kommaliste, Mehrfachauswahl
 | Option | Bedeutung | Wirkung auf A-4 |
 |---|---|---|
 | `1` | Mitgliedschaft im einbettenden Kurs | trägt den Nutzer nur, solange er dort Mitglied ist |
-| `2` | Mitglied in einem Startknoten-Kurs | von Hostkurs-Austragung **unberührt** |
-| `3` | Mitglied in irgendeinem Knoten-Kurs (aus Branch `fix-enrolment-issue`, A-15) | von Hostkurs-Austragung **unberührt** |
+| `2` | Mitglied in einem Startknoten-Kurs | Austritt aus diesem Startknoten-Kurs löst A-4 aus (2026-10-17) |
+| `3` | Mitglied in irgendeinem Knoten-Kurs (aus Branch `fix-enrolment-issue`, A-15) | Austritt aus diesem Knoten-Kurs löst A-4 aus (2026-10-17) |
 
-Algorithmus bei `user_enrolment_deleted` für Nutzer *U* im Kurs *H*:
+Algorithmus bei `user_enrolment_deleted` (und `role_unassigned`) für Nutzer
+*U* im Kurs *H*:
 
 1. Instanz des Events ist `enrol = 'adele'` → abbrechen (Rekursionsschutz).
-2. Alle `{adele}`-Aktivitäten in *H* ermitteln → betroffene Lernpfade.
+2. Alle `{adele}`-Aktivitäten in *H* ermitteln → betroffene Lernpfade; dazu
+   (mod_adele #37, Kriterium 2) die Lernpfade, für die *H* ein Startknoten-
+   (Quelle 2) bzw. Knoten-Kurs (Quelle 3) einer Einbettung ist – nur wenn *U*
+   sie abonniert hat.
 3. Für jeden betroffenen Lernpfad *L* prüfen, ob *U* noch getragen wird:
    a. Existiert eine andere Einbettung von *L* mit Option 1 in einem Kurs, in
-      dem *U* noch eingeschrieben ist (Suspendierung zählt als eingeschrieben,
-      A-8)? → getragen.
+      dem *U* noch **wirksam** eingeschrieben ist (Abschnitt 1d; Aussetzung
+      zählt seit #30 nicht mehr, außer per Website-Einstellung)? → getragen.
    b. Hat irgendeine Einbettung von *L* Option 2, und ist *U* in einem
       Startknoten-Kurs von *L* eingeschrieben? → getragen.
    c. Hat irgendeine Einbettung von *L* Option 3, und ist *U* in irgendeinem
-      Knoten-Kurs von *L* eingeschrieben? → getragen. **Achtung:** Zielkurs-
-      Einschreibungen der ADELE-Instanz selbst zählen hier *nicht* als tragend,
-      sonst hielte sich der Zugang zirkulär selbst am Leben.
+      Knoten-Kurs von *L* eingeschrieben? → getragen. **Achtung:** Für a–c
+      zählen ADELE-eigene Einschreibungen *nicht* (Abschnitt 1d, #37), sonst
+      hielte sich der Zugang zirkulär selbst am Leben.
 4. Getragen → nichts tun.
 5. Nicht getragen → User-Path von *U* für *L* deaktivieren (R-1), dann
    `purge_user($lpid, $userid)`.
@@ -493,6 +542,24 @@ public function restore_user_enrolment(...) {
 Ohne diese aktive Implementierung würde Moodle die Einschreibungen je nach
 Restore-Einstellung in `manual` umwandeln — genau die Vermischung, die dieses
 Vorhaben beseitigt.
+
+### 5.2a Sicherung und Wiederherstellung von mod_adele (mod_adele #29, #41; 2026-10-17)
+
+* Gesichert und wiederhergestellt werden alle Felder von `{adele}`
+  (einschließlich `hostenrolmentmode`, `teachercourseaccessmode`,
+  `teachercourseaccessgrantor` als Nutzerverweis) und die Dateien der
+  Beschreibung. Ältere Sicherungen ohne `hostenrolmentmode` ergeben
+  `visible`, ohne Modus `existing_only`; unbekannte Werte werden auf diese
+  Standards gesetzt.
+* Der Lernpfad ist ein Website-Datensatz von local_adele und nicht Teil der
+  Sicherung: auf **derselben Website** und noch vorhanden → derselbe Pfad;
+  von einer **anderen Website** oder gelöscht → `learningpathid = 0`
+  (Aktivität ohne Pfad, Hinweis im Wiederherstellungsprotokoll und auf der
+  Seite der Aktivität). Keine Verknüpfung über eine zufällig gleiche Nummer.
+* Abos (`local_adele_path_user`) und ADELE-Einschreibungen werden **nie** aus
+  der Sicherung übernommen (auch nicht mit Nutzerdaten, siehe 5.2); nach dem
+  Wiederherstellen leitet `after_restore()` sie aus der Zielwebsite ab wie
+  beim Anlegen (Quellen, Gastkursabgleich, Modus).
 
 ### 5.3 Rolleneinstellung (A-11/F-8)
 

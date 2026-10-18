@@ -53,10 +53,10 @@ function xmldb_enrol_adele_upgrade($oldversion) {
     }
 
     if ($oldversion < 2026072305) {
-        // Requirement D.5: local_adele/enroll_as_setting is now documented
-        // there as deprecated in favour of enrol_adele/roleid — it only
-        // still acts as the fallback for the enrol_manual-based path when
-        // enrol_adele is absent. Sites that never explicitly set
+        // Requirement D.5: local_adele/enroll_as_setting gave way to
+        // enrol_adele/roleid (the enrol_manual path it served is gone since
+        // 2026-10-17, mod_adele #20; local_adele removes the setting in its
+        // upgrade 2026100734). Sites that never explicitly set
         // enrol_adele/roleid inherit the legacy value once here, so the
         // effective role stays the same across the upgrade instead of
         // silently reverting to the student-archetype default that

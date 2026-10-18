@@ -13,9 +13,12 @@ jobs:
       moodle_branches: "MOODLE_405_STABLE"
       min_php: '8.1'
 
-      # Companion plugins come from the SAME owner as the repository under
-      # test - the Wunderbyte upstream when CI runs there, the fork when it
-      # runs in a fork - and from the branch of the same name if the
+      # Companion plugins come from the owner of the code under test: for a
+      # pull request the owner of its HEAD - a PR from a fork is tested with
+      # that fork's companions, which change together with it (mod_adele
+      # #43, P0.1: against the upstream companions an enrol_adele PR failed
+      # with "Call to undefined method enrol_state::is_participant()") -
+      # otherwise the repository's owner; and from the branch of the same name if the
       # companion has one, otherwise "main". All three repositories are
       # named moodle-<type>_adele and default to "main" (local_adele was
       # renamed from moodle_local_adele, mod_adele's "master" became
@@ -28,7 +31,7 @@ jobs:
       # runs. If that happens, the branches here are ahead of upstream, not
       # the code broken.
       extra_plugin_runners: |
-        OWNER="${{ github.repository_owner }}"; REF="${{ github.head_ref || github.ref_name }}"; for sib in local mod; do url="https://github.com/$OWNER/moodle-${sib}_adele.git"; br=main; git ls-remote --exit-code --heads "$url" "$REF" >/dev/null 2>&1 && br="$REF"; echo "companion ${sib}_adele: $OWNER@$br"; moodle-plugin-ci add-plugin --branch "$br" "$OWNER/moodle-${sib}_adele"; done
+        OWNER="${{ github.event.pull_request.head.repo.owner.login || github.repository_owner }}"; REF="${{ github.head_ref || github.ref_name }}"; for sib in local mod; do url="https://github.com/$OWNER/moodle-${sib}_adele.git"; br=main; git ls-remote --exit-code --heads "$url" "$REF" >/dev/null 2>&1 && br="$REF"; echo "companion ${sib}_adele: $OWNER@$br"; moodle-plugin-ci add-plugin --branch "$br" "$OWNER/moodle-${sib}_adele"; done
 
       disable_grunt: true
 

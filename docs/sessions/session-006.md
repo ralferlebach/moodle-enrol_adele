@@ -2739,3 +2739,147 @@ Produktcode, kein PHP, keine E2E-Datei.
   vollständig.
   Ausgeliefert als „local_adele #600 (TP4)" mit Version 0.7.1 (beta).
   Als Nächstes TP5 (Abnahme).
+
+## Teil 68 — Master-Issue mod_adele #43, Paket P0 (2026-10-17)
+
+- **Auftrag des Nutzers:** „…Master_Nacharbeitsissue… Ist eingefügt
+  https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/43 bitte
+  abarbeiten. Dann die eingeforderten Nacharbeiten starten und vollumfänglich
+  umsetzen!" Das Master-Issue wurde gegen `main` geprüft; der
+  Entwicklungsstand war in mehreren Punkten weiter (#41 behoben, `after_restore`,
+  `is_participant`, enrol-Core-Clock). Abarbeitung in drei Lieferungen
+  P0 → P1 → P2. Die Original-AKs jedes Einzelissues wurden von GitHub
+  gelesen (WebFetch). Zu jedem Issue liegt ein Abnahmeprotokoll nach
+  Abschnitt 6 des Master-Issues unter `docs/abnahme/` bei.
+- **Datenbankmatrix (D4):** MariaDB 10.11.14 im Arbeitsbereich installiert;
+  die Testseite wählt mit `ADELE_DB=mariadb` eine zweite Konfiguration
+  (eigene Datenbank, eigenes PHPUnit-Datenverzeichnis). PHPUnit läuft damit
+  auf PostgreSQL 16 **und** MariaDB 10.11. MySQL nur in der CI-Matrix.
+- **P0.1 Kompatibilität/CI:** Ursache (belegt aus Run 38969547394 und der
+  Workflow-Datei): Der PR aus dem Fork `ralferlebach:main` lief im Kontext
+  des Upstreams, `extra_plugin_runners` holte die Begleit-Plugins vom
+  `github.repository_owner` (= Wunderbyte-GmbH, deren `main` ohne
+  `enrol_state::is_participant()`). Die 19 Fehler einzeln zuzuordnen war
+  nicht möglich (Job-Log nur angemeldet lesbar); sie stammen alle aus
+  demselben Lauf mit dieser Paarung.
+  - Behebung: In allen drei `moodle-plugin-ci.yml` kommen die Begleiter vom
+    Eigentümer des PR-Heads (`github.event.pull_request.head.repo.owner.login`,
+    sonst `repository_owner`).
+  - Abhängigkeiten im Gleichschritt: jedes Plugin verlangt die beiden
+    anderen in der Version derselben Freigabe (`2026100734`); eine ältere
+    Paarung lehnt Moodle bei der Installation ab, statt später mit
+    „undefined method" zu scheitern.
+  - Neuer Test `tests/sibling_api_test.php` in allen drei Plugins: jede außerhalb
+    der Tests benutzte Klasse/Methode der Geschwister existiert (statisch
+    ermittelt, 8/8/16 Einträge), und die Untergrenzen sind die
+    Freigabeversion. Vorher (Archivstände geprüft) waren die Untergrenzen
+    von local_adele (`mod_adele` 2026082902, `enrol_adele` 2026072500) älter
+    als jeder vorliegende Stand und damit nicht nachprüfbar – auch das ist
+    mit dem Gleichschritt erledigt.
+- **P0.4 #30 (wirksame Einschreibung):** neue zentrale Definition in
+  local_adele (`effective_enrolment_sql()`, `get_effectively_enrolled_courseids()`,
+  `is_effective_participant()`): nicht ADELE, Methode aktiv, im Zeitraum,
+  **nicht ausgesetzt**. Ersetzt die vier gleichlautenden Abfragen
+  (mod `host_policy` ×2, local `get_nonparticipant_userids`, enrol
+  `observer::has_foreign_enrolment`); auch local `enrollment::enrolled()` und
+  `role_assigned_in_course()` (vorher `is_enrolled()` ohne Aktivprüfung)
+  nutzen sie. mod beobachtet jetzt `user_enrolment_updated`
+  (Aussetzen/Reaktivieren wirkt wie Ein-/Ausschreiben). Website-Einstellung
+  `mod_adele/sourcesincludesuspended` (Standard aus; „Setting … auch inaktive
+  Nutzer berücksichtigen" aus der Lösung des Issues), Änderung wendet alle
+  Quellen neu an. PHPUnit neu `effective_source_test` (5): ausgesetzt →
+  nichts; reaktiviert → Abo + Gastkurs, zweimal → dieselbe Einschreibung;
+  erneut ausgesetzt → Zugang weg; zweite aktive Quelle trägt; Zukunft,
+  abgelaufen, deaktivierte Methode → nichts; Quelle 1 gleich; Einstellung
+  an → wie früher. Proben (je rot): Statusfilter entfernt;
+  `user_enrolment_updated`-Beobachter entfernt.
+- **P0.5 #37 (ADELE-Einschreibungen keine Quelle):** Entscheidung im
+  Pflichtenheft (Abschnitt 1d) festgehalten. PHPUnit neu
+  `adele_source_shared_node_test` (4): zwei Pfade teilen den Knotenkurs N;
+  die ADELE-Einschreibung aus Pfad A in N abonniert Pfad B nicht und trägt
+  nicht in dessen Gastkurs – live, beim Speichern (alle drei Durchläufe),
+  nach dem Gastkursabgleich; A-4: beim Verlassen von HB trägt sie nicht,
+  eine eigene in N schon; Gegenprobe eigene Einschreibung in N.
+  - **Befund (belegt) und Behebung:** A-4 wurde nur beim Verlassen eines
+    **einbettenden** Kurses ausgewertet. Wer über Quelle 2/3 (Knotenkurs) zu
+    einem Pfad kam und diesen Knotenkurs verließ, blieb abonniert – samt der
+    ADELE-Einschreibungen in die weiteren Knotenkurse (gemessen in der
+    E2E-Kette: nach Entfernen der eigenen T01-Einschreibung blieben die Abos
+    der Pfade 2 und 3 und deren Zieleinschreibungen T01–T04 aktiv). Jetzt
+    prüft `left_course()` auch die Pfade, für die der verlassene Kurs ein
+    Start-/Knotenkurs einer Quelle-2/3-Einbettung ist (nur für Abonnierte),
+    mit derselben Tragregel. Test „Verlassen des Knotenkurses von Quelle 2":
+    Gastzugang sofort weg, Abo nach der Schonfrist weg, Pfad A bleibt;
+    Probe ohne den neuen Auslöser → rot.
+  - Proben: Ausschluss `enrol <> 'adele'` allein entfernt → grün (die zweite
+    Sicherung über die ADELE-Rolle greift); beide entfernt → zwei Tests rot.
+  - **E2E neu mod `adele-source-shared-node.spec.ts`, Story H4
+    (`@withdrawal`)** mit Fixture S37 (`E2E37A` bettet „E2E Linear vier
+    Schritte" für Mitglieder ein, `fx_37_learner` nur dort → ADELE-
+    Einschreibung in T01; `E2E37B` leer): „Linear A2" mit Startknoten und
+    „irgendein Kurs" in E2E37B → live und nach dem nächtlichen Abgleich nicht
+    auf dem Pfad, Kurs zu; Gegenprobe eigene T01-Einschreibung (über die
+    Teilnehmerseite) → auf dem Pfad, Kurs offen; zurückgenommen (nur die
+    manuelle Methode beendet) → Kurs zu, die ADELE-Einschreibung in T01 bleibt.
+- **P0.6 #31 (`index.php`):** Kurskontext für das Ereignis, neue
+  Ereignisklasse `course_module_instance_list_viewed` (fehlte – Fatal),
+  String `noadeleinstances` (en/de), statt `notice()` Weiterleitung zum Kurs
+  mit Hinweis, Spalten „Abschnitt"/„Name" mit passender Ausrichtung, Tabelle
+  mit `id`. Behat neu `mod_adele_index.feature` (4 Szenarien: leer → Kurs mit
+  Hinweis; befüllt als Lehrperson und Lernende → je eine Zeile; Fremde →
+  keine Liste), läuft mit Entwickler-Debugging ohne Meldung. Probe: alte
+  `index.php` → „Undefined variable $modulecontext". PHPUnit neu
+  `index_event_test`.
+- **P0.2 #41 / P0.3 #29 (Sicherung):** Zusatzprüfungen #41: Duplikat
+  behält auch `visible`; „none" wiederhergestellt neben einer bestehenden
+  Einbettung desselben Pfads im Zielkurs → keine ADELE-Methode, niemand
+  eingeschrieben, Abo des Pfads bleibt. #29:
+  - Wiederherstellung ordnet den Lernpfad nur auf derselben Website und nur,
+    wenn er existiert, zu; sonst `learningpathid = 0` mit Warnung im
+    Protokoll; `view.php` zeigt dann „noch kein Lernpfad gewählt" (vorher
+    leere Seite).
+  - **Befund (belegt) und Behebung:** Die Dateien der Beschreibung wurden
+    gesichert, aber nie wiederhergestellt (`add_related_files` fehlte);
+    `after_execute()` holt sie jetzt.
+  - PHPUnit neu `restore_policy_test` (4): alle Felder und die Datei kommen
+    zurück; fremde Website → kein Pfad, keine Abos/Einschreibungen; gelöschter
+    Pfad → kein Pfad; mit Nutzerdaten: ADELE-Einschreibungen nicht kopiert,
+    nur wer hier berechtigt ist (verborgen, wie der Modus sagt), keine
+    Lernpfad-Datensätze kopiert. Proben: Website-Prüfung entfernt → rot;
+    Dateien nicht wiederhergestellt → rot.
+- **Pflichtenheft:** neuer Abschnitt 1d (Definition, Entscheidung #37,
+  Einstellung, Verwendungsstellen), Abschnitt 4 (A-4 auch beim Verlassen
+  eines Quelle-2/3-Knotenkurses; Aussetzung trägt nicht mehr), neuer
+  Abschnitt 5.2a (Sicherung/Wiederherstellung von mod_adele).
+- **#20 (Rückbau aller manual-Fallbacks):** Nachprüfungsvermerk des Nutzers
+  vom 2026-10-17 und Entscheidung „Abhängigkeit sichert die Funktionalität,
+  alle manual-Fallbacks rückbauen." Im Code der drei Plugins gab es keinen
+  `enrol_manual`-Einschreibweg mehr (seit Session 003, G-Q1a); übrig waren
+  die Einstellung `local_adele/enroll_as_setting` und ihre Übernahme in
+  `enrol_adele/db/install.php`. Beides entfernt; `local_adele` löscht die
+  Einstellung im Upgrade-Schritt 2026100734 (auf der Prüfinstanz belegt:
+  gesetzt → Upgrade → nicht mehr vorhanden). Die Versionen aller drei
+  Plugins stehen deshalb auf 2026100734, damit der Schritt auf bestehenden
+  Installationen läuft. PHPUnit neu `no_manual_fallback_test` (2): statischer
+  Scan (kein `enrol_get_plugin('manual')` im Produktionscode von local/mod);
+  `enrol_adele` deaktiviert → keine Host-Einschreibung über irgendeine
+  Methode, Warnung per `debugging()`. Pflichtenheft 1.3, 1.4, 1c angepasst.
+  - **Befund (belegt), offen für P1:** Ein Test für die übrigen AKs von #20
+    (`node_enrolment_after_save_test`) zeigt, dass das Verlassen des letzten
+    qualifizierenden Node-Kurses die Host-Einschreibung **löscht**; #20
+    verlangt **Suspendierung**, #21 dagegen beim Verlassen des Lernpfads das
+    Austragen. Bei Quelle 2/3 fällt beides zusammen. Vorgesehen für P1:
+    sofort suspendieren, nach bestätigtem Austritt (Karenzzeit,
+    `remove_user_path_adhoc`) austragen. Der Test ist bis dahin nicht Teil der
+    Lieferung.
+- **Prüfstand `2026100734` (alle drei Plugins):** PHPUnit PostgreSQL 16 –
+  local 413 (1 übersprungen, 1 unvollständig wie bisher), enrol 72, mod 89;
+  MariaDB 10.11 – dieselben Zahlen. Playwright-Gesamtlauf PostgreSQL –
+  mod 41, enrol 6, local 78, alle grün; Smoke local 17/17. Behat
+  `@mod_adele_use` 1 Szenario, `@mod_adele_index` 4 Szenarien, grün. Jest
+  98 Suiten / 749 Tests grün. phpcs (moodle) und moodlecheck ohne Befund,
+  actionlint ohne Befund. Upgrade-Schritt 2026100734 auf der Prüfinstanz
+  belegt. MySQL und CI-Läufe des finalen Commits: offen (nach Übernahme).
+- **Nachgang (Nutzer, 2026-10-17):** Die vorgesehene Auflösung zu #20/#21
+  („sofort suspendieren, nach der Karenzzeit austragen") ist bestätigt;
+  Umsetzung in P1.

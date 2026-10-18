@@ -871,3 +871,26 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **`loginAs` (alle drei Plugins):** eine vom vorigen Seitenstand ausgelöste
   Navigation (Weiterleitung auf die Anmeldung) wird zu Ende geführt, dann
   wird die Seite erneut verlassen; vorher brach H3 daran einmal ab.
+
+## Nachtrag `2026100734`: ADELE-Einschreibungen sind keine Quelle (#37, Master-Issue #43 P0)
+
+- **Neu mod `adele-source-shared-node.spec.ts`, Story H4** (`@withdrawal`,
+  in `stories.json` unter `required` und `withdrawal`): zwei Pfade teilen den
+  Knotenkurs T01. Eine Einbettung „Linear A2" (Startknoten und „irgendein
+  Kurs") in `E2E37B` nimmt die ADELE-Einschreibung, die `fx_37_learner` über
+  den Pfad in `E2E37A` in T01 erhalten hat, weder live noch nach dem
+  nächtlichen Abgleich als Quelle: kein Abo, Kurs `E2E37B` zu. Gegenprobe:
+  eigene T01-Einschreibung über die Teilnehmerseite → Abo, Kurs offen.
+  Rücknahme: nur die manuelle Methode in T01 beendet → Kurs zu, die
+  ADELE-Einschreibung in T01 bleibt.
+- **Hilfen in der Spec:** `nightlySweep()` (geplanter Task
+  `\enrol_adele\task\reconcile_task`), `enrolAsStudent`, `unenrolMethod()`
+  (wählt die Methode über `[data-enrolinstancename]`).
+- **Seed (local `seed_fixtures.php`), Block S37** vor dem KZ-Block:
+  `fx_37_learner` nur in `E2E37A` (bettet „E2E Linear vier Schritte" mit
+  Quelle 1 ein), `E2E37B` leer; Einschreibungen und Aktivitäten beider Kurse
+  werden bei jedem Seed zurückgesetzt. Exportiert
+  `ADELE_FIXTURE_S37_{HOST_A,HOST_B,LEARNER,LEARNER_NAME,PATH_A,PATH_B,T01}`.
+- **Behat neu mod `mod_adele_index.feature`** (`@mod_adele_index`, 4
+  Szenarien) für `index.php` (#31); Lauf mit
+  `--tags=@mod_adele_index` neben `@mod_adele_use`.
