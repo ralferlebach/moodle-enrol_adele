@@ -837,3 +837,20 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   `teachercourseaccessdefault` je Lauf auf den Auslieferungszustand
   (`existing_only`).
 - `support/host.ts` `storedEmbedding()` liest auch `teachercourseaccessmode`.
+
+## Nachtrag `2026100731`: „Zugang anfragen" (#600, TP2)
+
+- **Neu mod `teacher-course-access-request.spec.ts`, Stories K9–K12** (K11
+  und K12 als Rücknahmen mit `@withdrawal`): Anfrage an die verantwortliche
+  Person des Zielkurses mit bearbeitetem Text, beim Empfänger genau so
+  angekommen, keine Einschreibung; Abbrechen (Escape, Abbrechen) sendet
+  nichts; ohne Ansprechperson kein „Senden", sondern Kontakt und Text zum
+  Kopieren; gefälschte Aufrufe und entzogener Modus abgelehnt, nichts
+  angekommen. `beforeEach` mit Neu-Seed: jede Kette beginnt ohne
+  Mitteilungen und mit den Einstellungen des Auslieferungszustands.
+- **Seed:** `fx_kz_owner` (Trainer/in in T02), Anfrage-Einstellungen
+  zurückgesetzt; Exporte `ADELE_FIXTURE_KZ_OWNER(_ID)`,
+  `ADELE_FIXTURE_KZ_LEARNER_ID`.
+- **Neu `support/teacheraccess.ts`:** Website-Einstellungen, Modus der
+  Aktivität, wirksamer Modus, empfangene Anfragen (Server), Aktivieren des
+  KZ-Stapels.

@@ -2479,3 +2479,104 @@ Produktcode, kein PHP, keine E2E-Datei.
   vollständig.
   Ausgeliefert als „local_adele #600 (TP3)" und „local_adele #601".
   Als Nächstes TP2 (Anfrageweg).
+
+## Teil 66 — #600 TP2: „Zugang anfragen"; mod_adele #41 behoben (2026-10-16)
+
+- **Auftrag des Nutzers:** „Weiter mit TP2. Issue ist abgelegt unter
+  …/moodle-mod_adele/issues/41" – #41 ist der Befund aus Teil 65
+  (Sicherung verliert `hostenrolmentmode`); er wird mit ausgeliefert.
+- **mod_adele #41:** `hostenrolmentmode` steht in der Feldliste der
+  Sicherung; beim Wiederherstellen wird ein unbekannter Wert `visible`.
+  PHPUnit neu `backup_hostenrolmentmode_test` (2 Tests): Duplikat behält
+  `none` und `hidden`; Import (Sicherung einer Aktivität → anderer Kurs)
+  behält `none`; dieselbe Sicherung **ohne** das Feld (wie eine ältere, das
+  Element im `adele.xml` der Sicherung entfernt) ergibt `visible`. Vor der
+  Behebung beide rot (gemessen: `visible` statt `none`).
+- **#600 TP2 (Server, mod_adele):**
+  - neu `classes/local/access_request.php`: Empfänger = aktive Mitglieder
+    **des angefragten Kurses** mit `enrol/manual:enrol` (Website-Einstellung
+    „Wer gefragt wird", alternativ `moodle/course:enrolreview`), nie die
+    fragende Person, nie Lehrende des Gastkurses als solche;
+    `require_possible()` (wirksamer Modus `request`, Kurs gehört zum
+    eingebetteten Pfad, kein Zugang); vorausgefüllter Text in der Sprache
+    der Fragenden; `send()` prüft den Empfänger erneut, Text 1–4000
+    Zeichen, sendet eine Moodle-Mitteilung (neuer Nachrichtentyp
+    `mod_adele/courseaccessrequest`, Pop-up und E-Mail) von der fragenden
+    Person, Betreff und Kontext (Gastkurs, Pfad, angefragter Kurs, Link
+    zur Teilnehmerseite) in der Sprache der Empfänger/in, darüber der
+    eigene Text; protokolliert als neues Ereignis
+    `course_access_requested` (ohne den Text).
+  - Webservices `mod_adele_get_access_request` (Empfänger, Entwurf,
+    Kontakt der Website) und `mod_adele_send_access_request`; die
+    gemeinsame Prüfung der Lehrendenansicht steht jetzt in
+    `get_node_course_access::require_teacher_view()`.
+  - Kursliste: im Modus `request` ohne Zugang `request` (es gibt
+    jemanden zu fragen) oder `request_copy` (niemand) – Feldtyp des Status
+    auf `PARAM_ALPHANUMEXT` erweitert (`PARAM_ALPHA` hätte den Unterstrich
+    entfernt).
+  - Website-Einstellungen: „Wer gefragt wird", „Ansprechpartner, wenn
+    niemand gefragt werden kann" (Text).
+- **#600 TP2 (Client, local_adele):** neu `CourseAccessRequestDialog.vue`:
+  modaler Dialog außerhalb des Graphen (Teleport in den Seitenkörper),
+  `role="dialog"`, `aria-modal`, benannt durch die Überschrift, Fokus im
+  Dialog und darin gehalten (Tab/Umschalt+Tab), Escape bricht ab, Fokus
+  zurück auf die auslösende Schaltfläche; Empfänger (eine Person als Text,
+  mehrere als Auswahl), editierbarer Text, „Senden" nur mit Empfänger und
+  nicht leerem Text; ohne Empfänger kein „Senden", sondern Kontakt der
+  Website und „Nachricht kopieren"; Ablehnung des Servers als
+  `role="alert"` mit dessen Begründung, Text bleibt. In der Kachel je Zeile
+  „Zugang anfragen" bzw. „Anfrage vorbereiten" (`<button type="button">`,
+  zugänglicher Name mit Kurz- und Langname); nach dem Senden „Anfrage
+  gesendet" und Ansage über die Live-Region. Store-Aktionen
+  `fetchAccessRequest`, `sendAccessRequest` (ohne Moodle-Fehlerdialog, die
+  Ablehnung geht an den Dialog).
+- **PHPUnit (mod, neu `access_request_test`, 5 Tests):** Zeilenstatus mit und
+  ohne Modus; Empfänger nur das aktive einschreibberechtigte Mitglied von B
+  (nicht Lehrperson ohne Bearbeitungsrecht, nicht ausgesetzt); Entwurf
+  nennt Gastkurs, Pfad, Zielkurs; Kontakt der Website; Website wählt die
+  Empfängerregel; Senden: genau eine Mitteilung an die gewählte Person mit
+  eigenem Text und Kontext, Ereignis mit Empfänger und Kurs, niemand
+  eingeschrieben; gefälschte Aufrufe (falsche, ausgesetzte, lernende,
+  eigene Person als Empfänger; Kurs ohne Ansprechperson; Kurs außerhalb des
+  Pfads; Kurs mit Zugang; leerer Text; Modus entzogen; Lernende) abgelehnt
+  und nichts gesendet. Proben (je rot): Empfängerprüfung, Zugangsprüfung,
+  Pfadprüfung, Modusprüfung entfernt.
+- **Jest (local):** neu `CourseAccessRequestDialog.matrix.spec.js` (9);
+  `TeacherCourseAccess.matrix.spec.js` +3 (Zeilen im Modus `request`,
+  Dialog je Kurs und Fokus zurück, „gesendet" mit Ansage);
+  `store.nodecourseaccess.spec.js` +1.
+- **E2E (mod, neu `teacher-course-access-request.spec.ts`, Stories
+  K9–K12):** Seed: `fx_kz_owner` als Trainer/in in T02 (sonst niemand
+  dort einschreibberechtigt), alte Mitteilungen an ihn gelöscht,
+  Anfrage-Einstellungen zurückgesetzt; Exporte `ADELE_FIXTURE_KZ_OWNER(_ID)`,
+  `ADELE_FIXTURE_KZ_LEARNER_ID`. Gemeinsame Hilfen der Kurszugriffs-Ketten
+  in `support/teacheraccess.ts` (aus der TP3-Kette herausgezogen).
+  - K9: Zeilen je eigener Status/Aktion; Dialog benannt, Empfänger
+    „Fixture Access Owner", Text vorausgefüllt (Gastkurs, Pfad, Zielkurs),
+    vor „Senden" nichts versandt; bearbeitet und gesendet → Zeile „Anfrage
+    gesendet", Fokus zurück; Empfänger hat genau diesen Text von der
+    Lehrperson (Server) und sieht den Betreff auf seiner Mitteilungsseite; erneut
+    aktiviert weiterhin kein Zugang (keine Einschreibung).
+  - K10: geöffnet, bearbeitet, Escape → nichts versandt; Tab bleibt im
+    Dialog; Abbrechen → nichts versandt; Fokus jeweils zurück.
+  - K11 (`@withdrawal`): Kontakt der Website gesetzt, Owner aus T02
+    abgemeldet → „Kein Zugang – niemand zu fragen", „Anfrage vorbereiten";
+    Dialog ohne „Senden", mit Kontakt und Text zum Kopieren.
+  - K12 (`@withdrawal`): gefälschte Aufrufe der Lehrperson (Lernende als
+    Empfänger, Gastkurs, T01 mit Zugang) und einer Lernenden abgelehnt;
+    Website entzieht den Modus → keine Schaltfläche, Dienst lehnt ab; beim
+    Owner kam nichts an.
+  - Proben (je rot): Empfänger ohne Fähigkeitsprüfung (K11, K12); Modusprüfung
+    entfernt (K12); Dialog sendet beim Öffnen (K10 – danach die Prüfung
+    „nichts versandt" direkt nach Escape ergänzt, damit K10 genau daran
+    scheitert).
+- **Prüfstand `2026100731`:** phpcs (nach Korrektur zweier Warnungen:
+  Kommentaranfang in `settings.php`, Zeilenlänge im neuen Test) und
+  PHPDoc-Checker ohne Befund; actionlint ohne Befund; PHPUnit local 404
+  (1 übersprungen, 1 unvollständig wie bisher), enrol 63, mod 43 (+7);
+  Jest 97 Suiten, 734 bestanden, 0 übersprungen; Smoke 17; Behat
+  `mod_adele_use` grün; E2E local 78/78, enrol 6/6, mod 34/34 (+4),
+  Story-Abdeckung einschließlich „Withdrawal control" in allen drei
+  vollständig.
+  Ausgeliefert als „local_adele #600 (TP2)" und „mod_adele #41".
+  Als Nächstes TP4 (Einschreibung über enrol_adele, Richtlinien 1–3).

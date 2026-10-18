@@ -1,6 +1,6 @@
 # Issue-Entwurf (mod_adele): Sicherung und Duplikat verlieren den Host-Einschreibemodus
 
-> **Stand:** Entwurf (2026-10-16), noch nicht eingereicht.
+> **Stand:** eingereicht als mod_adele #41 (2026-10-16), behoben mit `2026100731` (Protokoll Teil 66).
 
 **Gefunden:** beim Aufnehmen von `teachercourseaccessmode` in die Sicherung
 (local_adele #600, TP3), Session 006, Teil 65.
