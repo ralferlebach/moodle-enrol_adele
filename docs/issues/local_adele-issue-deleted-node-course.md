@@ -1,6 +1,6 @@
 # Issue-Entwurf (local_adele): Ein gelöschter Knotenkurs bricht die Auswertung des Lernpfads ab
 
-> **Stand:** Entwurf (2026-10-16), noch nicht eingereicht.
+> **Stand:** eingereicht als local_adele #601 (2026-10-16), behoben mit `2026100730` (Protokoll Teil 65).
 
 **Gefunden:** PHPUnit `mod_adele/tests/node_course_access_test.php`
 (Issue „Kurszugriff in der Lehrendenansicht“, TP1), Session 006, Teil 64.

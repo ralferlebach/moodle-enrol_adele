@@ -2379,3 +2379,103 @@ Produktcode, kein PHP, keine E2E-Datei.
   Ausgeliefert als „mod_adele: Kurszugriff Lehrendenansicht (TP1)".
   Als Nächstes TP3 (Einstellung `teachercourseaccessmode`), dann TP2, TP4,
   TP5.
+
+## Teil 65 — #600 TP3: Einstellung `teachercourseaccessmode`; #601 behoben (2026-10-16)
+
+- **Auftrag des Nutzers:** „Weiter mit TP3, die Issues liegen unter #600 und
+  #601. Bitte den Bug mitfixen." Das Kurszugriffs-Issue ist local_adele
+  **#600** (Teil 64 nannte es „noch ohne Nummer"), der Befund aus Teil 64
+  ist local_adele **#601**.
+- **#601 (local_adele), Ursache wie im Entwurf:**
+  `learning_path_update::get_course()` gibt für einen nicht mehr
+  vorhandenen Kurs `null` zurück (statt `get_course()` mit
+  `dml_missing_record_exception`). Die Aufrufer werten `null` als Kurs ohne
+  Abschluss und ohne Fortschritt: `course_completed::get_completion_status()`,
+  `learning_paths::checknodeprogression()`. **Zweite Stelle, erst im Test mit
+  echten Observern sichtbar:** `node_completion::enrol_child_courses()` rief
+  für jeden Kurs des nächsten Knotens die Gruppenzuordnung auf
+  (`groups_get_all_groups` → `context_course::instance`) – auch für den
+  gelöschten; jetzt übersprungen. Ohne diese zweite Behebung wurde die
+  Lernperson nach Abschluss von Knoten 1 in **keinen** Kurs des Stapels
+  eingeschrieben (die Ausnahme im Observer brach den Rest ab).
+  - PHPUnit neu `issue601_deleted_node_course_test` (2 Tests, echte
+    Observer, ohne Event-Senke): Einschreiben, Abschluss von Knoten 1
+    (Einschreibung in B und C des Stapels, Stapel offen), Abschluss von C
+    (Stapel abgeschlossen, gelöschter Kurs zählt als nicht abgeschlossen),
+    Ad-hoc-Aufgaben mit ausgeführt; `checknodeprogression` und
+    `get_completion_status` direkt.
+  - Umgehung in mod `node_course_access_test` entfernt (Teilnehmerquelle
+    „dieser Kurs", immer mit gelöschtem Kurs). Probe: Behebung in
+    `get_course()` zurückgenommen → beide Tests rot.
+- **#600 TP3 (mod_adele):**
+  - neu `settings.php` (bisher keine Plugin-Einstellungen): „Zugelassene
+    Modi" (Mehrfachauswahl; „Nur vorhandener Zugang" immer zugelassen;
+    ausgeliefert nur dieser) und „Standard für neue Aktivitäten".
+  - neu `classes/local/teacher_access_mode.php`: Modi in Rangfolge,
+    `allowed()`, `site_default()`, `effective()` (gespeichert und zugelassen,
+    sonst `existing_only`), `form_options()`, `may_save()`.
+  - Spalte `adele.teachercourseaccessmode` (Standard `existing_only`,
+    Upgrade-Schritt `2026100730`: bestehende Aktivitäten erhalten den am
+    wenigsten privilegierten Modus).
+  - Formular: unter „Lernpfadeinstellungen" → „Mehr anzeigen …"; angeboten
+    werden die zugelassenen Modi und – falls die Website ihn entzogen hat –
+    der gespeicherte, markiert („nicht mehr zugelassen") und mit sichtbarem
+    Hinweis; dann nicht eingeklappt. Prüfung im Formular und zusätzlich in
+    `adele_add_instance`/`adele_update_instance`: neue Aktivität = zugelassener
+    Wert oder Website-Standard; Änderung nur auf einen zugelassenen Modus;
+    sonst bleibt der gespeicherte unverändert.
+  - Sicherung/Wiederherstellung/Duplikat nehmen den Modus mit; ein
+    unbekannter Wert wird beim Wiederherstellen `existing_only`.
+  - Der Webservice nennt den **wirksamen** Modus.
+  - Abhängigkeit mod_adele → local_adele `2026100730`.
+  - **Abgrenzung:** „Zugang anfragen" und die Einschreibemodi sind
+    wählbar und werden aufgelöst, haben aber bis TP2/TP4 keine eigene
+    Aktion; ohne Zugang zeigt die Kachel weiter „Kein Kurszugang". Der
+    Entzug von Grants beim Wegnehmen eines Modus (AK-C3, zweiter Teil)
+    gehört zu TP4 – Grants gibt es noch nicht. Zielrollen und Anfrageweg
+    kommen mit TP4 bzw. TP2.
+- **Befund (belegt), als Issue-Entwurf:** Die Sicherung von mod_adele führt
+  `hostenrolmentmode` nicht mit; ein Duplikat einer Aktivität mit „keine
+  Einschreibung" wird „automatisch" (gemessen: Original `none`, Kopie
+  `visible`). Entwurf `docs/issues/mod_adele-issue-backup-hostenrolmentmode.md`;
+  nicht behoben.
+- **PHPUnit (mod, neu `teacher_access_mode_test`, 7 Tests):** zugelassene
+  Modi (Auslieferung, Rangfolge, Unbekanntes); Standard für neue Aktivitäten
+  (auch nicht zugelassener Standard → `existing_only`; eingereichter nicht
+  zugelassener Wert → Standard); bestehende behalten ihren Modus;
+  Speichern nur zugelassener Modi, auch direkt über
+  `adele_update_instance()`; entzogener Modus bleibt gespeichert, wirkt als
+  `existing_only`, im Formular markiert, unverändert speicherbar,
+  zurückgegeben wirkt er wieder; Webservice nennt den wirksamen Modus;
+  Duplikat behält den Modus. Proben (je rot): `effective()` ohne
+  Website-Prüfung; Schutz in `adele_update_instance` entfernt; Feld aus der
+  Sicherung entfernt; Schutz in `adele_add_instance` entfernt.
+- **E2E (mod, neu `teacher-course-access-settings.spec.ts`, Stories
+  K6–K8):** Seed setzt die Website-Einstellungen je Lauf auf den
+  Auslieferungszustand.
+  - K6: ausgeliefert nur „Nur vorhandener Zugang"; Administrator lässt
+    „Zugang anfragen" zu und macht es zum Standard (Moodles
+    Administrationsseite) → neue Aktivität bietet genau die zwei Modi, ist
+    vorbelegt und gespeichert mit `request`; die bestehende behält
+    `existing_only`.
+  - K7 (`@withdrawal`): Aktivität auf „Zugang anfragen", Lehrendenansicht
+    wirkt mit `request` → Modus entzogen → Formular zeigt ihn markiert mit
+    Hinweis; Speichern aus anderem Grund behält ihn; ein ins Formular
+    eingeschleuster Wert (`enrol_editingteacher`) wird nicht gespeichert;
+    Lehrendenansicht wirkt als `existing_only` → zurückgegeben: Hinweis weg,
+    wirkt wieder mit `request`.
+  - K8: Lehrperson ohne Bearbeitungsrecht nutzt den Kurszugriff, das
+    Einstellungsformular verweigert Moodle; gespeicherter Wert unverändert.
+  - Proben (je rot): Formular ohne den gespeicherten, entzogenen Modus (K7:
+    stille Änderung); `effective()` ohne Website-Prüfung (K7: wirkt weiter
+    mit `request`).
+- **Prüfstand `2026100730`:** phpcs (nach Korrektur der Klammerung einer
+  mehrzeiligen Bedingung in `restore_adele_stepslib.php`) und
+  PHPDoc-Checker ohne Befund; actionlint ohne Befund; PHPUnit local 404
+  (+2; 1 übersprungen, 1 unvollständig wie bisher), enrol 63, mod 36 (+7);
+  Jest 96 Suiten, 721 bestanden, 0 übersprungen; Smoke 17; Behat
+  `mod_adele_use` grün; E2E local 78/78, enrol 6/6, mod 30/30 (+3),
+  Story-Abdeckung einschließlich „Withdrawal control" in allen drei
+  vollständig.
+  Ausgeliefert als „local_adele #600 (TP3)" und „local_adele #601".
+  Als Nächstes TP2 (Anfrageweg).

@@ -821,3 +821,19 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   gestapelt B1", zwei Lehrpersonen (mit und ohne Bearbeitungsrecht) in T01
   und T03, nicht in T02; je Lauf wiederhergestellt. Exporte
   `ADELE_FIXTURE_KZ_*`.
+
+## Nachtrag `2026100730`: die Einstellung des Kurszugriffs (#600, TP3)
+
+- **Neu mod `teacher-course-access-settings.spec.ts`, Stories K6–K8** (K7
+  als Rücknahme mit `@withdrawal`): zugelassene Modi und Standard der
+  Website über Moodles Administrationsseite; neue Aktivität übernimmt den
+  Standard, bestehende behält ihren Modus; ein entzogener Modus bleibt
+  gespeichert, ist im Formular markiert, wird beim Speichern nicht still
+  geändert, ein eingeschleuster Wert nicht gespeichert, und die
+  Lehrendenansicht wirkt als „Nur vorhandener Zugang" – zurückgegeben
+  wirkt er wieder; Lehrperson ohne Bearbeitungsrecht kann die Einstellung
+  nicht ändern.
+- **Seed:** setzt `teachercourseaccessmodes` und
+  `teachercourseaccessdefault` je Lauf auf den Auslieferungszustand
+  (`existing_only`).
+- `support/host.ts` `storedEmbedding()` liest auch `teachercourseaccessmode`.
