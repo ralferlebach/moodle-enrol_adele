@@ -157,11 +157,18 @@ selbst bleibt weiterhin rein mechanisch. Ein Wechsel zu `MODE_NONE` löscht eine
 bereits bestehende Einschreibung nicht, sondern suspendiert sie nur (L-Q-07,
 kein Datenverlust bei späterem Zurückwechseln).
 
-**Hard-Removal bei Lernpfad-Verlassen (Teil 12, mod_adele #21, löst E-10):**
-`purge_all_host_user()` räumt beim Verlassen eines Lernpfads (A-4) alle
-Host-Kurs-Instanzen eines Nutzers über sämtliche Embeddings hinweg ab, nicht
-nur die eine, die den Verlust ausgelöst hat — verdrahtet in
-`enrol_adele\observer::user_enrolment_deleted()`. `purge_host_user()`
+**Hard-Removal bei Lernpfad-Verlassen (Teil 12, mod_adele #21, löst E-10;
+geändert 2026-10-17, mod_adele #20):** Beim Verlassen eines Lernpfads (A-4)
+verliert der Nutzer den Zugang zu allen Host-Kursen des Pfads über sämtliche
+Embeddings hinweg, nicht nur zu dem einen, der den Verlust ausgelöst hat. Das
+geschieht zweistufig: `enrol_adele\observer` **suspendiert** sofort jede
+Host-Einschreibung (`suspend_all_host_user()`; #20: „suspendiert, nicht
+gelöscht" – eine Rückkehr in der Karenzzeit reaktiviert denselben
+Datensatz); bestätigt `remove_user_path_adhoc` nach
+`DELAY_SECONDS` (300 s) den Austritt, **trägt** es sie aus
+(`remove_uncarried_user()` → `purge_all_host_user()`; #21). In der
+Karenzzeit erscheint der Nutzer in der Teilnehmerliste des Host-Kurses als
+„nicht aktuell" (vgl. enrol_adele #7). `purge_host_user()`
 (Einzelinstanz) bleibt als Baustein für eine künftige Verwaltungsseiten-Aktion
 erhalten. Löschen eines Lernpfads entfernt Host- wie Zielinstanzen ohnehin
 gleichermaßen, da `purge_learning_path()` nicht nach `customint2` filtert.
@@ -416,7 +423,11 @@ Einschreibungen existieren  ⇔  User-Path status = 'active'
 ```
 
 * Knoten zu → User-Path bleibt aktiv, nur `$entitled` schrumpft → Suspendierung.
-* Zugangsverlust nach A-4 → User-Path wird deaktiviert **und** `purge_user()`.
+* Zugangsverlust nach A-4 → Zieleinschreibungen sofort `purge_user()`,
+  Host-Einschreibungen sofort suspendiert; nach der Karenzzeit wird der
+  User-Path gelöscht und die Host-Einschreibungen werden ausgetragen
+  (`remove_uncarried_user()`), es sei denn, der Nutzer wird inzwischen wieder
+  getragen.
 * Lernpfad gelöscht → User-Paths werden deaktiviert/archiviert **und**
   `purge_learning_path()`. (Snapshots bleiben laut #446 bewusst erhalten.)
 
@@ -560,6 +571,41 @@ Vorhaben beseitigt.
   der Sicherung übernommen (auch nicht mit Nutzerdaten, siehe 5.2); nach dem
   Wiederherstellen leitet `after_restore()` sie aus der Zielwebsite ab wie
   beim Anlegen (Quellen, Gastkursabgleich, Modus).
+
+* Wiederherstellung in **denselben Kurs** (hinzufügen): eine zweite
+  Aktivität mit demselben Pfad; der Gastkurs-Index nennt den Kurs einmal,
+  niemand erhält eine zweite Einschreibung oder ein zweites Abo
+  (`restore_policy_test`, mod_adele #33).
+
+### 5.2b Datenschutz (Privacy-API) der drei Plugins (mod_adele #33; Entscheidung 2026-10-17)
+
+Eine Löschanfrage entfernt die Daten **der Person**, nicht fremde Daten und
+nicht geteilte Inhalte („Anonymisieren"):
+
+| Datum | Export | Löschung |
+|---|---|---|
+| eigene Teilnahme (`local_adele_path_user.user_id`) | ja | gelöscht; die ADELE-Einschreibungen der Person auf diesem Pfad (Ziel- und Gastkurse) werden mit ausgetragen |
+| von der Person angelegte Teilnahme anderer (`path_user.createdby`) | ja | bleibt, `createdby = 0` |
+| Bearbeitungsrecht (`local_adele_lp_editors`) | ja | gelöscht |
+| angelegter Lernpfad (`learning_paths.createdby`) | ja | Pfad bleibt; Eigentümerschaft an die dienstälteste verbleibende Bearbeiterin (#571), sonst `createdby = 0` („ohne Eigentümer/in") |
+| gewählter Lehrenden-Zugangsmodus (`adele.teachercourseaccessgrantor`, mod_adele) | ja (Modulkontext) | `0`; der Modus hat damit keine Befugnis mehr, die darüber erteilten Lehrenden-Einschreibungen werden sofort zurückgenommen; erneutes Speichern durch eine befugte Person delegiert neu |
+| Lehrenden-Zuweisungen (`enrol_adele_teacher_grants`) | ja (Kurskontext) | gelöscht samt der Einschreibung |
+
+„Alle Nutzer im Systemkontext" löscht alle Teilnahmen und
+Bearbeitungsrechte, nicht die Lernpfade (deren `createdby` wird 0). Nach
+jeder Löschung gibt es keinen verwaisten Verweis (Aktivität ohne Pfad,
+ADELE-Einschreibung ohne Teilnahme). Nebenwirkung: Behält ein Konto nach der
+Löschung tragende Mitgliedschaften (z. B. Quelle 3), abonniert der nächste
+Abgleich es neu, mit leerem Fortschritt. Tests: `local_adele\privacy_provider_test`,
+`mod_adele\teacher_enrolment_test::test_privacy_of_the_grantor`,
+`test_privacy` (enrol), Moodles `core_privacy\privacy\provider_test`.
+
+**Release-Gate:** Die Tests von Sicherung, Wiederherstellung und Datenschutz
+tragen die PHPUnit-Gruppe `adele_release`; `.github/workflows/release-gate.yml`
+(alle drei Plugins) führt sie mit Moodles Konformitätsprüfung für
+Moodle 4.5 × PHP 8.1–8.3 × PostgreSQL/MariaDB/MySQL bei jedem Pull Request
+nach `main` und jedem Release-Tag aus. Als Pflichtprüfung von `main`
+(Branch-Schutz) blockiert ein roter Lauf das Release.
 
 ### 5.3 Rolleneinstellung (A-11/F-8)
 

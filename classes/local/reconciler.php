@@ -1376,6 +1376,34 @@ class reconciler {
     }
 
     /**
+     * Suspend ALL of one user's HOST-course enrolments for a learning path.
+     *
+     * The moment a learner stops being carried (A-4), host access goes, but
+     * the enrolment itself stays as a suspended record (mod_adele #20): a
+     * return within the grace period of remove_user_path_adhoc reactivates
+     * the same record. When the departure proves durable, that task removes
+     * the record through purge_all_host_user() (mod_adele #21).
+     *
+     * @param int $learningpathid The learning path id.
+     * @param int $userid The user id.
+     * @return void
+     */
+    public static function suspend_all_host_user(int $learningpathid, int $userid): void {
+        global $DB;
+
+        $plugin = enrol_get_plugin('adele');
+        if (!$plugin) {
+            return;
+        }
+        foreach (instance_manager::get_instances($learningpathid, instance_manager::KIND_HOST) as $instance) {
+            $ue = $DB->get_record('user_enrolments', ['enrolid' => $instance->id, 'userid' => $userid]);
+            if ($ue && (int) $ue->status !== ENROL_USER_SUSPENDED) {
+                $plugin->update_user_enrol($instance, $userid, ENROL_USER_SUSPENDED);
+            }
+        }
+    }
+
+    /**
      * Hard-remove ALL of one user's HOST-course enrolments for a learning path.
      *
      * The same learning path can be embedded (subscription options 2/3) in

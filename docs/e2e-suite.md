@@ -894,3 +894,25 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **Behat neu mod `mod_adele_index.feature`** (`@mod_adele_index`, 4
   Szenarien) für `index.php` (#31); Lauf mit
   `--tags=@mod_adele_index` neben `@mod_adele_use`.
+
+## Nachtrag `2026100735`: Node-Kurs-Einschreibungen nach dem Speichern (#20, #21)
+
+- **Neu mod `node-enrolment-after-save.spec.ts`, Story H5** (`@withdrawal`,
+  in `stories.json` unter `required` und `withdrawal`):
+  - Quelle „any course" in `E2E20`: erst die Aktivität über das Formular,
+    dann tritt `fx_20_any` einem späteren Knoten bei → Abo, Gastkurs über
+    enrol_adele (Teilnehmerseite: genau eine Methode, nicht „Manual"); zweite
+    Mitgliedschaft (Startknoten), die erste endet → bleibt drin; die letzte
+    endet → `adele:1`, Kurs zu, Abo wartet; Karenzzeit über die Testuhr →
+    weder Einschreibung noch Abo; Außenstehende/r nie getragen.
+  - Quelle „starting node" in `E2E20S`: späterer Knoten allein → nichts;
+    Startknoten → drin; Austritt und Rückkehr in der Karenzzeit → aktiv und
+    nach der Karenzzeit nicht entfernt.
+- **Seed (local), Block S20:** `fx_20_any`, `fx_20_start`, leere Kurse
+  `E2E20`/`E2E20S`, Pfad „E2E Linear vier Schritte"; Rücksetzen aller
+  Einschreibungen der beiden in den Kursen des Pfads und den Gastkursen,
+  ihrer Abos und offener `remove_user_path_adhoc`-Aufgaben. Exportiert
+  `ADELE_FIXTURE_S20_{HOST_ANY,HOST_START,PATH,START_COURSE,LATER_COURSE,ANY,ANY_NAME,START,START_NAME}`.
+- **`support/host.ts`:** `nightlySweep()`, `enrolAsStudent()`,
+  `unenrolMethod()` aus `adele-source-shared-node.spec.ts` hierher
+  verschoben (von H4 und H5 genutzt).

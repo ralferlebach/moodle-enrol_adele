@@ -443,7 +443,8 @@ final class reconciler_test extends \advanced_testcase {
     /**
      * Leaving the learning path
      * must clear ALL of a user's host-course enrolments for that learning
-     * path, not just the host course through which access was lost. Uses
+     * path, not just the host course through which access was lost - at once
+     * suspended, removed when the deferred removal confirms the departure. Uses
      * reconcile_host_user() directly to plant the "other host course" state,
      * sidestepping the real mod_adele event cascade (already exercised by
      * test_host_course_removal_rules()) so this test stays focused on the
@@ -509,9 +510,23 @@ final class reconciler_test extends \advanced_testcase {
         );
         // Target-course enrolment gone...
         $this->assertFalse($this->get_ue($lpid, (int) $target->id, $userid));
-        // ...and now the host2 option-2/3 enrolment is gone too.
+        // ...and the host2 option-2/3 enrolment loses its access at once:
+        // suspended, not removed (mod_adele #20).
+        $this->assertEquals(
+            ENROL_USER_SUSPENDED,
+            $DB->get_field('user_enrolments', 'status', ['enrolid' => $host2instance->id, 'userid' => $userid])
+        );
+
+        // The deferred removal confirms the departure: now every host-course
+        // enrolment of the path goes (mod_adele #21).
+        $task = new \enrol_adele\task\remove_user_path_adhoc();
+        $task->set_custom_data(['learningpathid' => $lpid, 'userid' => $userid]);
+        $task->execute();
         $this->assertFalse(
             $DB->record_exists('user_enrolments', ['enrolid' => $host2instance->id, 'userid' => $userid])
+        );
+        $this->assertFalse(
+            $DB->record_exists('local_adele_path_user', ['learning_path_id' => $lpid, 'user_id' => $userid])
         );
     }
 

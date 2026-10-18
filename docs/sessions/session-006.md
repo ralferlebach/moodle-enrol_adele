@@ -2883,3 +2883,73 @@ Produktcode, kein PHP, keine E2E-Datei.
 - **Nachgang (Nutzer, 2026-10-17):** Die vorgesehene Auflösung zu #20/#21
   („sofort suspendieren, nach der Karenzzeit austragen") ist bestätigt;
   Umsetzung in P1.
+
+## Teil 69 — Master-Issue mod_adele #43, Paket P1 (2026-10-17)
+
+- **Lieferung P0 (`2026100734`) übergeben**; Rückfrage des Nutzers zu #20
+  beantwortet (offen: AK 3–8; Schließen nach grünem CI-Lauf des finalen
+  Commits, ebenso #30, #37, #31, #41, #29).
+- **#20/#21 (Entscheidung des Nutzers: „Ja, bitte so umsetzen"):**
+  `enrol_adele\observer::left_course()` suspendiert die Host-Einschreibungen
+  (`reconciler::suspend_all_host_user()`, neu) statt sie sofort auszutragen;
+  `remove_user_path_adhoc` trägt sie nach bestätigtem Austritt aus (wie
+  bisher über `remove_uncarried_user()`). PHPUnit neu
+  `node_enrolment_after_save_test` (4); angepasst
+  `reconciler_test::test_leaving_learning_path_purges_every_host_course`.
+  - **Befund (belegt) im Testwerkzeug:** Moodles `runAdhocTasks()` führt
+    auch Aufgaben aus, deren `nextruntime` in der Zukunft liegt – die
+    Karenzzeit war in PHPUnit dadurch unsichtbar (die verzögerte Entfernung
+    lief sofort). Die neuen Tests verwenden `run_due_tasks()` (nur fällige
+    Aufgaben, wie Cron).
+  - **E2E neu mod `node-enrolment-after-save.spec.ts`, Story H5**
+    (`@withdrawal`): zwei Ketten (Quelle „any course" in `E2E20`, Quelle
+    „starting node" in `E2E20S`), Fixture S20 im Seed. Mutationsprobe
+    (sofort löschen) → rot.
+- **#19:** PHPUnit neu `any_node_source_test` (5): Quelle 3 beim Speichern,
+  Deduplizierung, Idempotenz, Quellen 1 und 2 unverändert, alle drei
+  zusammen. Kein Codeänderungsbedarf.
+- **#22:** PHPUnit neu `host_enrolment_mode_test` (3): jeder Modus bei
+  neuer Einbettung (`none` ohne Instanz, `hidden` gelistet ohne Zugang),
+  Wechsel über `update_moduleinfo()` mit demselben Datensatz, fehlender Modus
+  = `visible`. Kein Codeänderungsbedarf.
+- **#23:** PHPUnit neu `host_priority_order_test` (10): jede Paarung in
+  beiden Reihenfolgen, getrennte Gastkurse, Einzelfälle, Live-Pfad mit zwei
+  Runden. Probe „zuletzt gewinnt" → 2 rot. Kein Codeänderungsbedarf.
+- **enrol_adele #7:** PHPUnit neu `participant_list_cycles_test` (2): drei
+  Personen × drei Runden → nach jeder Karenzzeit niemand mehr gelistet;
+  Löschen der Einbettung nimmt alles mit. Bedingungen bewusst sichtbarer
+  Datensätze im Protokoll benannt.
+- **#33:**
+  - **Befund (belegt), behoben nach Entscheidung des Nutzers
+    („Anonymisieren", dazu Issue-Entwurf
+    `local_adele-issue-privacy-delete-foreign-data.md`):** Die
+    Datenschutz-Löschung von local_adele löschte die Lernpfade einer
+    Erstellerin und die von ihr angelegten Teilnahmen anderer, ließ
+    ADELE-Einschreibungen verwaist zurück und löschte bei „alle Nutzer" alle
+    Lernpfade. mod_adele war `null_provider` trotz
+    `teachercourseaccessgrantor`, und der Text `privacy:null_reason` fehlte
+    (Moodles Konformitätsprüfung: Test riskant). Nebenwirkungen dem Nutzer
+    vorab dargelegt (Nachfolgeregel #571, Zugangsanfragen ohne Empfänger bei
+    Pfad ohne Eigentümer/in, neue Delegation nötig).
+  - Neu: `local_adele\privacy_provider_test` (8; Probe mit altem Provider:
+    5 rot), `teacher_enrolment_test::test_privacy_of_the_grantor`,
+    `restore_policy_test` +2 (derselbe Kurs, Gastkurs-Index). PHPUnit-Gruppe
+    `adele_release` an allen Sicherungs-, Wiederherstellungs- und
+    Datenschutztests; `.github/workflows/release-gate.yml` in allen drei
+    Plugins (4.5 × PHP 8.1–8.3 × PostgreSQL/MariaDB/MySQL; PR nach `main`,
+    Tags `v*`, manuell), actionlint ohne Befund. Ein Lauf ist von hier aus
+    nicht auslösbar; der Branch-Schutz ist Sache der Repository-Admins.
+  - Pflichtenheft 5.2a ergänzt, neu 5.2b.
+- **#32 nach P2 verschoben:** Die Tests für Polling, Fokus und Viewport
+  gehören zur Aktualisierungslogik, die #26 (`useUserPathRefresh`) neu
+  baut; heute gibt es nur Fokus-/Sichtbarkeits-Auffrischung in
+  `UserPath.vue`. Tests gegen den alten Stand würden mit P2 ersetzt.
+- **Prüfstand `2026100735` (alle drei Plugins):** PHPUnit PostgreSQL 16 –
+  local 421 (1 übersprungen, 1 unvollständig wie bisher), enrol 72, mod 116;
+  MariaDB 10.11 – dieselben Zahlen. Gruppe `adele_release` 36 Tests;
+  Moodles Konformitätsprüfung (`core_privacy\privacy\provider_test`, Filter
+  `adele`) 12 Tests, beide Datenbanken. Playwright-Gesamtlauf PostgreSQL –
+  mod 43, enrol 6, local 78, alle grün; Smoke local 17/17. Behat
+  `@mod_adele_use` 1, `@mod_adele_index` 4 Szenarien. Jest 749. phpcs,
+  moodlecheck, actionlint ohne Befund. Offen: MySQL, Gate- und CI-Läufe des
+  finalen Commits (nach Übernahme).

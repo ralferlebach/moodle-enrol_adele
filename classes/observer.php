@@ -154,11 +154,12 @@ class observer {
             \core\task\manager::queue_adhoc_task($task, true);
 
             reconciler::purge_user($lpid, $userid);
-            // Leaving the learning path must also clear every option-2/3
-            // host-course enrolment it created, not just target-course ones:
-            // the learning path may be embedded in several host courses at
-            // once, each potentially having granted host-course access.
-            reconciler::purge_all_host_user($lpid, $userid);
+            // Every option-2/3 host-course enrolment of the path loses its
+            // access now, in every host course embedding it - suspended, not
+            // removed (mod_adele #20): a return within the grace period
+            // reactivates the same record. The deferred task removes them
+            // once the departure proved durable (mod_adele #21).
+            reconciler::suspend_all_host_user($lpid, $userid);
 
             // Mark that whole-path removal actually fired for this user/path
             // (not the routine per-node suspend/reactivate cycle, which is
