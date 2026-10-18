@@ -83,8 +83,21 @@ export async function loginAs(page: Page, username: string, password: string): P
   // and the test reports a rejected login for correct credentials.
   // Observed in the E2E chains that switch users several times per test,
   // roughly one run in three; about:blank cancels everything the old page
-  // still had running.
-  await page.goto('about:blank');
+  // still had running. The old page may itself be navigating at that moment
+  // (a redirect to the login page after the test clock moved on, measured
+  // 2026-10-16 in withdrawn-settings H3): that navigation interrupts this one;
+  // let it finish and leave again.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await page.goto('about:blank');
+      break;
+    } catch (e) {
+      if (attempt >= 2 || !/interrupted by another navigation/.test(String(e))) {
+        throw e;
+      }
+      await page.waitForLoadState().catch(() => undefined);
+    }
+  }
   const api = page.context().request;
   await page.context().clearCookies();
 

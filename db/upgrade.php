@@ -30,8 +30,8 @@
  * @return bool
  */
 function xmldb_enrol_adele_upgrade($oldversion) {
-    // This plugin ships no tables of its own (stateless reconciliation).
-    // Nothing here ever adds a table; upgrade steps only touch configuration.
+    global $DB;
+    $dbman = $DB->get_manager();
 
     if ($oldversion < 2026072302) {
         // The install.php script now auto-enables the plugin on fresh installs (a real
@@ -70,6 +70,32 @@ function xmldb_enrol_adele_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2026072305, 'enrol', 'adele');
+    }
+
+    if ($oldversion < 2026100732) {
+        // The first table of this plugin: the enrolments teachers receive
+        // through the teacher view of a mod_adele activity, with their source
+        // (local_adele #600, TP4). Learner enrolments stay stateless.
+        $table = new xmldb_table('enrol_adele_teacher_grants');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('cmid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('learningpathid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('mode', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('roleid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('courseid', XMLDB_KEY_FOREIGN, ['courseid'], 'course', ['id']);
+        $table->add_key('userid', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+        $table->add_key('roleid', XMLDB_KEY_FOREIGN, ['roleid'], 'role', ['id']);
+        $table->add_index('cmid_courseid_userid', XMLDB_INDEX_UNIQUE, ['cmid', 'courseid', 'userid']);
+        $table->add_index('courseid_userid', XMLDB_INDEX_NOTUNIQUE, ['courseid', 'userid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026100732, 'enrol', 'adele');
     }
 
     return true;

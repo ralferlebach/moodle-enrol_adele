@@ -60,6 +60,13 @@ class instance_manager {
     const KIND_HOST = 2;
 
     /**
+     * @var int Instance of the teacher grants in a node course (local_adele #600):
+     * one per course, customint1 = 0; who is enrolled and with which role is
+     * the table enrol_adele_teacher_grants (teacher_grants), not a learning path.
+     */
+    const KIND_TEACHER = 3;
+
+    /**
      * All ADELE enrol instances of one kind belonging to a learning path, keyed
      * by course id.
      *
@@ -170,6 +177,72 @@ class instance_manager {
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Get or lazily create the instance of the teacher grants in a course.
+     *
+     * @param int $courseid The node course.
+     * @return \stdClass|null The enrol instance record, or null.
+     */
+    public static function ensure_teacher_instance(int $courseid): ?\stdClass {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/enrollib.php');
+
+        $find = fn() => $DB->get_records(
+            'enrol',
+            ['enrol' => 'adele', 'courseid' => $courseid, 'customint2' => self::KIND_TEACHER],
+            'id ASC',
+            '*',
+            0,
+            1
+        );
+        if ($existing = $find()) {
+            return reset($existing);
+        }
+        $lock = \core\lock\lock_config::get_lock_factory('enrol_adele_instance')->get_lock("teacher_course{$courseid}", 5);
+        if (!$lock) {
+            return null;
+        }
+        try {
+            if ($existing = $find()) {
+                return reset($existing);
+            }
+            $course = $DB->get_record('course', ['id' => $courseid]);
+            $plugin = enrol_get_plugin('adele');
+            if (!$course || $course->id == SITEID || !$plugin) {
+                return null;
+            }
+            $instanceid = $plugin->add_instance($course, [
+                'status' => ENROL_INSTANCE_ENABLED,
+                'roleid' => 0,
+                'customint1' => 0,
+                'customint2' => self::KIND_TEACHER,
+                'name' => get_string('instancenameteacher', 'enrol_adele'),
+            ]);
+            return $DB->get_record('enrol', ['id' => $instanceid]);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * The existing instance of the teacher grants in a course, if any.
+     *
+     * @param int $courseid The node course.
+     * @return \stdClass|null
+     */
+    public static function get_teacher_instance(int $courseid): ?\stdClass {
+        global $DB;
+        $existing = $DB->get_records(
+            'enrol',
+            ['enrol' => 'adele', 'courseid' => $courseid, 'customint2' => self::KIND_TEACHER],
+            'id ASC',
+            '*',
+            0,
+            1
+        );
+        return $existing ? reset($existing) : null;
     }
 
     /**

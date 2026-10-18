@@ -202,7 +202,7 @@ class manage {
             "SELECT DISTINCT e.customint1 AS id, lp.name
                FROM {enrol} e
           LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
-              WHERE e.enrol = 'adele'
+              WHERE e.enrol = 'adele' AND COALESCE(e.customint2, 0) <> 3
            ORDER BY lp.name ASC"
         );
     }

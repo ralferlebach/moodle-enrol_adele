@@ -673,10 +673,11 @@ class reconciler {
                FROM {user_enrolments} ue
                JOIN {enrol} e ON e.id = ue.enrolid
               WHERE e.enrol = 'adele'
+                    AND COALESCE(e.customint2, 0) <> :teacherkind
                     AND ue.status = :suspended
                     AND ue.timemodified > 0
                     AND ue.timemodified < :cutoff",
-            ['suspended' => ENROL_USER_SUSPENDED, 'cutoff' => $cutoff]
+            ['suspended' => ENROL_USER_SUSPENDED, 'cutoff' => $cutoff, 'teacherkind' => instance_manager::KIND_TEACHER]
         );
 
         $instances = [];
@@ -894,7 +895,8 @@ class reconciler {
             "SELECT e.*
                FROM {enrol} e
           LEFT JOIN {local_adele_learning_paths} lp ON lp.id = e.customint1
-              WHERE e.enrol = 'adele' AND lp.id IS NULL"
+              WHERE e.enrol = 'adele' AND lp.id IS NULL AND COALESCE(e.customint2, 0) <> :teacherkind",
+            ['teacherkind' => instance_manager::KIND_TEACHER]
         );
         foreach ($orphaned as $instance) {
             $plugin->delete_instance($instance);
@@ -990,9 +992,10 @@ class reconciler {
         $groups = $DB->get_records_sql(
             "SELECT MIN(id) AS primaryid, courseid, customint1, customint2, COUNT(*) AS n
                FROM {enrol}
-              WHERE enrol = 'adele'
+              WHERE enrol = 'adele' AND COALESCE(customint2, 0) <> :teacherkind
            GROUP BY courseid, customint1, customint2
-             HAVING COUNT(*) > 1"
+             HAVING COUNT(*) > 1",
+            ['teacherkind' => instance_manager::KIND_TEACHER]
         );
 
         $removed = 0;
@@ -1109,8 +1112,8 @@ class reconciler {
         }
         $stale = $DB->get_records_select(
             'enrol',
-            "enrol = 'adele' AND roleid <> :roleid",
-            ['roleid' => $currentroleid]
+            "enrol = 'adele' AND roleid <> :roleid AND COALESCE(customint2, 0) <> :teacherkind",
+            ['roleid' => $currentroleid, 'teacherkind' => instance_manager::KIND_TEACHER]
         );
 
         $migrated = 0;
@@ -1172,8 +1175,9 @@ class reconciler {
                JOIN {enrol} e ON e.id = ra.itemid
               WHERE ra.component = 'enrol_adele'
                     AND e.enrol = 'adele'
+                    AND COALESCE(e.customint2, 0) <> :teacherkind
                     AND ra.roleid <> :roleid",
-            ['roleid' => $currentroleid]
+            ['roleid' => $currentroleid, 'teacherkind' => instance_manager::KIND_TEACHER]
         );
         foreach ($wrong as $ra) {
             role_unassign(
@@ -1193,6 +1197,7 @@ class reconciler {
                FROM {user_enrolments} ue
                JOIN {enrol} e ON e.id = ue.enrolid
               WHERE e.enrol = 'adele'
+                    AND COALESCE(e.customint2, 0) <> :teacherkind
                     AND NOT EXISTS (
                         SELECT 1
                           FROM {role_assignments} ra
@@ -1204,7 +1209,7 @@ class reconciler {
                                AND ctx.contextlevel = :courselevel
                                AND ctx.instanceid = e.courseid
                     )",
-            ['roleid' => $currentroleid, 'courselevel' => CONTEXT_COURSE]
+            ['roleid' => $currentroleid, 'courselevel' => CONTEXT_COURSE, 'teacherkind' => instance_manager::KIND_TEACHER]
         );
         foreach ($missing as $row) {
             $context = \context_course::instance((int) $row->courseid, IGNORE_MISSING);

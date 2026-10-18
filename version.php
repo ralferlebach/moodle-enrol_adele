@@ -26,8 +26,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'enrol_adele';
-$plugin->release = '0.7.0';
-$plugin->version = 2026100731;
+$plugin->release = '0.7.1';
+$plugin->version = 2026100732;
 $plugin->requires = 2024100700;
 $plugin->maturity = MATURITY_BETA;
 $plugin->supported = [405, 405];

@@ -854,3 +854,20 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
 - **Neu `support/teacheraccess.ts`:** Website-Einstellungen, Modus der
   Aktivität, wirksamer Modus, empfangene Anfragen (Server), Aktivieren des
   KZ-Stapels.
+
+## Nachtrag `2026100732`: Einschreibung über enrol_adele (#600, TP4)
+
+- **Neu mod `teacher-course-access-enrol.spec.ts`, Stories K13–K18** (K14,
+  K15, K17, K18 als Rücknahmen mit `@withdrawal`): Einschreibung als
+  Teilnehmer/in nach Bestätigung über enrol_adele mit der Rolle der Website;
+  gefälschte Aufrufe abgelehnt; entzogener Modus nimmt die Einschreibung
+  zurück (eigene Kursmitgliedschaft bleibt); Richtlinie 2 (Herabsetzen ohne
+  Befugnis nimmt die höhere Einschreibung, kein Heraufsetzen), 1 (gesperrt,
+  Wert bleibt) und 3 (Delegation, zurück zu 2 nimmt die Einschreibung);
+  gelöschte Aktivität nimmt ihre Einschreibungen mit.
+- **Seed:** Richtlinie 2, Rollen je Einschreibemodus nach Archetyp,
+  Berechtigungstabelle geleert; `fx_kz_teacher` als Bearbeiter/in des
+  KZ-Pfads (siehe Issue-Entwurf `mod_adele-issue-form-path-not-editable.md`).
+- **`loginAs` (alle drei Plugins):** eine vom vorigen Seitenstand ausgelöste
+  Navigation (Weiterleitung auf die Anmeldung) wird zu Ende geführt, dann
+  wird die Seite erneut verlassen; vorher brach H3 daran einmal ab.

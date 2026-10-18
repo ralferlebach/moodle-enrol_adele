@@ -2580,3 +2580,162 @@ Produktcode, kein PHP, keine E2E-Datei.
   vollständig.
   Ausgeliefert als „local_adele #600 (TP2)" und „mod_adele #41".
   Als Nächstes TP4 (Einschreibung über enrol_adele, Richtlinien 1–3).
+
+## Teil 67 — #600 TP4: Einschreibung über enrol_adele, Richtlinien 1–3; Version 0.7.1 beta (2026-10-16)
+
+- **Auftrag des Nutzers:** „Mach weiter mit TP 4 - und setze alle Pulgins auf
+  Maturity_beta und Versionsname 0.7.1 sowie entferne alle Kommentare
+  außerhalb der boiler plate." Gelesen als: in den drei `version.php`
+  `MATURITY_BETA`, `release = '0.7.1'`, und dort alle Kommentare außer
+  Lizenzkopf und Datei-Docblock entfernt (die Begründungen der
+  Abhängigkeitsstände standen nur dort; sie stehen in diesem Protokoll).
+  Version `2026100732`. Abhängigkeiten von mod_adele: local_adele und
+  enrol_adele je `2026100732`.
+- **Offene Richtlinienentscheidung des Issues (4.4):** umgesetzt wie in Teil
+  66 angekündigt und vom Nutzer nicht anders gewünscht: Bestandsschutz
+  schützt nur den gespeicherten Wert. Wer einen Trainer-Modus mit Befugnis
+  speichert, wird als `teachercourseaccessgrantor` gespeichert; der Modus
+  erteilt nur, solange diese Person die Befugnis noch hat; sonst nimmt der
+  Abgleich die Einschreibungen zurück, der Wert bleibt stehen.
+- **enrol_adele:**
+  - erste eigene Tabelle `enrol_adele_teacher_grants` (Quelle `cmid`, Pfad,
+    Kurs, Person, Modus, Rolle); `db/install.xml` neu, Upgrade-Schritt.
+  - neue Instanzart `instance_manager::KIND_TEACHER` (= 3, eine je Kurs,
+    `customint1` = 0) – getrennt von den Lernenden-Instanzen. Alle
+    Lernenden-Durchläufe des Reconcilers schließen sie aus (Ablauf
+    ausgesetzter Einschreibungen, verwaiste Instanzen – ohne Ausschluss
+    hätte `customint1` = 0 sie gelöscht, Probe rot –, Duplikate,
+    Rollenabgleich in zwei Schritten), ebenso die Pfadfilter der
+    Verwaltungsseite und die Kursliste der Lernenden (`roster_members_sql`
+    in local_adele). Sicherungen stellen sie nicht wieder her.
+  - neu `teacher_grants`: `add`, `remove`, `get`, `apply` – Einschreibung,
+    solange eine Berechtigung bleibt; jede Rolle, solange eine Berechtigung
+    sie gibt (Vereinigung über die Quellen); nur Rollenzuweisungen der
+    eigenen Instanz werden angefasst.
+  - Datenschutz: aus dem `null_provider` wird ein Metadaten- und
+    Nutzerlisten-Provider (Export; Löschen nimmt Einschreibung und Rolle mit);
+    der alte String `privacy:metadata` entfällt.
+- **mod_adele:**
+  - Fähigkeiten `mod/adele:enrolinnodecourses` (sich selbst einschreiben;
+    Trainer/in, Trainer/in ohne Bearbeitungsrecht, Manager/in) und
+    `mod/adele:delegatecourseaccess` (Richtlinie 3; Trainer/in, Manager/in).
+  - Website-Einstellungen: Richtlinie (1 gesperrt, 2 behalten/herabsetzen
+    – Standard –, 3 Delegation) und je Einschreibemodus die Rolle
+    (Standard: Archetyp student/teacher/editingteacher). Jede Änderung
+    (auch der zugelassenen Modi) stellt sofort einen Abgleich in die
+    Warteschlange (Rückruf als Klassenmethode – eine Funktion in `lib.php`
+    wird auf der Einstellungsseite nicht geladen; das war der erste
+    Befund der E2E-Kette K14, behoben).
+  - `teacher_access_mode`: Rang, Richtlinie, Zielrolle, Befugnis
+    (`has_rights_in_all_courses`: `moodle/role:assign` und Rolle zuweisbar
+    in **jedem** Kurs des Pfads; Richtlinie 3 zusätzlich die
+    Delegationsfähigkeit), Formularoptionen mit gesperrten Einträgen,
+    `is_locked`, `may_save` nach Richtlinie, `is_authorized`. Der Standard
+    für neue Aktivitäten ist nie ein Trainer-Modus.
+  - Formular: Richtlinie 1 friert die Auswahl für Personen ohne Befugnis ein
+    (Hinweis sichtbar), sonst nur die erlaubten Einträge; die Prüfung nutzt
+    den eingereichten Pfad.
+  - Speichern (`adele_resolve_teacher_mode`): Wert und Grantor nach der
+    Befugnis der speichernden Person; danach Abgleich der Berechtigungen
+    der Aktivität. Löschen der Aktivität entfernt ihre Berechtigungen.
+    Sicherung führt den Grantor als Nutzerverweis (ohne Zuordnung beim
+    Wiederherstellen: 0 – der Modus erteilt dann nichts, bis jemand mit
+    Befugnis speichert).
+  - neu `teacher_enrolment`: `refusal` (Lehrendenansicht, Fähigkeit,
+    wirksamer Einschreibemodus, Befugnis, Kurs des Pfads, Rolle vorhanden,
+    verborgener Kurs nur mit einer Rolle, die ihn sehen darf, enrol_adele
+    aktiv), `enrol` (Zielrolle der Website, nie aus dem Browser; Ereignis
+    `node_course_enrolled`), `holds` (zusätzlich: Rang der Berechtigung ≤
+    wirksamer Modus, Rolle = aktuelle Zielrolle), `reconcile_cm`,
+    `reconcile_all`, `reconcile_path`, `remove_cm`. Auslöser: Speichern
+    und Löschen der Aktivität, Speichern/Löschen des Pfads (Beobachter auf
+    `learnpath_updated`/`learnpath_deleted`), Website-Einstellung, nächtliche
+    Aufgabe `reconcile_teacher_grants`.
+  - Webservice `mod_adele_enrol_in_node_course` (nur Kontext und Kurs);
+    Kursliste mit Status `enrol` (Rolle, Rollenbeschreibung) und
+    `unavailable` (Grund), dazu die Quelle der Einschreibung.
+  - **Entzug:** Einschreibungen dieser Art werden entfernt, nicht
+    ausgesetzt (es gibt keinen Lernstand zu bewahren).
+- **local_adele (Vue):** neu `CourseEnrolConfirmDialog.vue` (Kurs, Rolle mit
+  Beschreibung, Quelle, Hinweis auf die Rücknahme; nur „Einschreiben"
+  schreibt ein; Ablehnung mit Grund; modal wie der Anfragedialog) und
+  `modalFocus.js` (Tastatur beider Dialoge, aus dem Anfragedialog
+  herausgezogen). Kachelzeilen „Kein Zugang – Einschreibung möglich" mit
+  Schaltfläche je Modus und „Kein Zugang – nicht verfügbar" mit Grund; nach
+  der Einschreibung wird neu gefragt, angesagt, und der Fokus liegt auf dem
+  neuen Link.
+- **Befund (belegt), als Issue-Entwurf:** Trainer/innen des Gastkurses, die
+  den eingebetteten Pfad nicht bearbeiten dürfen, können die Aktivität gar
+  nicht speichern – die Pfadauswahl bietet nur bearbeitbare Pfade, der
+  gespeicherte fehlt, „required" (`id_error_learningpathid`, gemessen mit
+  `fx_kz_teacher`). Entwurf
+  `docs/issues/mod_adele-issue-form-path-not-editable.md`; nicht behoben. Für
+  die Richtlinien-Ketten macht der Seed `fx_kz_teacher` zum Bearbeiter des
+  KZ-Pfads (ohne Befugnis in T02).
+- **PHPUnit (mod, neu `teacher_enrolment_test`, 12 Tests):** Einschreibung
+  als Teilnehmer/in (Instanz, Rolle, Ereignis, danach offen); gefälschte
+  Aufrufe; Lernenden-Reconcile lässt die Berechtigungen stehen; Entzug durch
+  Website, Aktivität, Verlassen des Gastkurses – eigene Einschreibung
+  bleibt; zwei Quellen (Vereinigung der Rollen, Herabsetzen, Löschen der
+  Aktivität); Herabsetzen zwischen den Trainer-Modi; Richtlinie 2, 1, 3
+  samt Rückkehr zu 2; geänderte Zielrolle; verborgener Kurs; Datenschutz.
+  `teacher_access_mode_test` an die neue Signatur angepasst. Proben (je rot):
+  Rangprüfung entfernt (zunächst grün – kein Test prüfte sie ohne die
+  Befugnisprüfung; dafür der Test „zwischen den Trainer-Modi" ergänzt, dann
+  rot); Befugnisprüfung entfernt; überzählige Rollen bleiben; Teacher-Art im
+  Waisen-Durchlauf nicht ausgeschlossen; Heraufsetzen unter Richtlinie 2
+  erlaubt.
+- **Jest:** neu `CourseEnrolConfirmDialog.matrix.spec.js` (9),
+  `TeacherCourseAccess.matrix.spec.js` +5, Store +1. Die globale
+  Zweigschwelle (47 %) fiel mit den neuen, vorlagenlastigen Komponenten auf
+  46,6 %; statt die Schwelle zu senken, haben die vier Dateien der
+  Kurszugriffs-Matrizen jetzt eigene Schwellen zu ihren Messwerten (wie im
+  Konfigurationskommentar vorgesehen), zusätzlich acht Randfall-Tests.
+- **E2E (mod, neu `teacher-course-access-enrol.spec.ts`, Stories K13–K18;
+  K14, K15, K17, K18 mit `@withdrawal`):** Seed setzt Richtlinie, Rollen und
+  Berechtigungen zurück.
+  - K13: Bestätigung mit Rolle „Student", Quelle; Escape schreibt nicht ein;
+    „Einschreiben" über enrol_adele, Link fokussiert; neue Sitzung öffnet den
+    Kurs; Teilnehmerseite zeigt Rolle und Methode „ADELE (teacher access)".
+  - K14: gefälschte Aufrufe abgelehnt; Website entzieht den Modus → weg,
+    T01 bleibt offen, Dienst lehnt ab.
+  - K15: Richtlinie 2 – Trainer/in ohne Befugnis setzt „mit
+    Bearbeitungsrecht" auf „ohne" herab → höhere Einschreibung weg; kein
+    Heraufsetzen mehr angeboten.
+  - K16: Richtlinie 1 – gesperrt, Speichern behält den Wert.
+  - K17: Richtlinie 3 – Delegation durch die Trainer/in, Einschreibung als
+    Trainer/in ohne Bearbeitungsrecht; zurück zu 2 → Wert bleibt,
+    Einschreibung weg, Zeile „nicht verfügbar" mit Grund.
+  - K18: Aktivität gelöscht → Einschreibung weg, Kurs nicht mehr offen.
+  - Proben (je rot): Einstellungsänderung ohne Abgleich (K14, K17);
+    Rangprüfung entfernt (K15); Einschreibung schon beim Öffnen der
+    Bestätigung (K13).
+- **Im Prüfstand gefunden und behoben:**
+  - PHPUnit local `roster_course_scope_test` (Lernende in „verborgen"
+    bleiben auf der Liste) wurde rot: Die Ausschlüsse der neuen Art lauteten
+    `customint2 <> 3`; eine Instanz ohne `customint2` (NULL – im Test, und
+    bei Instanzen aus der Zeit vor der Art-Kennung möglich) fiel damit aus
+    allen Lernenden-Durchläufen und aus der Liste. Jetzt
+    `COALESCE(customint2, 0) <> 3` an allen acht Stellen; Test grün.
+  - Voller E2E-Lauf mod: H3 (`withdrawn-settings.spec.ts`) einmal rot –
+    `loginAs` ging nach `about:blank`, und diese Navigation wurde von einer
+    gleichzeitigen Weiterleitung der alten Seite auf
+    `/login/index.php?loginredirect=1` unterbrochen (Fehlermeldung von
+    Playwright, im Schritt nach dem Verschieben der Testuhr). Einzeln
+    zweimal grün. `loginAs` (alle drei Plugins) lässt eine solche
+    Navigation zu Ende laufen und verlässt die Seite dann erneut (höchstens
+    drei Versuche, andere Fehler unverändert).
+- **Unterbrechung und Fortsetzung:** Am 2026-10-16 endete die Sitzung vor
+  dem letzten vollen Prüflauf (Sitzungslimit). Am 2026-10-17 („Mach weiter
+  mit TP 4 …", erneut gesendet) wurde der Stand aus dem Protokoll und dem
+  Arbeitsverzeichnis übernommen, das Vue-Paket neu gebaut und der Prüfstand
+  vollständig wiederholt.
+- **Prüfstand `2026100732`:** phpcs und PHPDoc-Checker ohne Befund;
+  actionlint ohne Befund; PHPUnit local 404 (1 übersprungen, 1
+  unvollständig wie bisher), enrol 63, mod 55 (+12); Jest 98 Suiten, 749
+  bestanden, 0 übersprungen, Schwellen gehalten; Smoke 17; Behat
+  `mod_adele_use` grün; E2E local 78/78, enrol 6/6, mod 40/40 (+6),
+  Story-Abdeckung einschließlich „Withdrawal control" in allen drei
+  vollständig.
+  Ausgeliefert als „local_adele #600 (TP4)" mit Version 0.7.1 (beta).
+  Als Nächstes TP5 (Abnahme).
