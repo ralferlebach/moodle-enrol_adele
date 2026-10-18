@@ -2305,3 +2305,77 @@ Produktcode, kein PHP, keine E2E-Datei.
   „Withdrawal control" in allen drei vollständig.
   Ausgeliefert als „mod_adele+enrol_adele: Löschen = sauber weg,
   Wiederherstellung schreibt ein" und „E2E-Issue (Addendum D)".
+
+## Teil 64 — Kurszugriff in der Lehrendenansicht, TP1: Kurslinks im Lesemodus (2026-10-16)
+
+- **Auftrag des Nutzers:** „Nimm dir das neue Issue zur Kursverlinkung in der
+  Lehreransicht und setze dieses um." (Issue-Datei
+  `mod_adele_IMPROVEMENT_Kurszugriff_Lehrendenansicht.md`, auf GitHub noch
+  ohne Nummer.) Geliefert wird nach dem Schnitt des Issues Teilpaket für
+  Teilpaket; dies ist **TP1**: Modus `existing_only`, nur Anzeige und Link,
+  keine Einschreibung, keine Anfrage.
+- **Server (mod_adele):**
+  - neu `classes/local/node_course_access.php`: die Knotenkurse des
+    eingebetteten Pfads in Pfadreihenfolge (Stapel in ihrer eigenen
+    Reihenfolge), ohne gelöschte Kurse und ohne die Startseite; „offen"
+    genau dann, wenn Moodle die Person hineinlässt
+    (`can_access_course(..., onlyactive = true)`: ausgesetzte Einschreibung
+    und verborgener Kurs ohne Recht = kein Zugang); Link nur bei „offen".
+  - neu Webservice `mod_adele_get_node_course_access` (`db/services.php`):
+    nur Kontext einer mod_adele-Aktivität, nur Lehrendenansicht
+    (`view_mode::for_context` = `teacher`), sonst `nopermissions`.
+- **Client (local_adele, Vue):** neu `TeacherCourseAccess.vue` auf der
+  aktiven Kachel (Klick oder Enter auf der fokussierten Kachel), nur in der
+  Lehrendenansicht einer Einbettung – nicht für Lernende, nicht im Editor.
+  Je Kurs Kurzname, Langname als eigener Text, Status in Worten, „Kurs
+  öffnen" (neuer Tab, `noopener noreferrer`) nur bei Zugang. Gleiche
+  Kurznamen erhalten die Kurs-ID. Umschalter mit `aria-expanded` /
+  `aria-controls`, Escape schließt und gibt den Fokus an die Kachel zurück,
+  Ergebnis über die Live-Region angesagt, deckende Fläche mit
+  Fokusrahmen. Store: `activeNodeId`, `nodeCourseAccess`,
+  `fetchNodeCourseAccess` (bei Ablehnung bleibt nichts „offen").
+  Strings en/de.
+- **Befund (belegt), als Issue-Entwurf:** Ein gelöschter Knotenkurs bricht die
+  Auswertung des Pfads ab (`learning_path_update::get_course()` →
+  `get_course()` → `dml_missing_record_exception`, aus
+  `course_completed::get_completion_status()`); im PHPUnit-Test dadurch
+  aufgefallen, dass die Einschreibung einer Lehrperson in den Gastkurs mit
+  abbrach. Entwurf `docs/issues/local_adele-issue-deleted-node-course.md`;
+  der Test umgeht den Fall bis dahin.
+- **PHPUnit (mod, neu `node_course_access_test`, 3 Tests):** offen genau, wo
+  Moodle hineinlässt (aktiv ja; ausgesetzt, verborgen, nicht eingeschrieben
+  nein; gelöschter Kurs und Startseite ohne Zeile; Stapelreihenfolge);
+  Administrator überall offen; wer fragen darf (Lehrperson mit und ohne
+  Bearbeitungsrecht ja, Lernende und Außenstehende nein, Kurskontext nein).
+  Proben: `onlyactive` = false → rot; Ansichtsprüfung entfernt → rot.
+- **Jest (local):** `TeacherCourseAccess.matrix.spec.js` (18) und
+  `store.nodecourseaccess.spec.js` (4).
+- **E2E (mod, neu `teacher-course-access.spec.ts`, Stories K1–K5):** Fixture
+  KZ: „Verzweigt, gestapelt B1" (Knoten 1 = Stapel T01–T03) in `E2EKZ`;
+  `fx_kz_teacher` (Bearbeitungsrecht) und `fx_kz_tutor` (ohne) in T01 und
+  T03, in T02 nicht; `fx_kz_learner`.
+  - K1/K2: vor der Aktivierung nichts; aktiviert T01/T03 „Zugang" mit Link,
+    T02 „Kein Kurszugang" ohne Link; der Link öffnet den Kurs selbst im
+    neuen Tab, der Graph bleibt.
+  - K3: kein Link und keine Schaltfläche für T02, nirgends auf der Seite; der
+    Dienst lehnt Lernende ab (`nopermissions`) und einen Kontext, der keine
+    Einbettung ist.
+  - K4 (`@withdrawal`): Administrator meldet die Lehrperson über Moodles
+    Teilnehmerseite aus T03 ab → neue Sitzung, erneut aktiviert: T03 ohne
+    Link, T01 weiter offen.
+  - K5: Enter auf der Kachel, Kurz- und Langname je Zeile, zugänglicher Name
+    des Links, Umschalter-ARIA; Link per Tastatur geöffnet; Escape schließt,
+    Fokus zurück auf der Kachel; Lernende und Pfadeditor ohne Kursaktionen.
+  - Mutationsproben: Zugang immer „offen" → K3 und K4 rot; Ansichtsprüfung
+    entfernt → K3 rot.
+- **Prüfstand `2026100729`:** phpcs (nach Korrektur von fünf Warnungen im
+  neuen PHPUnit-Test: Zeilenlänge, Kommentaranfang) und PHPDoc-Checker ohne
+  Befund; actionlint ohne Befund; PHPUnit local 402 (1 übersprungen, 1
+  unvollständig: catquiz nicht installiert, wie bisher), enrol 63, mod 29
+  (+3); Jest 96 Suiten, 721 bestanden, 0 übersprungen, Abdeckungsschwelle
+  gehalten; Smoke 17; Behat `mod_adele_use` grün; E2E local 78/78, enrol
+  6/6, mod 27/27 (+5), Story-Abdeckung einschließlich „Withdrawal control"
+  in allen drei vollständig.
+  Ausgeliefert als „mod_adele: Kurszugriff Lehrendenansicht (TP1)".
+  Als Nächstes TP3 (Einstellung `teachercourseaccessmode`), dann TP2, TP4,
+  TP5.

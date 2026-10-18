@@ -808,3 +808,16 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   Kette B geprüft.
 - **D:** ein späterer, schlechterer CAT-Versuch nimmt nichts zurück
   (Bestergebnis); die anderen Lernenden bleiben unverändert.
+
+## Nachtrag `2026100729`: Kurszugriff in der Lehrendenansicht (TP1)
+
+- **Neu mod `teacher-course-access.spec.ts`, Stories K1–K5** (in
+  `stories.json` verlangt; K4 als Rücknahme mit `@withdrawal`): Kurse der
+  aktiven Kachel mit Status, Link nur bei Zugang, neuer Tab; Ablehnung des
+  Dienstes für Lernende und fremde Kontexte; Entzug außerhalb von ADELE
+  nimmt den Link beim nächsten Aktivieren; Tastatur, Escape, Fokus;
+  nichts davon für Lernende und im Pfadeditor.
+- **Fixture KZ** (local `seed_fixtures.php`): Gastkurs `E2EKZ` mit „Verzweigt,
+  gestapelt B1", zwei Lehrpersonen (mit und ohne Bearbeitungsrecht) in T01
+  und T03, nicht in T02; je Lauf wiederhergestellt. Exporte
+  `ADELE_FIXTURE_KZ_*`.
