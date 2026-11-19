@@ -24,3 +24,4 @@
   - Lehrenden-Fokus jetzt auch E2E (vorher nur Unit).
   - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
 - **Entscheidung (Re-Audit): schließbar**
+- **Re-Audit 2026100736 (2026-10-18), Lieferung `2026101800`:** Wie #26: Fokus einer überholten Aktualisierung entfällt, Tastaturfokus-Rückgabe endet, sobald sie nicht mehr gewollt ist (`restoreFocusWhenReady(…, wanted)`); Jest.

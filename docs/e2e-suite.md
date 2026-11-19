@@ -973,3 +973,16 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   Benutzer – bitte Suche verwenden“, und ein per `fill()` gesetzter
   Suchtext startet die Suche nicht (sie reagiert auf Tastenereignisse).
   R5 war dadurch rot, mit der Änderung grün.
+
+## Nachtrag `2026101800`: eine Kante je Verbindung (local_adele #603)
+
+- **Neu local `editor-duplicate-edges.spec.ts`** (Story E1, 2 Tests):
+  erneutes Verbinden zweier verbundener Knoten → eine Kante im Graphen, eine
+  gespeichert; gespeicherter Referenzpfad mit Kopien („Verzweigt, gestapelt
+  B1“, vom Seed wie exportiert geschrieben: 7 Kanten) → 5 gezeichnet, ein
+  `path`-Element je Verbindung, keine DOM-ID doppelt im Graphen, beim Laden
+  nichts geschrieben.
+- **`stacked-courses.spec.ts`:** Ausnahme für `.vue-flow__edges` entfernt –
+  die ganze Seite ohne doppelte DOM-ID.
+- Der Seed schreibt die Referenzpfade weiterhin wie exportiert (mit Kopien);
+  so prüfen die Ketten auch die Darstellung historischer Daten.

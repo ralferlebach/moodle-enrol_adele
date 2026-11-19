@@ -97,7 +97,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/e2e-export"
 
       - name: Check out plugin
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: plugin
 
@@ -109,7 +109,7 @@ jobs:
           ini-values: max_input_vars=5000
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -385,7 +385,7 @@ jobs:
       # "Re-run jobs" would otherwise fail at this step.
       - name: Upload results with videos
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-results-${{ env.PLUGIN }}_adele-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-export

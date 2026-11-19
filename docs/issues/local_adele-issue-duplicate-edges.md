@@ -1,8 +1,8 @@
 # Issue-Entwurf (local_adele): Gespeicherte Lernpfade enthalten Kanten doppelt – doppelte DOM-IDs im Graphen
 
-> **Stand:** Entwurf (2026-10-18), noch nicht eingereicht. Gefunden bei der
-> DOM-Abnahme von mod_adele #17 (Re-Audit 0735, TP-05). **Nicht** behoben:
-> außerhalb des Umfangs von #17; Behebung erst nach Anlage des Issues.
+> **Stand:** eingereicht als **local_adele #603**; behoben in Lieferung
+> `2026101800` – Abnahme: `docs/abnahme/local-603.md`. Gefunden bei der
+> DOM-Abnahme von mod_adele #17 (Re-Audit 0735, TP-05).
 
 ## Befund (belegt)
 
@@ -21,10 +21,14 @@
    (`vue3/composables/addCustomEdge.ts:43`); eine zweite Verbindung derselben
    Knoten ergibt dieselbe ID.
 
-## Nicht belegt
+## Entstehung (nachträglich belegt, 2026-10-18)
 
-Wie die Duplikate entstanden sind (Editor beim erneuten Verbinden, Import,
-ältere Version) – das ist aus den Daten allein nicht ableitbar.
+Zwei bereits verbundene Knoten im Editor erneut verbinden: ohne Sperren
+(`LearningPath.vue::handleConnect()`, `LearningpathsEdit.vue::handleAddEdge()`)
+und ohne Normalisierung zeigte der Graph nach zwei solchen Zügen **drei**
+Kanten (E2E-Gegenprobe). `handleAddEdge()` hängte die rohe Kante von
+`addCustomEdge()` (ohne `type`, ohne `data`) an `tree.edges` an – genau die
+Form des zweiten Eintrags in den Fixtures.
 
 ## Folgen
 

@@ -26,3 +26,4 @@
   - Die AKs von #26 verlangen keinen bestimmten Browser; Firefox-Projekt für R26 im Workflow vorgesehen (lokal nicht installierbar) – betrifft AK 3 von #32.
   - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
 - **Entscheidung (Re-Audit): schließbar**
+- **Re-Audit 2026100736 (2026-10-18), Lieferung `2026101800`:** Verzögerte Rückrufe nach dem Aushängen und mehrfaches Neuaufbauen (Re-Audit B): `UserPath.vue` führt Fit-, Fokus- und Zeichenschritte über `later()` aus – nach dem Aushängen gelöscht und wirkungslos, ein Schritt einer früheren Aktualisierung wirkt nach einer späteren nicht mehr; Jest `UserPath.refresh.spec.js` +2, `keyboardFocus.spec.js` +1 (Gegenprobe ohne Schutz: 2 rot).

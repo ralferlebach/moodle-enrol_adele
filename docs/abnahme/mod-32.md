@@ -15,3 +15,4 @@
   - Offen: AK 3 „alle unterstützten Browser“ – Firefox-Lauf der Ketten R26/F27/S17 (Projekt `firefox`, `ADELE_E2E_FIREFOX`) nur im Workflow; hier nicht installierbar.
   - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
 - **Entscheidung (Re-Audit): abnahmefähig**
+- **Re-Audit 2026100736 (2026-10-18), Lieferung `2026101800`:** Neue isolierte Tests: späte Rückrufe nach Unmount, zwei Aktualisierungen kurz hintereinander, nicht mehr gewollte Fokus-Rückgabe. Firefox bleibt offen (AK 3).

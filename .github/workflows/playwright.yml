@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Check out plugin
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: plugin
 
@@ -49,7 +49,7 @@ jobs:
           ini-values: max_input_vars=5000
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -223,7 +223,7 @@ jobs:
       # failure. Size is bounded by the suite being a smoke test.
       - name: Upload report with videos
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report-enrol_adele-${{ github.run_id }}-${{ github.run_attempt }}
           path: |

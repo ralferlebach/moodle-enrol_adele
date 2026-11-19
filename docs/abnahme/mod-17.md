@@ -22,3 +22,6 @@
   - Tests: Jest `expandedCourse.spec.js` (9), `ExpandedCourses.spec.js` (4), `ExpandNodeEdit.spec.js` (6), `stackToggle.spec.js` (8), `issue591_keyboard_toggles.spec.js` (angepasst); PHPUnit `issue457_course_names_test` (4), `issue484_node_description_master_merge_test` (angepasst); Playwright S17 (2) grün in Chromium
   - Läufe: Prüfstand `2026100736` in `README.md` (PostgreSQL 16 und MariaDB 10.11)
 - **Entscheidung (Re-Audit): schließbar**
+- **Re-Audit 2026100736 (2026-10-18), Lieferung `2026101800`:** #603 ist eigenständig umgesetzt (`local-603.md`); S17 prüft jetzt die ganze Seite ohne Ausnahme für Kanten auf doppelte DOM-IDs – grün.
+- **CI 2026-10-18 (Firefox):** S17 Test 1 rot – `:focus-visible` der Ausklappschaltfläche nach Escape in Firefox falsch. Behoben mit `focus({ focusVisible: true })` (Lieferung `2026101800`); Chromium 2/2 grün, Jest prüft den Aufruf; Firefox-Nachweis im nächsten CI-Lauf.
+- **Entscheidung (Stand 2026-10-19): abnahmefähig** – schließbar nach grünem Firefox-Lauf von S17.

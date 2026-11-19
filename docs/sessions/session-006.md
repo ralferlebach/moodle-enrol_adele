@@ -3061,3 +3061,64 @@ Produktcode, kein PHP, keine E2E-Datei.
   `@mod_adele_use` 1, `@mod_adele_index` 4 Szenarien (Behat-Seite neu
   initialisiert). Jest 827. phpcs, moodlecheck, actionlint ohne Befund.
   Nicht geprüft: MySQL, Firefox.
+
+## Teil 72 — local_adele #603 und Re-Audit 2026100736 (2026-10-18)
+
+- **Auftrag:** Re-Audit „ADELE 2026100736 – erneuter Code-Re-Audit gegen
+  offene GitHub-Issues“, Abschnitt A (#603) verbindlich; Versionsnummer auf
+  das Datum gesetzt: **2026101800** (alle drei Plugins, gegenseitige
+  Mindestversionen, Upgrade-Schritt).
+- **#603 umgesetzt:** `local_adele\path_edges` (Identität, `normalize()`,
+  `normalize_json()`, `repair_stored()`), CLI `cli/repair_path_edges.php`,
+  Upgrade-Schritt; Editor-Sperren in `handleConnect()`, beim Ablegen,
+  UND-Verknüpfung und `handleAddEdge()`; Normalisierung beim Laden
+  (Editor, Personenansicht, mobil) und Speichern (Store, Server).
+- **Entstehung belegt:** erneutes Verbinden zweier verbundener Knoten –
+  ohne die neuen Sperren und ohne Normalisierung drei Kanten im Graphen nach
+  zwei Zügen (E2E-Gegenprobe); die Kopie ist die rohe Kante von
+  `addCustomEdge()` (ohne `type`), wie in den Fixtures.
+- **Tests:** PHPUnit `path_edges_test` (4; Gegenprobe ohne Normalisierung
+  beim Speichern rot); Jest `normalizeEdges.spec.js` (6); E2E
+  `editor-duplicate-edges.spec.ts` (2; Gegenprobe rot); S17 ohne
+  Kanten-Ausnahme grün.
+- **Neue Funde (Issue-Entwürfe, nicht behoben):** Verbinden in Gegenrichtung
+  legt eine Rückwärtskante an (Zyklus) – `local_adele-issue-reverse-connection.md`;
+  Dialoge des Editors wiederholen DOM-IDs (`exampleModalLabel`, `fullname`,
+  `description`, `dropdownMenuButton`) – `local_adele-issue-duplicate-modal-ids.md`.
+- **Re-Audit B (#26/#27/#32):** Verzögerte Schritte von `UserPath.vue`
+  (Fit, Fokus, Tastaturfokus, Module zeichnen) laufen nicht mehr nach dem
+  Aushängen, und ein Schritt einer früheren Aktualisierung wirkt nicht mehr
+  nach einer späteren. Jest +3 (Gegenprobe: 2 rot).
+- **Upgrade auf der Testsite:** 3 Pfade (6 Kopien), 6 Personenpfade
+  (12 Kopien) bereinigt, 0 ID-Konflikte.
+- **Prüfstand `2026101800`:** PHPUnit PostgreSQL 16 und MariaDB 10.11 – local
+  433, enrol 75, mod 139; Gruppe `adele_release` 70; Konformitätsprüfung 12.
+  Playwright mod 56/56, enrol 6/6, local 80/80; Smoke 17/17; Behat 1 + 4;
+  Jest 836; phpcs, moodlecheck, actionlint ohne Befund.
+
+## Teil 73 — CI-Läufe vom 2026-10-18 ausgewertet (2026-10-19)
+
+- **Quelle:** zwei Log-Archive des Auftraggebers – `moodle405` (local_adele,
+  mysqli/pgsql/mariadb) und `E2E (Moodle 4.5, PHP 8.3)` (mod_adele,
+  Chromium + Firefox); Stand der Läufe: `2026100736`.
+- **Codechecker (alle drei Datenbanken rot), Ursache belegt:**
+  `moodle.PHPUnit.TestCaseCovers.Missing` für
+  `path_refresh_readonly_test::test_a_refresh_reads_only` – das Attribut
+  `#[RunTestsInSeparateProcesses]` zwischen Klassen-Docblock und Klasse
+  verdeckt dem Prüfer das `@covers` der Klasse (`--max-warnings=0`). Lokal
+  meldete phpcs mit derselben moodle-cs-Version (3.7.0) nichts; Behebung:
+  `@covers` zusätzlich an der Methode. PHPUnit, Behat (12 Szenarien) und
+  Jest (827) waren in allen drei CI-Jobs grün.
+- **E2E Firefox, S17 Test 1 rot, Ursache belegt:** nach Escape in einem
+  Panel hat die Ausklappschaltfläche den Fokus, aber `:focus-visible` ist in
+  Firefox falsch (Chromium: wahr). Der Fokus wird per Skript gesetzt; Firefox
+  zeigt ihn in diesem Ablauf nicht. Behebung im Produkt (eine Tastaturaktion
+  soll einen sichtbaren Fokus hinterlassen): `focus({ preventScroll: true,
+  focusVisible: true })` in `CustomStagNodeEdit.vue` und `OrCourses.vue`;
+  Jest prüft den Aufruf. Firefox ist hier nicht installierbar – der Nachweis
+  folgt im nächsten CI-Lauf. Alle übrigen 67 Tests (Chromium und Firefox)
+  grün, keine Wiederholungen.
+- **Warnung „Node.js 20 is deprecated“:** `actions/checkout@v4`,
+  `setup-node@v4`, `upload-artifact@v4` in allen Workflows der drei Plugins
+  auf `checkout@v6`, `setup-node@v5`, `upload-artifact@v6` (die Versionen,
+  mit denen der zentrale Workflow schon läuft); actionlint ohne Befund.

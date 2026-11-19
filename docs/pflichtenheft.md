@@ -773,6 +773,39 @@ Kurs-ID: VueFlow-Knoten `…_expanded_courses_<Kurs-ID>`, Klasse
 E2E-Workflow zusätzlich in Firefox (Projekt `firefox`, sobald
 `ADELE_E2E_FIREFOX` gesetzt ist).
 
+## 6b. Eine Kante je Verbindung (local_adele #603; 2026-10-18)
+
+**Identität.** Eine Kante des Lernpfad-Baums ist bestimmt durch `type`
+(fehlt: `default`), `source`, `sourceHandle`, `target`, `targetHandle` –
+nicht durch ihre ID (`source + target` des Editors, kann kollidieren).
+Parallele Kanten mit gleichen Griffen gibt es nicht; ein anderer Griff ist
+eine andere Verbindung.
+
+**Regel** (`local_adele\path_edges::normalize()`, gleich in
+`composables/flowHelper/normalizeEdges.js`): die erste Kante je Verbindung
+bleibt an ihrer Stelle, spätere Kopien entfallen; eine Kante, deren ID eine
+andere Verbindung schon trägt, erhält `<id>_2`, `<id>_3`, … (Konflikt wird
+gemeldet). Deterministisch, idempotent, alle anderen Kanten unverändert.
+
+**Wo.** Editor: keine zweite Kante beim Verbinden, Ablegen, UND-Verknüpfen
+und beim Übernehmen in `tree.edges`. Server: Speichern, Aktualisieren,
+Duplizieren normalisieren (ein sauberer Pfad bleibt Byte für Byte gleich);
+Laden für Editor und Personenansicht zeigt normalisiert, schreibt nichts.
+Bestand: Upgrade-Schritt `2026101800` (Bericht je Pfad, je Datensatz eine
+Transaktion, wiederholbar); Vorschau `php local/adele/cli/repair_path_edges.php`,
+Reparatur mit `--execute`. Pfade von Personen: nur Kopien entfallen,
+Fortschritt bleibt, ID-Konflikte werden gezählt und nicht geändert.
+Lernpfade sind nicht Teil der Moodle-Sicherung; einen eigenen Import gibt es
+nicht.
+
+**Entstehung (belegt):** erneutes Verbinden zweier verbundener Knoten hängte
+die rohe Kante ein zweites Mal an `tree.edges`.
+
+**Verzögerte Schritte der Pfadansicht (Re-Audit 2026100736, B).** Fit,
+Fokus, Tastaturfokus und Zeichnen der Module laufen nur, solange die Ansicht
+eingehängt ist; ein Schritt einer früheren Aktualisierung tut nichts mehr,
+sobald eine spätere da ist (`UserPath.vue`: `later()`, Generation).
+
 ## 7. Ausbaustufen, API, Events
 
 ### 7.1 Ausbaustufen
