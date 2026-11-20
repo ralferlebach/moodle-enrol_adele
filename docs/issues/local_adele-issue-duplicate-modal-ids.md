@@ -1,7 +1,8 @@
 # Issue-Entwurf (local_adele): Dialoge des Editors wiederholen DOM-IDs
 
-> **Stand:** Entwurf (2026-10-18), noch nicht eingereicht. Gefunden beim
-> Umsetzen von local_adele #603 (DOM-Prüfung im Editor). **Nicht** behoben –
+> **Stand:** eingereicht als ralferlebach/moodle-local_adele #18; umgesetzt in 2026111900
+> (Protokoll `docs/abnahme/local-18.md`). Ursprünglicher Entwurf (2026-10-18), gefunden beim
+> Umsetzen von local_adele #603 (DOM-Prüfung im Editor). Damals nicht behoben –
 > außerhalb von #603 (das die Kanten des Graphen betrifft).
 
 ## Befund (belegt, gemessen im Browser 2026-10-18)

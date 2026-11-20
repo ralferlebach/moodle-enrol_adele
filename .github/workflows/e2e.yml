@@ -36,12 +36,11 @@ name: E2E
         type: string
         default: ''
       php_version:
-        description: PHP version (Moodle 4.5 supports 8.1 to 8.3).
+        description: 'PHP version - tested are 8.2 and 8.3 (8.1 and older are not tested, local_adele #11).'
         type: choice
         options:
           - '8.3'
           - '8.2'
-          - '8.1'
         default: '8.3'
       sibling_ref:
         description: >-
@@ -183,14 +182,33 @@ jobs:
             [mod/adaptivequiz/catmodel/catquiz]="ralferlebach/moodle-adaptivequizcatmodel_catquiz|$CATQUIZ_REF"
             [local/catquiz]="ralferlebach/moodle-local_catquiz|$CATQUIZ_REF"
           )
+          # Submodules are fetched one by one: a submodule pinned to a commit
+          # its repository no longer has (local_catquiz pins
+          # catquizcentralhub/host to ec77e605, gone from that repository -
+          # CI 2026-11-19) falls back to the repository's default branch,
+          # with a warning, instead of stopping the run.
+          fetch_submodules() {
+            local dir="$1" key name subpath url
+            [ -f "$dir/.gitmodules" ] || return 0
+            git -C "$dir" config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
+            while read -r key subpath; do
+              name="${key#submodule.}"; name="${name%.path}"
+              url="$(git -C "$dir" config -f .gitmodules --get "submodule.$name.url")"
+              if ! git -C "$dir" submodule update --init --depth 1 -- "$subpath" >/dev/null 2>&1; then
+                echo "::warning::$(basename "$dir"): submodule $subpath is pinned to a commit $url does not have - using its default branch."
+                rm -rf "${dir:?}/$subpath"
+                git clone --quiet --depth 1 "$url" "$dir/$subpath"
+              fi
+            done
+          }
           # Order matters: the adapter lives INSIDE mod/adaptivequiz.
           for path in local/wunderbyte_table mod/adaptivequiz mod/adaptivequiz/catmodel/catquiz local/catquiz; do
             repo="${EXTRA[$path]%%|*}"
             ref="${EXTRA[$path]##*|}"
             src="$RUNNER_TEMP/src_$(basename "$repo")"
             rm -rf "$src"
-            git clone --quiet --depth 1 --branch "$ref" --recurse-submodules --shallow-submodules \
-              "https://github.com/$repo.git" "$src"
+            git clone --quiet --depth 1 --branch "$ref" "https://github.com/$repo.git" "$src"
+            fetch_submodules "$src"
             echo "| $(basename "$repo") | $repo | $ref | $(git -C "$src" rev-parse HEAD) |" \
               >> "$RUNNER_TEMP/plugins.md"
             dest="$MOODLE_WEBROOT/$path"
@@ -274,7 +292,15 @@ jobs:
           # npm ci, not npm install: it fails loudly when the lockfile is
           # missing rather than resolving whatever is current that day.
           npm ci
-          npx playwright install --with-deps chromium
+          # Firefox for the browser-dependent stories (mod_adele #32,
+          # local_adele #18, see playwright.config.ts); a plugin whose suite
+          # has none skips it.
+          if grep -q "ADELE_E2E_FIREFOX" playwright.config.ts; then
+            npx playwright install --with-deps chromium firefox
+            echo "ADELE_E2E_FIREFOX=1" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
           # The server test clock for the time chains (plan section 9):
           # libfaketime, preloaded into the PHP processes only.
           sudo apt-get install -y -qq faketime >/dev/null

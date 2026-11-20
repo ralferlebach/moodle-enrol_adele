@@ -10,8 +10,34 @@ PostgreSQL (Behat, Playwright).
 **Prüfstand je Lieferung**
 - P0 `2026100734`: PHPUnit local 413 / enrol 72 / mod 89 auf PostgreSQL 16 und MariaDB 10.11; Playwright mod 41 / enrol 6 / local 78; Smoke 17; Behat 1 + 4 Szenarien.
 - P1 `2026100735`: PHPUnit local 421 / enrol 72 / mod 116 auf PostgreSQL 16 und MariaDB 10.11; Gruppe `adele_release` 36; Moodle-Konformitätsprüfung Privacy 12; Playwright mod 43 / enrol 6 / local 78; Smoke 17; Behat 1 + 4 Szenarien; Jest 749.
+- Nacharbeiten 2026-11-19 `2026111900`: PHPUnit local 459 (1 übersprungen, 1 unvollständig wie bisher) / enrol 75 / mod 147 auf PostgreSQL 16 und MariaDB 10.11; Gruppe `adele_release` 70; Konformitätsprüfung Privacy 12 (beide Datenbanken); Jest 871 (Coverage-Gate eingehalten); Playwright E2E Chromium local 83/83 (Gesamtlauf), mod 62 (letzter Gesamtlauf nach allen Korrekturen: 59 grün, R26 „Modus 2“ einmal rot – zwei gleichzeitige Anfragen gezählt –, 2 danach nicht gelaufen; `path-refresh.spec.ts` danach 10/10 und Modus 2 einzeln 3/3 grün; Ursache des einen roten Laufs **nicht belegt**, der Zähler des Tests erfasst jede Anfrage, deren Inhalt den Methodennamen enthält, also auch die Teilnehmerliste `…_relations`; der vorige Gesamtlauf und Firefox 12/12 waren für R26 grün), enrol 6/6; Firefox local A18 3/3, mod R26/F27/S17 12/12; Smoke local 17/17, mod 4/4, enrol 4/4; phpcs (moodle-cs 3.7), moodlecheck, actionlint 1.7.7 ohne Befund. Im ersten Gesamtlauf rot und behoben (Ursachen belegt): R3 und V1 (Seed `E2EM18` nahm student01 den Referenzpfad), E2 und Smoke #470 (entfernte Steuer-IDs, jetzt `data-testid`), P2/P3 und P1/P2-Rücknahme (gewollte Änderung #12 AK0-L2, Tests angepasst), S17 einmal von drei Läufen (Messung während der Viewport-Animation, jetzt nach Stillstand gemessen, danach 5/5 Chromium, 1/1 Firefox), Smoke-Reihenfolge (veraltete `fix.env`, `enrol_adele/lastreport` aus einem früheren Lauf). **Nicht geprüft:** Behat (kein Chrome/ChromeDriver installierbar: Download über die Allowlist blockiert, Installation eines heruntergeladenen Treibers nicht freigegeben), MySQL; GitHub-CI am Commit steht aus.
 - #603 + Re-Audit 2026100736 `2026101800`: PHPUnit local 433 (1 übersprungen, 1 unvollständig wie bisher) / enrol 75 / mod 139 auf PostgreSQL 16 und MariaDB 10.11; Gruppe `adele_release` 70; Konformitätsprüfung Privacy 12 (beide Datenbanken); Playwright mod 56/56, enrol 6/6, local 80/80 (Gesamtlauf, Chromium); Smoke 17/17; Behat `@mod_adele_use` 1 + `@mod_adele_index` 4 Szenarien (Behat-Seite neu initialisiert); Jest 836; phpcs, moodlecheck, actionlint ohne Befund. Danach geändert und gezielt nachgeprüft: `focusVisible` beim Einklappen per Escape (S17 2/2 Chromium, Jest), `@covers` am Test `path_refresh_readonly_test` (1/1). CI-Läufe 2026-10-18 (Stand `2026100736`, vom Auftraggeber geliefert): Codechecker local_adele 1 Warnung (behoben), E2E Firefox S17 1 Fehler (behoben, Firefox hier nicht ausführbar – Nachweis im nächsten CI-Lauf). Nicht geprüft: MySQL, Firefox (lokal).
 - P2 + Re-Audit 0735 `2026100736`: PHPUnit local 429 (1 übersprungen, 1 unvollständig wie bisher) / enrol 75 / mod 139 auf PostgreSQL 16 und MariaDB 10.11; Gruppe `adele_release` 70; Moodle-Konformitätsprüfung Privacy 12 (beide Datenbanken); Playwright mod 56/56 (Gesamtlauf), enrol 6/6, local 77/78 im Gesamtlauf – R5 rot wegen der Suche im Rollendialog (>100 Personen, belegt), nach Korrektur der Hilfsfunktion beide betroffenen Spezifikationen 6/6; Smoke 17/17; Behat `@mod_adele_use` 1 + `@mod_adele_index` 4 Szenarien; Jest 827 (105 Suiten, Coverage-Gate eingehalten); phpcs, moodlecheck, actionlint ohne Befund. Ein erster mod-Gesamtlauf hatte H2 (`withdrawn-settings.spec.ts`) einmal rot (Abschlussknopf deaktiviert); Einzellauf und zweiter Gesamtlauf grün – Ursache **nicht belegt**. Nicht geprüft: MySQL, Firefox.
+
+## Re-Audit 2026-11-19 (Stand `2026101800`) – Entscheidung je Issue, Lieferung `2026111900`
+
+Regel des Auftrags: AK = Codeeigenschaft, DoD = automatische CI am Commit;
+keine manuellen Nach-Deploy-Tests als DoD. Ohne CI-Lauf am Commit ist
+deshalb nichts „schließbar“. „Abnahmefähig“: Code und automatisierte Tests
+vollständig, lokal grün; es fehlt nur der CI-Nachweis. „Testseitig offen“:
+ein Teil der verlangten automatisierten Tests fehlt oder lief hier nicht
+(benannt).
+
+| Issue | Entscheidung | Offen |
+|---|---|---|
+| local #11 (PHP ≤ 8.1) | abnahmefähig | CI: expandierte Jobs nur PHP ≥ 8.2, alle Testarten grün |
+| local #12 (Gruppenranglisten) | abnahmefähig | CI-Matrix (MySQL hier nicht vorhanden) |
+| local #13 (Nicht-Lernende) | abnahmefähig | CI-Matrix; „ohne Pfad“ nur PHPUnit/Jest (im Browser nicht dauerhaft herstellbar) |
+| local #14 (Live-Marker) | testseitig offen | Lasttest großer Kohorten, CI-Matrix |
+| local #15 (Knotenzähler) | testseitig offen | Rückkehr mit Viewport/Scroll, CI-Matrix |
+| local #16 (mod: Gruppen) | testseitig offen | Gruppierung im Browser (nur PHPUnit), Behat hier nicht ausführbar, CI-Matrix |
+| local #17 (mod: Live-Einstellungen) | abnahmefähig | CI-Matrix (Speichern/Wiederöffnen per Playwright M1) |
+| local #18 (DOM-IDs) | abnahmefähig | CI (Chromium, Firefox, a11y) |
+| Upstream #603 | testseitig offen (korrigiert, vorher „schließbar“) | CI am Fork-Commit, Integration und Test upstream |
+| mod #17 | abnahmefähig | CI Chromium und Firefox (Firefox lokal jetzt grün) |
+| gegenläufige Kante | Issue-Entwurf mit AK/DoD | Einreichen nach Duplikatabgleich |
+
+Protokolle: `local-11.md`, `local-12-17.md`, `local-18.md`, `local-603.md`, `mod-17.md`.
 
 ## Re-Audit 0735 – Entscheidung je Issue (2026-10-18)
 

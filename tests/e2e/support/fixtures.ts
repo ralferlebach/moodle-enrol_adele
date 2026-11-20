@@ -744,7 +744,7 @@ export async function setEnrolmentStatus(
  * @param page A page showing an embedded path.
  */
 export async function participantList(page: Page): Promise<string[]> {
-  const rows: ParticipantRow[] = await page.locator('#adele-userlist-table tbody tr').evaluateAll((trs) =>
+  const rows: ParticipantRow[] = await page.locator('[data-testid="adele-userlist-table"] tbody tr').evaluateAll((trs) =>
     trs.map((tr) => {
       const cells = Array.from(tr.querySelectorAll('td'));
       const text = (index: number) => (cells[cells.length - index]?.textContent || '').trim();

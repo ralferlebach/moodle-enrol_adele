@@ -1,15 +1,14 @@
 name: Playwright smoke
 
 # Browser smoke tests. They need a live Moodle site, so they run separately
-# from the moodle-plugin-ci pipeline: manual and weekly by default, to keep
+# from the moodle-plugin-ci pipeline: manual only, to keep
 # pull request runs fast.
 #
 # NOTE: workflow_dispatch only appears in the Actions UI once this file exists
 # on the repository's DEFAULT branch.
+# Manual only (decision 2026-11-19): no schedule - a run is started by hand.
 "on":
   workflow_dispatch:
-  schedule:
-    - cron: '0 3 * * 1'
 
 jobs:
   playwright:
@@ -44,7 +43,7 @@ jobs:
         with:
           # mod_adele requires Moodle 4.5, and the whole trio installs only
           # together, so the PHP version follows the moodle-plugin-ci matrix.
-          php-version: '8.1'
+          php-version: '8.2'
           extensions: pgsql, gd, intl, zip, soap, mbstring, curl, xml, exif
           ini-values: max_input_vars=5000
 

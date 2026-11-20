@@ -11,7 +11,7 @@ jobs:
       disable_release: true
 
       moodle_branches: "MOODLE_405_STABLE"
-      min_php: '8.1'
+      min_php: '8.2'  # PHP 8.1 and older are not tested (local_adele #11)
 
       # Companion plugins come from the owner of the code under test: for a
       # pull request the owner of its HEAD - a PR from a fork is tested with

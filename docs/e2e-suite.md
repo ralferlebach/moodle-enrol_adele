@@ -986,3 +986,47 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   die ganze Seite ohne doppelte DOM-ID.
 - Der Seed schreibt die Referenzpfade weiterhin wie exportiert (mit Kopien);
   so prüfen die Ketten auch die Darstellung historischer Daten.
+
+## Nachtrag `2026111900`: DOM-IDs, Gruppen, Live-Aktivität (local_adele #12 – #18)
+
+- **Neu local `dom-ids.spec.ts`** (Story A18, 3 Tests, Chromium **und**
+  Firefox): ganze Seite ohne doppelte DOM-ID (Übersicht, Editor mit allen
+  Dialogen, Kursseite `E2EM18` mit drei Anwendungen); jede `for`/`aria-*`/
+  `list`/`data-target`/Marker-Referenz zeigt auf genau ein Element derselben
+  Anwendung; Knoten- und Tutorial-Dialog per Tastatur (Name, Fokus, Labels,
+  Escape, Fokus zurück, axe). Firefox-Projekt in local (`grep @story:A18`);
+  `e2e.yml` von local und enrol installieren Firefox wie mod.
+- **`editor-duplicate-edges.spec.ts`:** prüft jetzt die ganze Seite; die
+  Kanten-IDs tragen das Präfix der Anwendung (`adele1-…`).
+- **Neu mod `groups-live.spec.ts`** (Stories G16, L17; 6 Tests): Fixture
+  `E2EG16` (Pfad „E2E Gruppen G16“, Gruppen Rot/Blau, Aktivitäten
+  „getrennt“ mit Live-Markern und „sichtbar“ ohne). G1–G3 Ranglisten,
+  Mittelwerte, Gruppenwahl, Ablehnung fremder Gruppen, Nicht-Lernende, Nutzlast
+  der Server-Antworten ohne fremde Namen; L1 Marker und Zähler nach echtem
+  Kursaufruf, Aktualisierung per Polling ohne Neuladen, Zähler → Namen →
+  Pfad der Person zentriert auf den Knoten, Escape/Fokus; L2 ausgeschaltet;
+  M1 Aktivitätseinstellungen. `beforeEach` setzt die Fixture zurück
+  (Knotenstatus der Schnappschüsse, Live-Aktivität, Schalter): ein Kursaufruf
+  berechnet den Schnappschuss aus den echten Kursabschlüssen neu.
+- **Selektoren:** Teilnehmerliste über `data-testid="adele-userlist-*"`
+  (E2E und Behat) statt `#adele-userlist-*`; Stapel-Schaltfläche über
+  `data-testid="stack-toggle-<Knoten>"`; IDs mit Präfix werden mit
+  `[id*=…]`/`[id$=…]` oder dem Ausdruck `^adele\d+-…$` geprüft.
+- **Seed:** Fixtures `E2EM18` (drei Einbettungen auf einer Kursseite) und
+  `G16` (Variablen `ADELE_FIXTURE_G16_*`, `ADELE_FIXTURE_M18_HOST`).
+- **P1/P2/P3 an #12 angepasst (Verhaltensänderung, verlangt von AK0-L2):**
+  ohne Gruppen sehen Teilnehmende auch bei „Ergebnisse aller Teilnehmenden“
+  nur die eigene Zeile (`learner-data.spec.ts` P2/P3). Damit die Rücknahme
+  „alle → nur eigene“ (P1/P2, `withdrawn-settings.spec.ts`) weiter etwas
+  ändert, hat die umschaltbare Einbettung im Seed getrennte Gruppen; Alpha
+  und Beta teilen eine – „alle“ zeigt die Gruppenrangliste, „nur eigene“
+  schließt sie.
+- **Seed-Fund (belegt):** `E2EM18` bettete zunächst den Referenzpfad
+  „Linear A1“ ein; das Entfernen der alten Aktivitäten beim nächsten Seed
+  nahm student01 den Pfad (Rücknahme nicht getragener Abonnements). Jetzt
+  eigene Kopien „E2E M18 Linear“/„E2E M18 Verzweigt“.
+- **Reihenfolge lokal:** Die Smoke-Suites lesen `fix.env`; nach den E2E-Läufen
+  (die neu seeden und Pfad-IDs ändern) zuerst `seed.sh`. Der Smoke-Test „hat
+  noch nicht gelaufen“ (enrol) setzt voraus, dass kein Abgleich lief
+  (`enrol_adele/lastreport` leer) – in CI frische Site.
+

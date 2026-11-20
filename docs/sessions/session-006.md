@@ -3122,3 +3122,68 @@ Produktcode, kein PHP, keine E2E-Datei.
   `setup-node@v4`, `upload-artifact@v4` in allen Workflows der drei Plugins
   auf `checkout@v6`, `setup-node@v5`, `upload-artifact@v6` (die Versionen,
   mit denen der zentrale Workflow schon läuft); actionlint ohne Befund.
+
+## Teil 74 — Nacharbeiten 2026-11-19: CI, #11 – #18, #603 (2026-11-19/20)
+
+- **Auftrag:** Nacharbeitsauftrag `ADELE_Nacharbeiten_20261119_2026101800.md`
+  (Re-Audit des Stands `2026101800`), sechs CI-Log-Archive; „alle
+  geschedulten Workflows auf manuell“, „CI fixen“, „Nacharbeit
+  vollumfänglich“. Neue Regel: AK = Codeeigenschaft, DoD = automatische CI.
+- **Umgebung neu aufgebaut** (Container ersetzt): Arbeitskopien sind jetzt
+  Git-Klone von `ralferlebach/*` `development` (local `7d9894a`, enrol
+  `bdd5fc7`, mod `f13d371`), Testsite Moodle 4.5.16+, PostgreSQL 16 und
+  MariaDB 10.11, Playwright Chromium **und Firefox**.
+- **CI, Ursachen belegt:**
+  - moodle405 (3 DB), E2E (3 Plugins), Tunnel-Job: local_catquiz
+    `ALiSe-v-1.2.0-legacy` pinnt `catquizcentralhub/host` auf `ec77e605`, den
+    das Submodul-Repository nicht hat → Klon bricht ab, danach „phplint: Not
+    enough arguments“. Umgehung in allen Workflows: Submodule einzeln, bei
+    fehlendem Commit Standardzweig mit `::warning::`. Eigentliche Behebung
+    extern (Issue-Entwurf `local_catquiz-issue-submodule-pin-host.md`).
+  - Playwright mod MOD-01: Test erwartete „gesperrt“, seit enrol #7 werden
+    Einschreibungen beim Löschen der Aktivität entfernt → Test angepasst.
+  - Playwright local PW-575: axe maß mitten in der 2-s-Einblendanimation
+    (CI #3080c8 = 4,16 : 1, lokal #257ac5 = 4,49 : 1) → Test wartet das Ende
+    der Animationen ab; `prefers-reduced-motion` schaltet sie ab.
+  - local_catquiz (2026111706) nutzt `$DB->get_in_or_equal()`; der DB-Mock in
+    `catquiz_test` lieferte `null` → Mock baut die Liste wie Moodle.
+  - Alle Zeitpläne entfernt (drei `playwright.yml`).
+- **#11:** PHP 8.1 aus allen Matrizen, Workflows und dem Pflichtenheft.
+- **#18:** Präfix je Anwendung für alle DOM-IDs, Kanten und Marker; zweite
+  Quelle von `dropdownMenuButton` = local_catquiz (dort entfernt 2026101701),
+  local_adele setzt keine ID mehr. E2E A18 (Chromium + Firefox), Jest 15.
+- **#12 – #17:** Gruppenmodus (mod `context_contract`), Kohorte
+  (`cohort`), Ranglisten/Mittelwerte (`group_progress`), Nicht-Lernende,
+  Live-Aktivität (`live_activity`, Tabelle `local_adele_activity`,
+  Observer, Purge-Task, Privacy), Knotenzähler, Aktivitätseinstellungen
+  Live; Pflichtenheft 6c. **Verhaltensänderung:** Lernende sehen ohne
+  Gruppen nur die eigene Zeile (AK0-L2).
+- **#603:** Restrisiko (Personenpfade: ID-Konflikte nur gezählt) und
+  Upstream-Stand dokumentiert; Entscheidung von „schließbar“ auf
+  „testseitig offen“ korrigiert. Issue-Entwurf gegenläufige Kante um AK/DoD
+  ergänzt; neuer Entwurf FeedbackModal.
+- **Nicht möglich hier:** Behat (kein Chrome/ChromeDriver; Download über die
+  Netzwerk-Allowlist blockiert, Installation eines heruntergeladenen
+  Treibers nicht freigegeben), MySQL.
+- **Im Gesamtlauf gefunden und behoben (belegt):**
+  - Die Fixture `E2EM18` bettete zuerst den Referenzpfad „Linear A1“ ein.
+    Beim nächsten Seed entfernt das Script alte Aktivitäten; mod_adele stellt
+    dafür „withdrawuncarried“ ein, und enrol_adele nahm student01 den nicht
+    mehr getragenen Pfad (Adhoc-Log: `learningpathid 6, hostcourseid 95`) →
+    E2E R3 rot. Jetzt eigene Kopien („E2E M18 Linear“, „E2E M18 Verzweigt“).
+  - Mit den entfernten doppelten Steuer-IDs fanden `support/conditions.ts`
+    (E2) und der Smoke-Test #470 ihre Knöpfe nicht mehr → `data-testid`.
+  - Coverage-Gate (Jest, Schwellen je Datei): ein zusätzlicher Import in
+    `CourseEnrolConfirmDialog.vue`, `CourseAccessRequestDialog.vue`,
+    `TeacherCourseAccess.vue` brachte einen nie aufgerufenen Getter in den
+    kompilierten Code (Funktionen unter der Schwelle). Dort wird das Präfix
+    jetzt aus `store.state.domPrefix` gebildet (dieselbe Regel wie
+    `appDomId()`); `timed_dates.vue` (nur im Editor, eine Anwendung je Seite)
+    zurück auf den alten Stand. Schwellen unverändert.
+  - S17 „Panels in Stapelreihenfolge“ einmal von drei Läufen rot: die x-Werte
+    wurden nacheinander gelesen, während die Ansicht noch schwenkte (816,
+    1073, 1012). Jetzt gemeinsam und erst nach Stillstand gemessen.
+  - `groups-live.spec.ts` seedet zu Beginn (wie die übrigen Dateien): die IDs
+    der Aktivitäten ändern sich mit jedem Seed.
+- **Prüfstand `2026111900`:** siehe `abnahme/README.md`.
+

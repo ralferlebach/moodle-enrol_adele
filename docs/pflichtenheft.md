@@ -637,7 +637,7 @@ Abgleich es neu, mit leerem Fortschritt. Tests: `local_adele\privacy_provider_te
 **Release-Gate:** Die Tests von Sicherung, Wiederherstellung und Datenschutz
 tragen die PHPUnit-Gruppe `adele_release`; `.github/workflows/release-gate.yml`
 (alle drei Plugins) führt sie mit Moodles Konformitätsprüfung für
-Moodle 4.5 × PHP 8.1–8.3 × PostgreSQL/MariaDB/MySQL bei jedem Pull Request
+Moodle 4.5 × PHP 8.2–8.3 × PostgreSQL/MariaDB/MySQL bei jedem Pull Request
 nach `main` und jedem Release-Tag aus. Als Pflichtprüfung von `main`
 (Branch-Schutz) blockiert ein roter Lauf das Release.
 
@@ -806,6 +806,55 @@ Fokus, Tastaturfokus und Zeichnen der Module laufen nur, solange die Ansicht
 eingehängt ist; ein Schritt einer früheren Aktualisierung tut nichts mehr,
 sobald eine spätere da ist (`UserPath.vue`: `later()`, Generation).
 
+## 6c. Gruppen, Nicht-Lernende, Live-Aktivität und Knotenzähler (ralferlebach/moodle-local_adele #12 – #18; 2026-11-19)
+
+**Vertrag (mod_adele #16).** Die Aktivität unterstützt Gruppenmodus und
+Gruppierung. Was eine Person durch eine Aktivität sieht, entscheidet allein
+der Server aus dem konkreten `cmid`: `\mod_adele\local\context_contract`
+(effektiver Gruppenmodus inkl. Kurszwang, Gruppierung, wählbare Gruppen,
+gezeigte Gruppe, Sicht, Live-Einstellungen). Eine Gruppe, die die Person
+nicht sehen darf, wird abgelehnt.
+
+**Kohorte.** `\local_adele\cohort`: Roster des Gastkurses ∩ aktiver Pfad ∩
+Teilnahme per Rolle ∩ Gruppe – dieselben Personen für Teilnehmerliste,
+Ranglisten, Mittelwerte, Nicht-Lernende, Marker und Zähler.
+
+**Sichtbarkeit (#12).**
+
+| Modus | Lernende | Lehrende |
+|---|---|---|
+| keine Gruppen | nur der eigene Pfad, die Teilnehmerliste hat die eigene Zeile | Lernende des Kurses |
+| getrennte Gruppen | je eigener Gruppe eine Rangliste (Name, Fortschritt; keine IDs, nichts anklickbar) | Lernende der gewählten Gruppe |
+| sichtbare Gruppen | wie getrennt, dazu der Mittelwert der eigenen Gruppe über ihrer Liste und die Mittelwerte der anderen Gruppen (ohne Namen) | wie getrennt, dazu die Mittelwerte |
+
+„Ergebnisse aller Teilnehmenden“ (`userlist = 1`) öffnet Lernenden die
+Kursrangliste **nicht mehr** (Änderung gegenüber `2026101800`, verlangt von
+#12 AK0-L2/#16 AK0-M4); „nur eigene Ergebnisse“ (`userlist = 2`) schließt auch
+die Gruppenranglisten. Mittelwert: arithmetisch über die Lernenden der Gruppe
+mit Pfad; Lernende ohne Pfad werden genannt („3 von 4“); ohne gemessene
+Lernende „Keine Daten“.
+
+**Nicht-Lernende (#13).** Auf Anfrage der Lehrenden ein eigener Abschnitt:
+eingeschriebene Personen der Gruppe, die nicht per Rolle teilnehmen oder
+keinen Pfad haben. Nichts wird angelegt.
+
+**Live-Aktivität (#14, #17) und Knotenzähler (#15).** Aktivität = Moodle hat
+einen Kurs- oder Aktivitätsaufruf erfasst (`course_viewed`,
+`course_module_viewed`); keine Anwesenheit. Gespeichert je Person und Kurs
+die letzte Zeit (`local_adele_activity`), nur für Personen auf einem
+Lernpfad, Aufbewahrung `liveretention` (30 Tage). Je Aktivität: Schalter
+(Standard aus) und Fenster (Standard 5 Minuten, 1–60). Lehrende sehen je
+Knoten: aktive Personen (an jedem Knoten mit dem Kurs), inaktive nur am
+Knoten des zuletzt gesehenen Kurses, und zwei Zähler (aktiv, abgeschlossen),
+deren Namenslisten seitenweise geladen werden; ein Name öffnet den Pfad der
+Person, zentriert auf den Knoten. Ausgeschaltet: keine personenbezogenen
+Live-Daten, nur der Zähler „abgeschlossen“. Ein Schnappschuss je Aktivität
+und Abfrageintervall (`livepollinterval`, 30 s).
+
+**Eindeutige DOM-IDs (#18).** Jede ADELE-Anwendung einer Seite präfixiert
+ihre IDs (`adele1-`, `adele2-`, …); Dialoge, Felder, Knoten, Kanten und
+VueFlow-Marker kollidieren auch bei mehreren Einbettungen nicht.
+
 ## 7. Ausbaustufen, API, Events
 
 ### 7.1 Ausbaustufen
@@ -869,7 +918,7 @@ Die Einzeloperationen sind bereits durch die Kern-Events
 | ~~O-2~~ | Bestandsdaten | erledigt (F-9): unangetastet |
 | ~~O-3~~ | Knoten-ID-Stabilität | erledigt: IDs werden nach Löschung wiederverwendet → zustandslose Architektur gewählt, keine persistierten Knoten-Referenzen |
 | ~~O-4~~ | Rolleneinstellung | erledigt (F-8): wandert zu `enrol_adele/roleid`, Abschnitt 5.3 |
-| ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor (Lastenheft Abschnitt 4) |
+| ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor für die Einschreibung (Lastenheft Abschnitt 4); Sichtbarkeit nach Gruppen seit `2026111900`, Abschnitt 6c |
 | ~~O-6~~ | Austragungs-Propagation bei Option 1 | erledigt (F-2/F-4): Regelwerk Abschnitt 4 |
 | ~~E-10~~ | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft. Löst nicht mit ab, wenn ein Nutzer den Lernpfad über A-4 verlässt — Host-Kurs-Einschreibungen bleiben aktiv bestehen. [mod_adele #21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21), Arbeitsplan Phase F.1. | erledigt (Teil 12, `enrol_adele` 0.1.4) |
 | ~~E-11~~ | mod_adele-Issue #11 ("Message was not sent" beim ersten Anlegen eines Lernpfads in einem Kurs): **Ursache bestätigt** (Screenshot des echten Fehlertexts, Teil 17) — Moodles eigenes `enrol_manual`-Feature „Willkommensnachricht senden" (`sendcoursewelcomemessage`, seit lang etablierter Moodle-Core-Bestandteil), ausgelöst durch eine `enrol_manual`-Einschreibung, deren Willkommensnachricht über das Messaging-Subsystem (`core\message\manager`) nicht zugestellt werden konnte (typischerweise: kein konfigurierter Nachrichten-Prozessor auf der Demo-Instanz). Kein Bug in `enrol_adele`/`local_adele`/`mod_adele` — keines der drei Plugins enthält eigenen Messaging-Code (gezielt nachgeprüft, Teil 17). Betrifft ausschließlich den `enrol_manual`-Rückfallpfad (wenn `enrol_adele` fehlt/inaktiv) bzw. eine manuelle Einschreibung durch die Lehrkraft selbst — nicht die reguläre `enrol_adele`-Einschreibung, die keine Willkommensnachricht kennt. Siehe Abschnitt 1a für Details. | geklärt, kein Plugin-Bug (Teil 17) |

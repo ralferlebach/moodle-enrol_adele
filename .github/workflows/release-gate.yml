@@ -6,8 +6,9 @@ name: Release gate (backup, restore, privacy)
 # required status check of main (branch protection, set in the repository
 # settings).
 #
-# Supported: Moodle 4.5 (the only line local_adele is released for), PHP 8.1
-# to 8.3, PostgreSQL, MariaDB and MySQL.
+# Tested: Moodle 4.5 (the only line local_adele is released for), PHP 8.2
+# and 8.3, PostgreSQL, MariaDB and MySQL. PHP 8.1 and older are not tested
+# (local_adele #11); version.php is not changed by that.
 "on":
   pull_request:
     branches: [main]
@@ -53,7 +54,7 @@ jobs:
       fail-fast: false
       matrix:
         moodle-branch: ['MOODLE_405_STABLE']
-        php: ['8.1', '8.2', '8.3']
+        php: ['8.2', '8.3']
         database: ['pgsql', 'mariadb', 'mysqli']
 
     steps:

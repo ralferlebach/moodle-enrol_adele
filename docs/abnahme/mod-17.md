@@ -25,3 +25,5 @@
 - **Re-Audit 2026100736 (2026-10-18), Lieferung `2026101800`:** #603 ist eigenständig umgesetzt (`local-603.md`); S17 prüft jetzt die ganze Seite ohne Ausnahme für Kanten auf doppelte DOM-IDs – grün.
 - **CI 2026-10-18 (Firefox):** S17 Test 1 rot – `:focus-visible` der Ausklappschaltfläche nach Escape in Firefox falsch. Behoben mit `focus({ focusVisible: true })` (Lieferung `2026101800`); Chromium 2/2 grün, Jest prüft den Aufruf; Firefox-Nachweis im nächsten CI-Lauf.
 - **Entscheidung (Stand 2026-10-19): abnahmefähig** – schließbar nach grünem Firefox-Lauf von S17.
+- **Lieferung `2026111900` (2026-11-19):** Firefox ist jetzt lokal ausführbar (Playwright Firefox 1466). S17 grün in Chromium **und** Firefox (`stacked-courses.spec.ts` 4/4: 2 × Chromium, 2 × Firefox); die Prüfungen der Panel-IDs erwarten jetzt das Anwendungspräfix (#18). Nach der Regel des Re-Audits 2026-11-19 ist die DoD die CI am Commit.
+- **Entscheidung (Stand 2026-11-19): abnahmefähig** – Firefox lokal belegt; schließbar nach grünem CI-Lauf des Commits (Chromium und Firefox).
