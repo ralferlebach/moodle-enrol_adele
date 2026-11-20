@@ -3187,3 +3187,50 @@ Produktcode, kein PHP, keine E2E-Datei.
     der Aktivitäten ändern sich mit jedem Seed.
 - **Prüfstand `2026111900`:** siehe `abnahme/README.md`.
 
+
+## Teil 75 — CI-Läufe vom 2026-11-19/20 ausgewertet, lokale Prüfung an CI angeglichen (2026-11-20)
+
+- **Ausgewertet:** moodle-plugin-ci local und mod (MariaDB, PHP 8.3, Stand
+  `2026111900`), E2E mod und Playwright mod (Stand `f13d371` = `2026101800`,
+  Lauf vom 2026-11-19 21:40, also vor der Lieferung `2026111900`).
+- **codechecker rot (local und mod), Ursache belegt:** Die in `2026111900`
+  neuen Sprachstrings standen unsortiert unter einem Kommentar am Dateiende
+  (`moodle.Files.LangFilesOrdering`: „Unexpected comment“, „not in the
+  correct order“; local je Sprache 24, mod je Sprache 3 Warnungen; CI läuft
+  mit `--max-warnings=0`). Behoben: Schlüssel alphabetisch (strcmp)
+  einsortiert, Kommentare entfernt; Inhalt unverändert (Vergleich der
+  geladenen `$string`-Arrays vorher/nachher identisch).
+- **Warum lokal nicht aufgefallen (belegt):** phpcs lief lokal auf den
+  Git-Klonen (`/home/claude/gh/moodle-*_adele`), also außerhalb eines
+  Moodle-Baums, und nur auf der Liste der geänderten Dateien. Der Sniff
+  `LangFilesOrdering` bestimmt die Komponente über den Moodle-Baum und
+  schweigt außerhalb. Derselbe Aufruf auf der Kopie im Testsystem
+  (`moodle/mod/adele/lang/en/adele.php`) meldet die Warnungen. Die Angabe
+  „phpcs … ohne Befund“ im Prüfstand `2026111900` war deshalb falsch.
+- **Prozess geändert:** Lokal läuft jetzt `moodle-plugin-ci` 4.5.11 selbst
+  (phplint, codechecker `--max-warnings=0`, phpdoc, validate, savepoints,
+  mustache, für mod zusätzlich grunt) auf den Plugin-Kopien im Moodle-Baum,
+  ganze Plugins, mit denselben Ausschlüssen wie der CI-Workflow
+  (`ignore_paths`, `mustache_ignore_names`). Gegenprobe: die alte
+  `lang/en/adele.php` lässt codechecker mit Exit 1 scheitern.
+  Grunt: Moodles npm-Abhängigkeit `shifter` (GitHub-Archiv, nur YUI) wird
+  von der Netzwerk-Allowlist abgewiesen; im Testsystem ohne sie installiert,
+  `package.json` danach zurückgesetzt.
+- **Behat rot (local, 3 Szenarien in `adele_basic_usage.feature`), Ursache
+  belegt:** `I set the field "goalsubjectplaceholder"` fand das Feld nicht
+  mehr. Behat sucht Felder über id, name oder Label; seit #18 trägt die id
+  das Präfix der Anwendung, das Beschreibungsfeld hatte als `name` den
+  übersetzten Platzhaltertext. Behoben: `name="goalsubjectplaceholder"`
+  (wie schon `goalnameplaceholder`). Neu als Wächter, weil Behat hier nicht
+  läuft: Jest `behat_locators.spec.js` prüft, dass jeder Feld-Locator der
+  Features als `name` einer Komponente (auch Template-Literal) oder als
+  Label-Text eines Sprachstrings erreichbar ist (Gegenprobe mit dem alten
+  `textInputs.vue`: rot); E2E A18 prüft im gerenderten Editor beide Namen.
+  Dabei gefunden: `adele_edit_lp.feature` (wegen local_catquiz aus dem
+  CI-Lauf ausgenommen) suchte noch das Label „Enable Textarea“, das seit
+  #493 „Edit text“ heißt → angepasst, Szenario hier nicht ausführbar.
+- **E2E mod / Playwright mod (Stand `2026101800`):** Klonfehler
+  `catquizcentralhub/host` (`ec77e605`) und ADELE-PW-MOD-01 („suspendiert
+  statt entfernt“) sind bereits in `2026111900` behoben; Playwright mod am
+  aktuellen Stand lokal 4/4.
+- **Prüfstand `2026112000`:** siehe `abnahme/README.md`.

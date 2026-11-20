@@ -998,6 +998,9 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   `e2e.yml` von local und enrol installieren Firefox wie mod.
 - **`editor-duplicate-edges.spec.ts`:** prüft jetzt die ganze Seite; die
   Kanten-IDs tragen das Präfix der Anwendung (`adele1-…`).
+- **Nachtrag `2026112000`:** A18 „Editor“ prüft zusätzlich, dass die Felder
+  `goalnameplaceholder` und `goalsubjectplaceholder` über `name` erreichbar
+  sind (Behat-Locator, CI 2026-11-20).
 - **Neu mod `groups-live.spec.ts`** (Stories G16, L17; 6 Tests): Fixture
   `E2EG16` (Pfad „E2E Gruppen G16“, Gruppen Rot/Blau, Aktivitäten
   „getrennt“ mit Live-Markern und „sichtbar“ ohne). G1–G3 Ranglisten,
