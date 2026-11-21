@@ -3234,3 +3234,22 @@ Produktcode, kein PHP, keine E2E-Datei.
   statt entfernt“) sind bereits in `2026111900` behoben; Playwright mod am
   aktuellen Stand lokal 4/4.
 - **Prüfstand `2026112000`:** siehe `abnahme/README.md`.
+
+## Teil 76 — CI-Lauf vom 2026-11-20 22:06 (Stand `2026112000`) ausgewertet (2026-11-21)
+
+- **Grün:** phplint, codechecker, phpdoc, validate, savepoints, mustache,
+  PHPUnit (local, MariaDB).
+- **Behat rot (1 Szenario, Ursache belegt):** `adele_basic_usage.feature:168`
+  `exactly one "#restriction-condition_1-duration" element should exist` –
+  ein CSS-Selektor auf eine id, die seit #18 das Präfix der Anwendung trägt
+  (gefunden 0). Der Wächter aus Teil 75 prüfte nur `I set the field`, nicht
+  CSS/XPath-Selektoren und nicht `the field … matches value`; deshalb lokal
+  nicht aufgefallen. Behoben: Selektor `[name='restriction-condition_1-duration']`
+  (der Schritt prüft weiter, dass das Feld nach dem Wiederöffnen genau einmal
+  existiert, #566).
+- **Wächter erweitert:** `behat_locators.spec.js` prüft jetzt jeden Schritt
+  `the field "…"` und jede id in CSS- (`#id`, `[id=…]`) und XPath-Selektoren
+  (`@id=…`) der Features und des Behat-Kontexts gegen alle ids, die die
+  Anwendung mit `appDomId()` präfixiert. Gegenprobe mit der alten
+  Feature-Datei: rot. mod/enrol-Features adressieren keine ADELE-ids.
+- **Prüfstand `2026112100`:** siehe `abnahme/README.md`.
