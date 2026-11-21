@@ -3253,3 +3253,58 @@ Produktcode, kein PHP, keine E2E-Datei.
   Anwendung mit `appDomId()` präfixiert. Gegenprobe mit der alten
   Feature-Datei: rot. mod/enrol-Features adressieren keine ADELE-ids.
 - **Prüfstand `2026112100`:** siehe `abnahme/README.md`.
+
+## Teil 77 — E2E-Läufe vom 2026-11-21 06:10 (Stand `2026112100`) ausgewertet (2026-11-21)
+
+- **CI-Ergebnis:** local 85/86, mod 71/74 (PostgreSQL 16, Chromium und
+  Firefox). Alle vier roten Tests scheitern am selben Schritt: der
+  Einschreibung über Moodles Dialog „Nutzer einschreiben“ (local R3
+  `roles-teacher-becomes-assistant`, mod H4 `adele-source-shared-node`,
+  mod H5 `node-enrolment-after-save` ×2).
+- **Ursache (belegt am Trace von H4):** Der Klick auf den Vorschlag im
+  Autocomplete traf den Eintrag (Koordinaten = Eintrag, Aktion „done“), die
+  Auswahl blieb aber „No selection“; das Formular ging **ohne Nutzer** an
+  `enrol/manual/ajax.php` (kein `userlist`), Antwort `count: 0`, Toast
+  „0 enrolled users“. Der Test merkte das erst Schritte später. Warum Moodles
+  Autocomplete den Klick verwarf, ist **nicht belegt**; lokal auch unter
+  6-facher CPU-Drosselung nicht nachstellbar (20/20). Dasselbe Muster war im
+  Aktivitätsformular schon bekannt und dort abgefangen (`chooseInAutocomplete`).
+- **Behoben (Tests):** neuer Helfer `enrolInDialog` (mod `support/host.ts`,
+  local `support/enrol.ts`): Auswahl im Auswahlbereich prüfen, sonst erneut –
+  ab dem zweiten Versuch per Tastatur (↓, Enter) – und Moodles Antwort
+  prüfen (`success: true, count: 1`). Tastaturweg einzeln geprüft (3/3).
+- **Lokaler Gesamtstand, CI-nah** (jede Suite auf frisch geseedeter Seite,
+  wie CI je Workflow eine neue Seite baut): Smoke local 17/17, mod 4/4,
+  enrol 4/4; E2E Chromium local 84/84 (Wiederholungslauf; im ersten Lauf
+  1 Ausfall, s. u.), mod 62/62, enrol 6/6; Firefox local 4/4, mod 12/12
+  (nach R26-Korrektur, s. u.).
+- **R26 Modus 2 (mod, Firefox, schon früher einmal rot), Ursache belegt:**
+  Zählfehler im Test. Eine Anfrage, die die Kursseite beim Verlassen noch
+  schickte, hing in der künstlichen 2,5-s-Verzögerung des Zählers; der
+  Zähler wurde zurückgesetzt, `open` nicht – die erste Anfrage der
+  Pfadseite zählte als zweite gleichzeitige (Trace: Anfrage 40,74 s,
+  abgebrochen, bis 43,24 s offen; erste neue Anfrage 42,11 s). Behoben: vor
+  dem Zurücksetzen warten, bis keine Anfrage mehr offen ist. 30/30
+  (Chromium und Firefox, je dreimal).
+- **Lokale Einzelausfälle „Target page, context or browser has been
+  closed“** (Z4 im ersten, E2 „A UND B“ im zweiten Gesamtlauf): der Browser
+  war mitten im Test weg, nach 12–19 s, keine Zeitüberschreitung. Gezielte
+  Wiederholungen 24/24 grün, ein dritter Gesamtlauf mit Browser-Protokoll
+  84/84 grün, in der CI nie aufgetreten. Ursache **nicht belegt**; kein
+  Hinweis auf das Produkt (eine Webseite kann den Browser nicht schließen).
+- **Stand-Skript korrigiert:** Smoke lief bisher nach den E2E-Suiten auf
+  derselben Seite – PW-574/575 fanden den gelöschten Pfad nicht, enrol
+  „has not run yet“ war nach dem nächtlichen Abgleich falsch. Jetzt wie CI:
+  frisch seeden je Suite, Abgleichsbericht zurücksetzen.
+- **Erweiterte Läufe (manuell, Actions):** actionlint ohne Befund; alle
+  referenzierten Dateien vorhanden; Seitenaufbau des NVDA-Workflows wie
+  e2e.yml (inkl. Submodul-Umgehung).
+  - Last (k6/JMeter): `seed_large.php` lokal ohne Fehler; dieselben drei
+    Seiten mit 10 parallelen Nutzern 30 s (Node-Nachbau des k6-Plans, k6
+    und JMeter hier nicht installierbar): 570 Anfragen, 0 Fehler,
+    p95 611 ms, alle Checks grün – Schwellen des Plans eingehalten.
+  - NVDA (Windows): hier nicht ausführbar. Neu als Vorprüfung in jedem
+    E2E-Lauf (A18): die Bedienelemente, die SR-01 hören will, tragen Name
+    und Zustand im Accessibility-Baum (Sichtbarkeit mit `aria-pressed`,
+    Bearbeiten/Löschen/Duplizieren, „Add a new learning path“).
+- **Prüfstand `2026112101`:** siehe `abnahme/README.md`.

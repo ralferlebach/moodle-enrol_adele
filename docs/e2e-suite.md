@@ -1033,3 +1033,16 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   noch nicht gelaufen“ (enrol) setzt voraus, dass kein Abgleich lief
   (`enrol_adele/lastreport` leer) – in CI frische Site.
 
+### Nachtrag 2026-11-21 (`2026112101`)
+
+- **Einschreiben über Moodles Dialog:** nur noch über `enrolInDialog`
+  (mod `support/host.ts`, local `support/enrol.ts`). Der Helfer prüft die
+  Auswahl im Autocomplete, wiederholt sie notfalls per Tastatur und prüft
+  Moodles Antwort (`count: 1`). Anlass: CI-Lauf, in dem der Klick auf den
+  Vorschlag verloren ging und das Formular ohne Nutzer abgeschickt wurde.
+- **R26:** der Zähler wartet vor dem Zurücksetzen, bis keine Anfrage der
+  vorigen Seite mehr offen ist.
+- **A18:** neuer Test „overview: the controls ADELE-SR-01 listens for …“ –
+  Vorprüfung des NVDA-Laufs im Accessibility-Baum.
+- **Lokaler Stand:** jede Suite auf frisch geseedeter Seite, Smoke vor E2E,
+  wie in der CI (eine Seite je Workflow).
