@@ -823,16 +823,35 @@ Ranglisten, Mittelwerte, Nicht-Lernende, Marker und Zähler.
 
 | Modus | Lernende | Lehrende |
 |---|---|---|
-| keine Gruppen | nur der eigene Pfad, die Teilnehmerliste hat die eigene Zeile | Lernende des Kurses |
+| keine Gruppen | der eigene Pfad; Teilnehmerliste je nach „Teilnehmer sehen“: „nur eigene Ergebnisse“ die eigene Zeile, „Ergebnisse aller anderer Teilnehmer“ die Rangliste der Lernenden der Aktivität (Name, Fortschritt, Rang; fremde Zeilen ohne ID und Benutzernamen, nichts anklickbar) | Lernende des Kurses |
 | getrennte Gruppen | je eigener Gruppe eine Rangliste (Name, Fortschritt; keine IDs, nichts anklickbar) | Lernende der gewählten Gruppe |
 | sichtbare Gruppen | wie getrennt, dazu der Mittelwert der eigenen Gruppe über ihrer Liste und die Mittelwerte der anderen Gruppen (ohne Namen) | wie getrennt, dazu die Mittelwerte |
 
-„Ergebnisse aller Teilnehmenden“ (`userlist = 1`) öffnet Lernenden die
-Kursrangliste **nicht mehr** (Änderung gegenüber `2026101800`, verlangt von
-#12 AK0-L2/#16 AK0-M4); „nur eigene Ergebnisse“ (`userlist = 2`) schließt auch
-die Gruppenranglisten. Mittelwert: arithmetisch über die Lernenden der Gruppe
-mit Pfad; Lernende ohne Pfad werden genannt („3 von 4“); ohne gemessene
-Lernende „Keine Daten“.
+**„Teilnehmer sehen“ (`userlist`) gilt nur ohne Gruppen** (Entscheidung
+2026-11-22, ersetzt die am selben Tag getroffene Ausnahme „nur eigene
+Ergebnisse schließt auch Gruppenranglisten“): Das Formular zeigt das Feld
+nur beim Gruppenmodus „Keine Gruppen“ (`hideIf`; erzwingt der Kurs einen
+Gruppenmodus, entfällt das Feld, der gespeicherte Wert bleibt). Ohne Gruppen
+entscheidet es: `1` – Lernende sehen über den Modulkontext der Aktivität die
+Rangliste ihrer Lernenden (`cohort::learner_roster_scope()`; fremde Zeilen
+mit negativer laufender ID und leerem Benutzernamen), `2` – nur die eigene
+Zeile (#569). Über jeden anderen Kontext (Kurs, anderes Modul) nur die
+eigene Zeile. Mit Gruppen gilt die Matrix unabhängig vom gespeicherten Wert
+(`cohort::own_results_only()`). Damit ist die Lesart von #12 AK0-L2/#16
+AK0-M4 „ohne Gruppen immer nur die eigene Zeile“ (Stand `2026111900` bis
+`2026112101`) für „Ergebnisse aller anderer Teilnehmer“ zurückgenommen.
+Mittelwert: arithmetisch über **alle**
+Lernenden der Gruppe (verschieden, per Rolle teilnehmend); Lernende ohne
+Pfad oder Fortschritt zählen mit 0 % und werden genannt („Mittel über 4
+Lernende; 1 ohne Fortschritt, mit 0 % gezählt“); eine Gruppe ohne Lernende
+„Keine Daten“ (nie 0 % oder NaN).
+
+**Lehrende über jeden Kontext (#12 AK0-L1/L6, #16 AK0-M4).** Wer Lernende
+sieht oder ändert, ist an die Gruppen der Aktivität gebunden – über den
+Modulkontext der Aktivität ihre Gruppenwahl, über jeden anderen Kontext
+(Kurs, anderes Modul, Aktivität eines anderen Pfads) höchstens, was die
+Aktivitäten des Pfads im Kurs zusammen geben (`cohort::teacher_scope()`);
+gilt für Rangliste, einzelnen Pfad und Speichern.
 
 **Nicht-Lernende (#13).** Auf Anfrage der Lehrenden ein eigener Abschnitt:
 eingeschriebene Personen der Gruppe, die nicht per Rolle teilnehmen oder
@@ -845,15 +864,21 @@ die letzte Zeit (`local_adele_activity`), nur für Personen auf einem
 Lernpfad, Aufbewahrung `liveretention` (30 Tage). Je Aktivität: Schalter
 (Standard aus) und Fenster (Standard 5 Minuten, 1–60). Lehrende sehen je
 Knoten: aktive Personen (an jedem Knoten mit dem Kurs), inaktive nur am
-Knoten des zuletzt gesehenen Kurses, und zwei Zähler (aktiv, abgeschlossen),
-deren Namenslisten seitenweise geladen werden; ein Name öffnet den Pfad der
-Person, zentriert auf den Knoten. Ausgeschaltet: keine personenbezogenen
+Knoten des zuletzt gesehenen Kurses – ist das nicht ein Knoten (zwei Kurse in
+derselben Sekunde, ein Kurs in mehreren Knoten), an jedem dieser Knoten mit
+dem Hinweis „nicht eindeutig: an N Knoten“, ohne willkürliche Auswahl –,
+und zwei Zähler (aktiv, abgeschlossen),
+deren Namenslisten seitenweise geladen werden; ein Name oder ein Marker
+öffnet den Pfad der Person, zentriert auf den Knoten; zurück kommt die
+Übersicht mit Gruppe, Ausschnitt, Scrollposition und Fokus wie verlassen. Ausgeschaltet: keine personenbezogenen
 Live-Daten, nur der Zähler „abgeschlossen“. Ein Schnappschuss je Aktivität
 und Abfrageintervall (`livepollinterval`, 30 s).
 
 **Eindeutige DOM-IDs (#18).** Jede ADELE-Anwendung einer Seite präfixiert
 ihre IDs (`adele1-`, `adele2-`, …); Dialoge, Felder, Knoten, Kanten und
-VueFlow-Marker kollidieren auch bei mehreren Einbettungen nicht.
+VueFlow-Marker kollidieren auch bei mehreren Einbettungen nicht. Derselbe
+Dialog zweimal in einer Anwendung: die zweite Instanz bekommt eine eigene
+Nummer (`adele1-nodeModal-2`).
 
 ## 7. Ausbaustufen, API, Events
 

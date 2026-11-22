@@ -20,7 +20,11 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
+  // results.json tells the workflow which tests failed: a red run delivers
+  // only their videos (decision 2026-11-22).
+  reporter: process.env.CI
+    ? [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'results.json' }]]
+    : [['list']],
   use: {
     baseURL: process.env.ADELE_BASE_URL,
     // Evidence is recorded for GREEN runs too, not only for failures.
@@ -30,9 +34,8 @@ export default defineConfig({
     // feature works but leaves nothing to look at would have to be repeated
     // by hand to produce the same pictures.
     //
-    // The cost is a report of tens of megabytes, which is why the workflow
-    // uploads the full bundle only on success and, on failure, just the
-    // directories of the tests that actually failed, without videos.
+    // A green run uploads every video; a red run only those of the failed
+    // tests (decision 2026-11-22, .github/workflows/playwright.yml).
     trace: 'retain-on-failure',
     screenshot: 'on',
     video: 'on',

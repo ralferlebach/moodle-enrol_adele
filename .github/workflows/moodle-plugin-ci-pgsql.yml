@@ -1,0 +1,83 @@
+name: Moodle Plugin CI (PostgreSQL)
+
+# The second database of the Moodle 4.5 matrix (local_adele #11 - #17 DoD
+# "MariaDB und PostgreSQL"; re-audit 2026-11-21). The reusable workflow in
+# moodle-plugin-ci.yml runs Moodle 4.5 with PostgreSQL only on PHP 8.1
+# (catalyst-moodle-workflows matrix_includes.yml) - that cell is gone since
+# PHP 8.1 is no longer tested (#11), and MariaDB / PHP 8.3 was left alone.
+# This job puts PostgreSQL back, on PHP 8.3: install and PHPUnit. The
+# companion plugins are the same as in moodle-plugin-ci.yml - keep the two
+# lists in step.
+
+"on":
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phpunit-pgsql:
+    name: MOODLE_405_STABLE - pgsql - php 8.3 - enrol_adele
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+        with:
+          path: plugin
+          submodules: true
+
+      - name: Install node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.14'
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          ini-values: max_input_vars=5000
+          extensions: pgsql, zip, gd, xmlrpc, soap
+          coverage: none
+
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci m-ci ^4
+          echo "$(cd m-ci/bin; pwd)" >> "$GITHUB_PATH"
+          echo "$(cd m-ci/vendor/bin; pwd)" >> "$GITHUB_PATH"
+          sudo locale-gen en_AU.UTF-8
+
+      - name: Install the companion plugins
+        run: |
+          OWNER="$COMPANION_OWNER"; REF="$COMPANION_REF"; for sib in local mod; do url="https://github.com/$OWNER/moodle-${sib}_adele.git"; br=main; git ls-remote --exit-code --heads "$url" "$REF" >/dev/null 2>&1 && br="$REF"; echo "companion ${sib}_adele: $OWNER@$br"; moodle-plugin-ci add-plugin --branch "$br" "$OWNER/moodle-${sib}_adele"; done
+
+        env:
+          COMPANION_OWNER: ${{ github.event.pull_request.head.repo.owner.login || github.repository_owner }}
+          COMPANION_REF: ${{ github.head_ref || github.ref_name }}
+
+      - name: Install Moodle
+        run: moodle-plugin-ci install -vvv --plugin ./plugin --db-host=127.0.0.1 --db-port=5432
+        env:
+          DB: pgsql
+          MOODLE_BRANCH: MOODLE_405_STABLE
+
+      - name: Run phpunit
+        run: moodle-plugin-ci phpunit --testdox

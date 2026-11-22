@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { renameSync, writeFileSync } from 'node:fs';
 import { Locator, Page, expect } from '@playwright/test';
 
 /**
@@ -263,7 +263,20 @@ export function setServerTime(epoch: number): void {
     throw new Error('No test clock: ADELE_FAKETIME_FILE is not set.');
   }
   const offset = Math.round(epoch - Date.now() / 1000);
-  writeFileSync(file, `${offset >= 0 ? '+' : ''}${offset}s\n`);
+  writeClockFile(file, `${offset >= 0 ? '+' : ''}${offset}s\n`);
+}
+
+/**
+ * Write the clock file in one step: a reader (libfaketime reads it on every
+ * clock call) never sees it truncated or half written.
+ *
+ * @param file The clock file.
+ * @param content The offset.
+ */
+function writeClockFile(file: string, content: string): void {
+  const temp = `${file}.${process.pid}.tmp`;
+  writeFileSync(temp, content);
+  renameSync(temp, file);
 }
 
 /**
@@ -310,7 +323,7 @@ export function reseedFixtures(): void {
 export function resetServerTime(): void {
   const file = process.env.ADELE_FAKETIME_FILE;
   if (file) {
-    writeFileSync(file, '+0s\n');
+    writeClockFile(file, '+0s\n');
   }
 }
 

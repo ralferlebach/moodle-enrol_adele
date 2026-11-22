@@ -3308,3 +3308,127 @@ Produktcode, kein PHP, keine E2E-Datei.
     und Zustand im Accessibility-Baum (Sichtbarkeit mit `aria-pressed`,
     Bearbeiten/Löschen/Duplizieren, „Add a new learning path“).
 - **Prüfstand `2026112101`:** siehe `abnahme/README.md`.
+
+## Teil 78 — Re-Audits vom 2026-11-21 (Vormittag, Abend): fachliche Blocker #12–#18, mod-E2E-Stillstand (2026-11-21/22)
+
+Grundlage: `ADELE_CI-Reaudit_20261121_Issue-Abnahme.md` (7 Blocker) und
+`ADELE_CI-Reaudit_20261121_Abend_AK_DoD.md` (mod-E2E rot, Prioritäten P0–P1).
+Die Issue-Texte #11–#18 wurden über die öffentliche Issue-Seite gelesen (API
+in dieser Sitzung nicht freigegeben).
+
+- **#12/#16 P0 – Kontext-Umgehung (belegt, behoben):** Lehrende bekamen über
+  den Kurskontext, ein anderes Modul oder eine ADELE-Aktivität eines anderen
+  Pfads die ganze Kursrangliste; nur der Modulkontext der Pfad-Aktivität war
+  gefiltert. Ebenso las/änderte eine Lehrkraft einzelne Pfade fremder
+  Gruppen (`get_lp_user_path_relation`, `save_lp_user_path_relation`). Neu:
+  `cohort::teacher_scope()` – über den Modulkontext die Gruppenwahl der
+  Aktivität, über jeden anderen Kontext höchstens, was die Aktivitäten des
+  Pfads im Kurs zusammen geben (Gruppierungen eingeschlossen). PHPUnit
+  `teacher_scope_test` (9, zwei Host-Aktivitäten mit verschiedenen
+  Gruppierungen); Gegenprobe mit altem Verhalten: 6 rot.
+- **#12 – „Teilnehmer sehen“ (`userlist`):** zunächst auf Rückfrage
+  entschieden, dass „nur eigene Ergebnisse“ auch Gruppenranglisten schließt;
+  am 2026-11-22 09:52 von der Auftraggeberseite ersetzt: **die Einstellung
+  wird nur ohne Gruppen angezeigt und ist nur dort aktiv.** Umgesetzt:
+  Formular (`hideIf` auf den Gruppenmodus; bei Kurszwang mit Gruppen entfällt
+  das Feld), `cohort::own_results_only()`/`learner_roster_scope()`,
+  `get_lp_user_path_relations` (ohne Gruppen und „alle“: Rangliste der
+  Lernenden der Aktivität für Lernende, fremde Zeilen ohne ID/Benutzernamen;
+  sonst eigene Zeile), Gruppenübersicht ohne `closed` in Gruppenmodi,
+  `mod_adele_cm_info_view` übergibt den wirksamen Wert an den Client.
+  Damit ist die bisherige Lesart von AK0-L2/AK0-M4 („ohne Gruppen immer nur
+  die eigene Zeile“) für „Ergebnisse aller anderer Teilnehmer“
+  zurückgenommen. PHPUnit (5 Fälle), E2E P2/P3 und die Rücknahme-Story
+  P1/P2 (jetzt ohne Gruppen, dazu Umschalten auf getrennte Gruppen).
+- **#12 – Mittelwert (behoben):** arithmetisch über **alle** Lernenden der
+  Gruppe; ohne Pfad/Fortschritt zählen sie mit 0 % und werden genannt; eine
+  Gruppe ohne Lernende „Keine Daten“. PHPUnit (Gegenprobe rot), Jest, E2E G2.
+- **#13 (behoben):** Nicht-Lernende bei `groupid = 0` nur aus den Gruppen
+  der Aktivitäts-Gruppierung – dieselbe Auswahl wie die Teilnehmerliste
+  (`cohort::member_filter()`); PHPUnit mit Gegenprobe.
+- **#14 (behoben):** zeitgleiche letzte Aktivität oder Kurs in mehreren
+  Knoten: keine Auswahl mehr (früher kleinere Kurs-ID/erster Knoten) – der
+  Marker steht an jedem dieser Knoten mit „nicht eindeutig: an N Knoten“
+  (Text, `?N`, gepunkteter Rahmen, Feld `ambiguous` im Schnappschuss);
+  PHPUnit, Jest.
+- **#15/#17 (ergänzt):** API-Matrix `live_groups_api_matrix_test` (33 Fälle:
+  Lernende, Lehrkraft ohne Recht, fremder Kurs, Kurskontext, anderes Modul,
+  unbekannter Kontext, fremde Gruppe, unbekannter/fremder Knoten, negative
+  Seite, unbekannte Art, Schalter aus – plus Kontrollen ohne fremde Daten,
+  Seite hinter dem Ende). Rückweg (AK3.5): Gruppe, Ausschnitt, Scrollposition
+  und Fokus bleiben – vom Marker und vom Zähler aus, per Tastatur; E2E L3
+  (Gegenprobe ohne Wiederherstellung: rot). #17 Altinstallation: PHPUnit
+  `test_upgrade_of_an_old_installation` (Felder entfernt, Version 2026101800,
+  Upgrade fügt sie mit Defaults hinzu, andere Einstellungen bleiben, zweiter
+  Lauf behält vorhandene Werte), PostgreSQL und MariaDB.
+- **#18 (ergänzt):** derselbe Dialog zweimal in einer Anwendung → eigene
+  Nummer je Instanz (`dialogInstanceId()`, erste Instanz behält die ID der
+  Öffner); Jest mit Gegenprobe. E2E: `dropdownMenuButton` auf der Seite
+  nicht mehr vorhanden, ADELE-Link der Navigation ohne ID (in CI mit
+  local_catquiz, der zweiten Quelle); Kursdialog des Stapels per Tastatur,
+  eigener Titel und Felder, Escape, Fokus zurück. Build-Gate: der Bundle
+  trägt einen Hash seiner Quellen, `buildtools/check-bundle.js` prüft ihn
+  im Jest-Workflow (Gegenprobe: eine geänderte Quelldatei → Exit 1).
+  Lint-Gate als Sperrklinke (`buildtools/lint-gate.js`, Grundstand 92
+  Altbefunde in `lint-baseline.json`, jeder neue Befund rot; Gegenprobe
+  rot); die Altbefunde sind nicht behoben.
+- **DB-Matrix (Ursache belegt):** die wiederverwendete Plugin-CI führt
+  Moodle 4.5 mit PostgreSQL/MySQL nur auf PHP 8.1 – seit #11 (`min_php
+  8.2`) entfallen. Neuer Workflow `moodle-plugin-ci-pgsql.yml` je Plugin
+  (PostgreSQL 16, PHP 8.3, PHPUnit). Issue-Entwurf
+  `catalyst-moodle-workflows-issue-405-pgsql-only-php81.md`. MySQL bleibt offen.
+- **mod-E2E rot (Run 44943752094):** belegt ist der Stillstand des
+  Webservers ab 20:19:48: jede danach angenommene Anfrage blieb ohne
+  Antwort, alle folgenden Tests liefen in die 180-s-Grenze (die Firefox-
+  Fehler R26/F27/S17 sind Folgen, lokal Firefox mod 12/12). Unmittelbar
+  davor stellte H3 die Server-Uhr um einen Monat vor und wieder zurück,
+  während eine Anfrage der eben verlassenen Seite noch lief. Dass diese
+  Anfrage über den Rücksprung auf einen Termin einen Monat später wartete
+  und damit eine Sperre hielt, ist die naheliegende Erklärung, aber **nicht
+  belegt** (lokal nicht nachgestellt). Geändert: Ablauf- und
+  Karenzfrist-Ketten verschieben nur noch die Uhr des Aufgabenlaufs
+  (`cliClockEnv()`), nicht die des Webservers; die Uhr-Datei wird atomar
+  geschrieben; local T/F-Ketten verlassen vor jedem Uhrwechsel die Seite
+  (`moveServerClock()`). Die E2E-Workflows zeigen bei Fehlern, was die
+  PHP-Prozesse und die Datenbank taten (offene Anfragen, Transaktionen,
+  wartende Sperren) – ein nächster Stillstand wäre belegbar.
+- **Prüfstand-Fund (belegt, nur lokal):** Die Worker des lokalen
+  PHP-Testwebservers (`php -S`, OPcache an) führten nach dem Abgleich
+  geänderter Klassen weiter den alten Code aus – eine Protokollzeile am
+  Anfang von `get_lp_user_path_relations::execute()` erschien bei
+  Webanfragen nicht, über die Kommandozeile schon; nach dem Neustart des
+  Servers sofort. Warum die Zeitstempelprüfung hier nicht griff, ist **nicht
+  belegt** (eine neue Datei im Wurzelverzeichnis wurde erkannt). Folge: der
+  Abgleich startet den Server jetzt immer neu, der gesamte Browserstand
+  wurde danach wiederholt. Die CI ist nicht betroffen (frischer Server je
+  Lauf).
+
+## Teil 79 — Videos nur der fehlgeschlagenen Tests bei rotem Lauf (2026-11-22)
+
+- **Vorgabe (Ralf, 2026-11-22 14:01):** „bei Fehlern nur die betroffenen,
+  fehlerhaften Videos ausliefern, im Erfolgsfall weiterhin alle.“
+- **Umsetzung `2026112200`:** neues Skript
+  `tests/e2e/support/keep-failed-videos.mjs` (local, mod, enrol, identisch).
+  Es liest Playwrights `results.json`, behält die Videos aller Versuche mit
+  Status `failed`, `timedOut` oder `interrupted` und löscht jedes andere
+  Video unter den angegebenen Verzeichnissen – auch die Kopien des
+  HTML-Reports in `data/`, die nach dem SHA-1 des Inhalts benannt sind
+  (Abgleich daher über den Inhalt). Ohne lesbare `results.json` löscht es
+  nichts. Aufgerufen in einem neuen Schritt vor dem Upload, nur
+  `if: failure()`: `e2e.yml` (alle drei), `playwright.yml` (alle drei; der
+  Smoke-Konfiguration fehlte bisher ein JSON-Reporter, jetzt
+  `results.json` unter CI, in `.gitignore`), `a11y-screenreader.yml`
+  (local; Sprachprotokolle bleiben vollständig). Grüne und abgebrochene
+  Läufe behalten alle Videos. Kopfkommentare, Summary-Text und
+  `e2e-suite.md` § 2 angepasst.
+- **Geprüft (lokal):** synthetischer Lauf mit bestandenem, fehlgeschlagenem
+  und übersprungenem Test in der E2E-Konfiguration: 6 Videos → 2 behalten
+  (`test-results` und Report-Kopie des fehlgeschlagenen Tests, SHA-1
+  gleich). Smoke-Konfiguration mit `retries: 1`: beide fehlgeschlagenen
+  Versuche behalten, bestandener entfernt. Fehlende `results.json`: nichts
+  gelöscht; fehlende Argumente: Exit 2. YAML aller geänderten Workflows
+  parsbar; `moodle-plugin-ci`-Statik 19/19 ohne Befund. **Nicht geprüft:** die Workflows selbst auf GitHub (kein Lauf am
+  Commit), der NVDA-Schritt unter Windows.
+- **Folge:** Bei rotem Lauf zeigt der HTML-Report für bestandene Tests kein
+  Video. Ist ein Lauf rot, ohne dass ein Test fehlschlug (etwa die
+  Story-Abdeckung), enthält das Artefakt kein Video.

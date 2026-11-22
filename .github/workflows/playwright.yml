@@ -215,11 +215,20 @@ jobs:
             gzip -c /tmp/moodle-server.log > "$dest/moodle-server.log.gz"
           fi
 
-      # ONE artefact, always: passed, failed or cancelled - and with the
-      # videos in every case. The previous design uploaded the full report on
-      # green and a stripped, video-less subset on red, which is exactly the
-      # wrong way round: on a red run the recording is what explains the
-      # failure. Size is bounded by the suite being a smoke test.
+      # Videos (decision 2026-11-22): a red run delivers only those of the
+      # failed tests (results.json comes from the JSON reporter in
+      # playwright.config.ts); green and cancelled runs keep all of them.
+      - name: Keep the videos of the failed tests only
+        if: failure()
+        run: |
+          dir="moodle/$PLUGIN_PATH/tests/playwright"
+          node plugin/tests/e2e/support/keep-failed-videos.mjs \
+            "$dir/results.json" "$dir/playwright-report" "$dir/test-results" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # ONE artefact, always: passed, failed or cancelled. On a red run the
+      # recordings of the failed tests are what explains the failure, so they
+      # are in it; those of the passed tests are not (step above).
       - name: Upload report with videos
         if: always()
         uses: actions/upload-artifact@v6

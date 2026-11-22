@@ -45,8 +45,8 @@ Jeder Lauf lädt **ein** Artefakt hoch, bei Erfolg, Fehlschlag und Abbruch:
 `e2e-results-<plugin>-<run-id>-<attempt>`.
 
 ```
-playwright-report/   HTML-Report, jeder Test mit Screenshot und Video
-test-results/        Videos (video.webm) je Test, Traces nur bei Fehlschlag
+playwright-report/   HTML-Report, jeder Test mit Screenshot (Videos: s. u.)
+test-results/        Videos (video.webm) je Test (s. u.), Traces nur bei Fehlschlag
 results.json         vollständiger Ergebnisbaum
 junit.xml            dasselbe im JUnit-Format
 run.log              Konsolenausgabe
@@ -57,6 +57,18 @@ moodle-server.log.gz Anfrageprotokoll
 ```
 
 Videos entstehen für **jeden** Test, auch für bestandene (`video: 'on'`).
+**Ausgeliefert** werden sie seit `2026112200` (Vorgabe 2026-11-22) so: bei
+grünem (und bei abgebrochenem) Lauf alle; bei rotem Lauf **nur die der
+fehlgeschlagenen Tests**. Der Schritt „Keep the videos of the failed tests
+only“ (`if: failure()`) liest `results.json` und löscht jedes andere Video,
+auch die Kopie im HTML-Report (`data/<SHA-1>.webm`, Abgleich über den
+Inhalt) – dort zeigen bestandene Tests dann kein Video. Bei Wiederholungen
+(nur Smoke, `retries: 1`) bleiben alle fehlgeschlagenen Versuche. Ist der Lauf
+rot, ohne dass ein Test fehlschlug (z. B. Story-Abdeckung), bleibt kein Video;
+fehlt `results.json`, bleiben alle. Liste der behaltenen Videos in
+`summary.md` und der Job-Summary. Skript:
+`tests/e2e/support/keep-failed-videos.mjs` (je Plugin); dieselbe Regel gilt im
+Smoke-Workflow (`playwright.yml`, dazu JSON-Reporter) und im NVDA-Workflow.
 Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
 
 ## 3. Grundsätze der Suite
@@ -81,7 +93,8 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
 - **Ein Artefakt je Lauf, immer.** Auch die Smoke-Workflows laden seit
   `2026100202` Report und Videos bei grünem **und** rotem Lauf hoch; vorher
   gab es bei Fehlschlag nur die fehlgeschlagenen Verzeichnisse ohne Video —
-  also genau dann keine Aufnahme, wenn sie gebraucht wird.
+  also genau dann keine Aufnahme, wenn sie gebraucht wird. Seit `2026112200`
+  enthält ein roter Lauf nur noch die Videos der fehlgeschlagenen Tests (§ 2).
 - **Warteschlange abarbeiten statt warten.** `expectCourseOpenAfterTasks` und
   `expectCourseClosedAfterTasks`
   ruft `admin/cli/adhoc_task.php` begrenzt wiederholt auf (höchstens 60 s),
@@ -253,7 +266,8 @@ Eingaben: nur der Titelfilter (`grep`), die Geschwister-Referenz
 Playwright-Projekt fährt. Mit einer neueren Bibliothek (das Lockfile hatte
 0.35.0) installiert das Setup ein NVDA, das die Integration nicht findet.
 
-Im Artefakt liegt neben Report und Video das **Sprachprotokoll** je Test
+Im Artefakt liegt neben Report und Video (roter Lauf: nur die der
+fehlgeschlagenen Tests, § 2) das **Sprachprotokoll** je Test
 (`nvda-spoken-phrases.txt`, als Anhang im HTML-Report, und als
 `transcripts/*.txt` mit Commit, Datum und Adresse im Kopf). Es ist das, was eine
 Durchsicht zuerst lesen sollte; das Video zeigt denselben Lauf von außen.
@@ -1046,3 +1060,35 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   Vorprüfung des NVDA-Laufs im Accessibility-Baum.
 - **Lokaler Stand:** jede Suite auf frisch geseedeter Seite, Smoke vor E2E,
   wie in der CI (eine Seite je Workflow).
+
+### Nachtrag 2026-11-22 (`2026112102`)
+
+- **L3 (mod, `groups-live.spec.ts`):** der Rückweg von einer lernenden
+  Person – vom Marker und per Tastatur über Zähler und Namen: Gruppe,
+  Ausschnitt des Graphen, Scrollposition und Fokus wie verlassen (#15 AK3.5,
+  DoD3.4). G2 prüft den Mittelwert über alle Lernenden („Mittel über N
+  Lernende“).
+- **A18 (local, `dom-ids.spec.ts`):** kein `dropdownMenuButton` auf der
+  Seite, ADELE-Link der Navigation ohne ID (#18 AK4/DoD3).
+- **E2 (local, `editor-combinations.spec.ts`):** Kursdialog eines Stapels per
+  Tastatur – eigener Titel, Felder mit eigenen Labels, Escape, Fokus zurück
+  zum Öffner, keine doppelte ID (#18 DoD2).
+- **Server-Uhr:** Ketten, in denen nur Aufgaben in der Zukunft laufen müssen
+  (H1–H3 Ablauffrist, Karenzfrist nach dem Speichern), verschieben nur die
+  Uhr des Aufgabenlaufs (`cliClockEnv()`); die Uhr des Webservers bleibt.
+  Wo der Webserver die verschobene Zeit sehen muss (local T, F), verlässt
+  die Seite vor jedem Wechsel die Website (`moveServerClock()`). Die
+  Uhr-Datei wird atomar geschrieben (Anlass: CI 2026-11-21, Webserver ab
+  einem Uhr-Rücksprung ohne Antwort).
+- **Diagnose:** bei Fehlern zeigen die E2E-Workflows offene Anfragen des
+  Webservers, PHP-Prozesse, laufende Transaktionen und wartende Sperren.
+- **P1/P2/P3 – „Teilnehmer sehen“ nur ohne Gruppen (Entscheidung
+  2026-11-22, ersetzt die Anpassung vom 2026-11-19 oben):** ohne Gruppen
+  zeigt „Ergebnisse aller anderer Teilnehmer“ Teilnehmenden die Lernenden der
+  Aktivität, ohne Link; der Server schickt fremde Zeilen ohne ID und
+  Benutzernamen (`learner-data.spec.ts` P2/P3). Die umschaltbare Einbettung
+  hat im Seed wieder **keine** Gruppen; die Rücknahme „alle → nur eigene“
+  (`withdrawn-settings.spec.ts`) prüft das ohne Gruppen und schaltet danach
+  auf getrennte Gruppen: das Feld ist verborgen, ein gespeichertes „nur
+  eigene“ ändert nichts (die Gruppenrangliste zeigt beide), zurück ohne
+  Gruppen ist das Feld wieder da und „nur eigene“ gilt.
