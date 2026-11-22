@@ -3432,3 +3432,34 @@ in dieser Sitzung nicht freigegeben).
 - **Folge:** Bei rotem Lauf zeigt der HTML-Report für bestandene Tests kein
   Video. Ist ein Lauf rot, ohne dass ein Test fehlschlug (etwa die
   Story-Abdeckung), enthält das Artefakt kein Video.
+
+## Teil 80 — Jest-Lauf 45034960566 (Stand `2026112200`) rot: Bundle-Gate (2026-11-22)
+
+- **Befund (Log `logs_121875850092.zip`, Commit `64d288e7`):** Jest 889/889
+  in 110 Suites grün. Rot ist nur das Bundle-Gate: „amd/src/app-lazy.js was
+  built from other sources (bundle e93b6e039159, sources e5973012f684)“.
+  Lint-Gate und Build-Probe liefen danach nicht (übersprungen).
+- **Ursache (belegt):** Der Installationsschritt der Workflow-Datei führt
+  `npm install --save-dev @babel/plugin-syntax-dynamic-import --force` aus
+  (wie Moodle Plugin CI). Das fügt `package.json` eine Zeile hinzu, und
+  `package.json` gehört zu den gehashten Quellen. Das Gate lief **nach** der
+  Installation und verglich das Bundle daher mit einer `package.json`, die
+  nicht die des Commits ist. Nachgestellt an einer Kopie: vor dem Befehl
+  `e93b6e039159` (grün), danach exakt `e5973012f684` (rot). Die Quellen im
+  Fork (`development`, `64d288e7`) sind dateigleich mit dem Liefer-Stand
+  (Vergleich ohne Ausführung des Fork-Codes); das ausgelieferte Bundle war
+  also richtig.
+- **Warum lokal nicht aufgefallen:** Ich habe das Gate lokal auf dem
+  Arbeitsbaum ausgeführt, nicht in der Schrittfolge der Workflow-Datei. Der
+  Fehler lag in der Reihenfolge der Schritte, nicht in Code oder Bundle.
+- **Korrektur `2026112201` (`jest.yml`):** Das Gate läuft jetzt direkt nach
+  dem Checkout, vor der Installation (es braucht keine Abhängigkeiten).
+  Installation, Jest, Lint-Gate und Build-Probe laufen mit
+  `if: ${{ !cancelled() }}` auch bei rotem Gate, damit ein Lauf alle
+  Ergebnisse liefert.
+- **Geprüft:** neues lokales Prüfskript, das die `run`-Schritte aus
+  `jest.yml` wörtlich und in ihrer Reihenfolge auf einer frischen Kopie
+  (ohne `node_modules`) ausführt: Gate, Installation, Jest, Lint-Gate,
+  Build-Probe alle grün. Gegenprobe: eine geänderte Quelldatei macht das
+  Gate rot. Dieses Skript gehört ab jetzt zur Prüfung vor jeder Lieferung.
+  **Nicht geprüft:** der Lauf auf GitHub.
