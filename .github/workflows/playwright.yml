@@ -38,6 +38,18 @@ jobs:
         with:
           path: plugin
 
+      # Which state was tested, at the top of the summary: the runs of
+      # 2026-11-23 had been started on "main" and tested old code with old
+      # tests (checkout and failures of an earlier delivery), which nothing
+      # in the run said plainly.
+      - name: Name the tested state
+        run: |
+          version=$(sed -n 's/^\$plugin->version *= *\([0-9]*\).*/\1/p' plugin/version.php)
+          echo "**Tested:** branch \`$GITHUB_REF_NAME\`, commit \`${GITHUB_SHA::8}\`, version \`$version\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$GITHUB_REF_NAME" != "development" ]; then
+            echo "::warning title=Not the development branch::This run tests '$GITHUB_REF_NAME' (version $version). The current state is on 'development' - choose it under 'Use workflow from'."
+          fi
+
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:

@@ -3480,3 +3480,28 @@ in dieser Sitzung nicht freigegeben).
   - ESLint lief mit Vue-2-Regeln. Umgestellt auf Vue 3, Baseline 92 → 88.
 - **Prüfstand-Fehler (meiner):** Während des ersten Gesamtlaufs habe ich `sync_work.sh` aufgerufen. Das Skript startet den Webserver neu; drei local-E2E-Fälle brachen ab. Einzeln wiederholt waren sie grün. Den Gesamtlauf habe ich abgebrochen und neu gestartet. Regel ab jetzt: Während eines Browserlaufs wird nicht synchronisiert.
 - **Lint-Gate hat gegriffen:** Mein `<template v-for>` mit Key verstieß gegen die (falschen) Vue-2-Regeln. Das führte zur Umstellung des Regelsatzes.
+
+## Teil 82 — CI rot auf `2026112300`: codechecker und grunt; Prüfkette neu (2026-11-23)
+
+- **Auftrag (Ralf, 13:22):** „Dieser CodeChecker-Kram sollte dir nicht unterlaufen und vor der Auslieferung bereits abgefangen und behoben sein! Überarbeite deine Testkette! … Fix it!“
+- **Befund, Moodle Plugin CI (MariaDB, PHP 8.3), belegt:**
+  - codechecker: `PSR12.Files.FileHeader` in local `search_users.php`, `manual.php`, `asset_handler.php` und mod `event/course_module_viewed.php`. Keine dieser Dateien hatte ich in dieser Lieferung geändert.
+  - grunt in mod: „Failed to copy …/.git/objects/pack/…“.
+- **Ursachen (belegt):**
+  - Die CI installiert `moodle-plugin-ci ^4` bei jedem Lauf frisch und bekam 4.5.12 mit moodle-cs 3.9.2 und PHPCS 4.0.4. Meine lokale Kette nutzte eine einmal installierte 4.5.11 mit moodle-cs 3.7.0 und PHPCS 3.13.6, die die Regel nicht kennt.
+  - grunt: symfony/filesystem 5.4.56 (in 4.5.12) übernimmt beim Kopieren die Dateirechte. Die schreibgeschützten Git-Objekte machen grunts Zurückkopieren unmöglich. Meine Kette lief als root und ohne `.git`, deshalb fiel das nicht auf. Nachgestellt: 4.5.11 ok, 4.5.12 als Nicht-root rot.
+- **Mein Fehler:** Die lokale Kette spiegelte die CI nicht. Sie hatte nicht dieselbe Werkzeugversion, nicht denselben Benutzer und nicht dieselbe Eingabe. Grün hieß also nur „grün mit alten Regeln als root“.
+- **Korrekturen `2026112301`:**
+  - Die vier Dateien sind mit dem phpcbf der CI-Version korrigiert (je eine Leerzeile, ohne Wirkung auf den Code).
+  - mod `moodle-plugin-ci.yml`: Vor `install` wird `chmod -R u+w "$GITHUB_WORKSPACE/plugin/.git"` ausgeführt.
+- **Neue Prüfkette** (`docs/pruefkette/`):
+  - `ci_gate.sh`: frisch installiertes Werkzeug wie in der CI, bereitgestellter Checkout mit `.git`, Benutzer `claude`, Optionen aus dem Workflow, Vorbereitungszeilen aus `extra_plugin_runners`.
+  - `jest_ci.sh` mit Exit-Code.
+  - `package.sh` baut nur, wenn beide Prüfungen grün sind.
+  - Belegt in beide Richtungen: Auf `2026112300` meldet das Gate genau die CI-Befunde, nach der Korrektur ist es grün. Mit der alten Datei und ohne `chmod` ist es wieder rot.
+- **Playwright-Smoke-Läufe vom 2026-11-23** (local: Kontrast 4.43:1; mod: „must be suspended …“): Beide liefen auf dem Branch **`main`**, nicht auf `development` (Checkout `origin/main`, `actions/checkout@v4`, Testtexte einer älteren Lieferung).
+  - Auf `development` sind beide Stellen seit Tagen geändert: Warten auf das Ende der Einblendung; „removed, not suspended“. Lokal 17/17 und 4/4 grün.
+  - Neu: Smoke- und E2E-Workflows nennen in der Zusammenfassung Branch, Commit und Version und warnen, wenn nicht `development` geprüft wird.
+- **Issue-Entwürfe:**
+  - `issues/moodle-plugin-ci-grunt-restore-readonly.md` (an moodlehq);
+  - `issues/catalyst-moodle-workflows-pin-plugin-ci.md` (Version festschreiben, Wunderbyte).

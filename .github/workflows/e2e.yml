@@ -103,6 +103,12 @@ jobs:
         with:
           path: plugin
 
+      # A run on another branch than "development" tests another state - say
+      # so where it cannot be missed (smoke runs of 2026-11-23 on "main").
+      - name: Warn about another branch
+        if: github.ref_name != 'development'
+        run: echo "::warning title=Not the development branch::This run tests '$GITHUB_REF_NAME'. The current state is on 'development' - choose it under 'Use workflow from'."
+
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
