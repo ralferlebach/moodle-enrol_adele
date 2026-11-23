@@ -1092,3 +1092,38 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   auf getrennte Gruppen: das Feld ist verborgen, ein gespeichertes „nur
   eigene“ ändert nichts (die Gruppenrangliste zeigt beide), zurück ohne
   Gruppen ist das Feld wieder da und „nur eigene“ gilt.
+
+### Nachtrag 2026-11-23 (`2026112300`, Re-Audit 2026-11-22)
+
+- **G4 – mehrere Aktivitäten mit verschiedenen Gruppierungen (#16 DoD0-M3,
+  #12 DoD0-L4):** Neue Fixture G16M, Kurs `E2EG16M`, gleicher Pfad wie G16.
+  - Gruppen Nord, Mitte und Sued; Gruppierung NM = Nord + Mitte, MS = Mitte + Sued.
+  - Aktivität „Nord-Mitte“: getrennte Gruppen, Gruppierung NM. Aktivität
+    „Mitte-Sued“: sichtbare Gruppen, Gruppierung MS.
+  - Personen: Nele (Nord), Mats (Mitte), Sina (Sued); Tessa als Lehrerin mit
+    Bearbeitungsrechten.
+  - `groups-live.spec.ts` G4, zwei Fälle:
+    - Lehrerin: Jede Aktivität bietet und listet nur die Gruppen ihrer
+      Gruppierung. Die Liste folgt dem Gruppenwechsel. Eine Gruppe der
+      anderen Gruppierung lehnt der Server ab, auch wenn sie direkt
+      angefragt wird.
+    - Mats: In jeder Aktivität sieht er seine Gruppe; in den sichtbaren
+      Gruppen nur den Mittelwert der anderen Gruppe der eigenen
+      Gruppierung.
+    - Nele in „Mitte-Sued“: Sie sieht niemanden sonst, weder auf der Seite
+      noch in den Antworten des Servers.
+- **G1/G2:** Fremde Namen werden jetzt über den Nachnamen gesucht. Die
+  Teilnehmerliste zeigt Vor- und Nachname in eigenen Zellen, die Antworten
+  des Servers in eigenen Feldern. Die Suche nach dem vollen Namen hätte ein
+  Leck nicht gefunden.
+- **G3:** Vor dem Umschalter geht keine Anfrage
+  `local_adele_get_non_learners` raus (#13 AK1.2). Danach greift die
+  Beobachtung, das ist mitgeprüft.
+- **P2:** Die Liste ohne Gruppen hat in keiner Zeile einen Link oder Knopf.
+  Über die Ersatz-ID einer fremden Zeile lässt sich kein Pfad abrufen.
+- **A18 (local_adele):** Der Fall mit drei Anwendungen läuft zusätzlich im
+  **Classic-Theme**: keine ID doppelt, kein `dropdownMenuButton`, der
+  Navigationslink führt zur Übersicht. Dieser Schritt fand die IDs der
+  MiniMap (`issues/local_adele-issue-minimap-node-ids.md`). Im Knoten- und
+  im Kursdialog (A18, E2) wird geprüft, dass ein Klick auf das Label sein
+  Feld fokussiert.

@@ -67,3 +67,22 @@
   - #15 **abnahmefähig** – vorbehaltlich CI.
   - #16 **testseitig offen** – verschiedene Gruppierungen nur in PHPUnit, nicht im Browser (DoD0-M3); Behat hier nicht ausführbar.
   - #17 **abnahmefähig** – vorbehaltlich CI.
+
+## Nachtrag `2026112300` (Re-Audit 2026-11-22)
+
+Die Zuordnung jedes offenen Punkts zu Code und Tests steht in `nachweise-20261123.md`. Neu in dieser Lieferung:
+
+- **#16 DoD0-M3 / #12 DoD0-L4:** E2E G4 mit zwei Aktivitäten eines Kurses, die verschiedene Gruppierungen haben. Gegenprobe: Ohne Gruppierungsfilter wird G4 rot.
+- **#12 DoD0-L2:** PHPUnit zu anderen Kontexten bei „Ergebnisse aller“. Gegenprobe: Ohne Pfadprüfung wird der Test rot.
+- **#12 DoD0-L3:** Jest prüft, dass Zeilen nicht navigierbar sind. E2E P2 prüft, dass es keinen Link gibt und die Ersatz-ID keinen Pfad öffnet.
+- **#13 AK1.5/DoD1.1:** PHPUnit zu Rollen und Einschreibungsstatus. **#13 AK1.2:** In G3 geht vor dem Umschalter keine Anfrage raus.
+- **#14 DoD2-L5 / #15 DoD3.5:** PHPUnit mit 300 Lernenden (gleiche Abfragezahl, jeweils unter 1 s, beide Datenbanken). Dazu der k6-Plan mit Live-Aufrufen und einem Seed mit Aktivität, Gruppen und Live-Daten (Standard 500 Lernende).
+- **#15 DoD3.1:** Zwei Gruppen und Doppelrolle werden einmal gezählt.
+- **#16 AK0-M6:** Das Feld „Teilnehmer sehen“ folgt dem Gruppenmodus, auch einem erzwungenen. Der gespeicherte Wert bleibt erhalten und gilt wieder. Duplikat und Import übernehmen `userlist` und den Gruppenmodus. Gegenprobe: Ohne die Formularregel wird der Test rot.
+- **#12 AK0-L2 / #16 AK0-M4:** Die Bestätigung der Entscheidung vom 2026-11-22 ist angefragt. Der Textentwurf für Variante A liegt in `issues/local_adele-12-16-ak-userlist-entwurf.md`.
+- **Entscheidungen:**
+  - #12 und #16: **codeseitig offen**, bis die Bestätigung zu `userlist` vorliegt. Sonst testseitig vollständig, lokal grün.
+  - #13: **abnahmefähig**.
+  - #14: **abnahmefähig** (vorher testseitig offen). Der k6-Lauf steht in der CI aus.
+  - #15: **abnahmefähig**.
+  - Für alle gilt: DoD = CI am Commit.

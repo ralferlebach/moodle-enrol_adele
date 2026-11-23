@@ -8,3 +8,8 @@
 - **DoD1** (expandierte Jobs nur PHP ≥ 8.2) und **DoD2** (alle Testarten grün, keine Pflicht-Skips): nur in GitHub Actions nachweisbar – **offen**.
 - Zusätzlich auf Auftrag (2026-11-19): kein Workflow läuft mehr nach Zeitplan; die drei `playwright.yml` hatten `schedule: cron '0 3 * * 1'` – entfernt, nur noch `workflow_dispatch` (Suche `schedule:|cron` über alle Workflows ohne Treffer).
 - **Entscheidung: abnahmefähig** – codeseitig vollständig; DoD = CI am Commit, steht aus.
+- **Nachtrag `2026112300` (Re-Audit 2026-11-22, P1 Nr. 3):** Die beiden local-Fälle `Skipped` und `Incomplete` laufen jetzt durch.
+  - `catquiz_test::test_get_catquiz_tests_class_exists_with_records` war kaputt (belegt): Einzeln ausgeführt brach er ab, in der Suite wurde er übersprungen, weil der `class_exists`-Mock des vorherigen Falls weiterwirkte. Jetzt arbeitet der Fall mit echten catquiz-Datensätzen, und `tearDown()` setzt den Mock zurück.
+  - `conditions/catquiz_test::test_get_completion_status_is_true` holt den Anteil richtiger Antworten jetzt über die Testnaht `percentage_of_right_answers()`. Dazu kommt der Gegenfall unter der Schwelle.
+  - Zuordnung: `nachweise-20261123.md`.
+  - **Entscheidung unverändert: abnahmefähig.** DoD = CI am gemeinsamen HEAD.

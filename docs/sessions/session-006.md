@@ -3463,3 +3463,20 @@ in dieser Sitzung nicht freigegeben).
   Build-Probe alle grün. Gegenprobe: eine geänderte Quelldatei macht das
   Gate rot. Dieses Skript gehört ab jetzt zur Prüfung vor jeder Lieferung.
   **Nicht geprüft:** der Lauf auf GitHub.
+
+## Teil 81 — Re-Audit 2026-11-22 (21:53): Nacharbeiten P0/P1, Lieferung `2026112300` (2026-11-23)
+
+- **Auftrag:** Re-Audit „ADELE_Reaudit_20261122_2153_AK_DoD_Nacharbeiten“ (58/91, #17 geschlossen, AK0-L2 zurückgesetzt). Die Zuordnung jedes offenen Punkts steht in `abnahme/nachweise-20261123.md`.
+- **P0 Entscheidung `userlist`:** Die ausdrückliche Bestätigung (Variante A/B) ist am 2026-11-23 angefragt. Bis zur Antwort bleibt der Stand der Vorgabe vom 2026-11-22. Textentwurf A: `issues/local_adele-12-16-ak-userlist-entwurf.md`.
+- **P0 Sicherheit:** PHPUnit zu anderen Kontexten bei „Ergebnisse aller“. Jest und E2E P2: keine Links, und die Ersatz-ID öffnet nichts.
+- **P0 Mehrfacheinbettung:** Fixture G16M und E2E G4 (zwei Aktivitäten, verschiedene Gruppierungen). Gegenproben rot. In G1/G2 suchte die Prüfung „fremder Name nicht sichtbar“ den vollen Namen; Liste und Antworten trennen aber Vor- und Nachname. Die Prüfung hätte ein Leck übersehen und sucht jetzt den Nachnamen.
+- **P1 #11:** Der übersprungene catquiz-Fall war kaputt; in der Suite verdeckte ihn ein Mock, der aus dem vorigen Fall weiterwirkte. Der unvollständige Fall bekam eine Testnaht. Beide laufen jetzt durch, dazu ein Gegenfall.
+- **P1 #13:** Rollen und Einschreibungsstatus in PHPUnit. G3: vor dem Umschalter keine Anfrage.
+- **P1 #14/#15:** PHPUnit mit 300 Lernenden. k6 fragt jetzt auch die Live-Endpunkte ab (Seed mit Aktivität, Gruppen, Live-Daten; Standard 500). Zählung über zwei Gruppen und bei Doppelrolle. Beim Testaufbau fiel auf, dass eine Rollenänderung den Pfad-Schnappschuss aus den echten Abschlüssen neu berechnet; der Test stellt ihn danach wieder her.
+- **P1 #16 AK0-M6:** Formular bei gewähltem und erzwungenem Gruppenmodus; der gespeicherte Wert bleibt; Duplikat und Import übernehmen `userlist` und den Gruppenmodus.
+- **P1 #18:**
+  - Neuer Befund, belegt: Die MiniMap verdoppelte Knoten-IDs (sichtbar im Classic-Theme). Behoben.
+  - Classic-Schritt in E2E A18; Klick aufs Label fokussiert das Feld.
+  - ESLint lief mit Vue-2-Regeln. Umgestellt auf Vue 3, Baseline 92 → 88.
+- **Prüfstand-Fehler (meiner):** Während des ersten Gesamtlaufs habe ich `sync_work.sh` aufgerufen. Das Skript startet den Webserver neu; drei local-E2E-Fälle brachen ab. Einzeln wiederholt waren sie grün. Den Gesamtlauf habe ich abgebrochen und neu gestartet. Regel ab jetzt: Während eines Browserlaufs wird nicht synchronisiert.
+- **Lint-Gate hat gegriffen:** Mein `<template v-for>` mit Key verstieß gegen die (falschen) Vue-2-Regeln. Das führte zur Umstellung des Regelsatzes.
