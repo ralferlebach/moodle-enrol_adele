@@ -1,7 +1,19 @@
 # Issue-Entwurf (ralferlebach/moodle-local_catquiz, Branch `main`): `id="dropdownMenuButton"` noch vorhanden
 
-> **Stand:** Entwurf 2026-11-26 (Re-Audit 2026-11-26, P2, #18 AK4), zur
-> Entscheidung.
+> **Stand:** Entwurf 2026-11-26 (Re-Audit 2026-11-26, P2, #18 AK4).
+>
+> **Entscheidung des Auftraggebers 2026-11-27:** ADELE unterstützt derzeit
+> nur `ALiSe-v-1.2.0-legacy`; später `migration-zu-moodle-5.x`, sobald ADELE
+> mit Moodle 5.x läuft. `main` wird **nicht** unterstützt, daher kein
+> Fixauftrag. Dieser Entwurf bleibt nur zur Information und wird **nicht**
+> gemeldet.
+>
+> Nachgeprüft am 2026-11-27 (nur lesende Klone, kein Code ausgeführt):
+> `id="dropdownMenuButton"` steht nur auf `main` (`53c92ee`, `lib.php`
+> Zeile 125). Auf `ALiSe-v-1.2.0-legacy` (`53b809e`) und
+> `migration-zu-moodle-5.x` (`e7d07d7`) fehlt die ID, in PHP, Mustache und
+> JS-Quellen. Wenn ADELE auf Moodle 5.x umstellt, ist A18 gegen
+> `migration-zu-moodle-5.x` erneut zu prüfen.
 
 ## Befund (belegt, Klon vom 2026-11-26)
 

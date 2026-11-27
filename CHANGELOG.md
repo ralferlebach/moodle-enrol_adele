@@ -5,6 +5,35 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-11-27 (2026112700, local_adele, mod_adele, enrol_adele)
+
+Releasename aller drei Plugins auf 0.8.0. Ausführlich im Prüfstand
+(`docs/abnahme/README.md`), in den Nachweisen
+(`docs/abnahme/nachweise-20261127.md`) und in den Kommentaren je Issue
+(Paket `adele-0.8.0-kommentare.zip`).
+
+### Fixed
+
+- local_adele #13 AK1.5: Eine Person, die nur über eine Lehrenden-Freigabe der
+  Lehrenden-Ansicht (enrol_adele kind 3) im Kurs ist, gilt jetzt als Personal.
+  Vorher stand sie als „ohne Lernpfad“ in den Listen, und mit einem Snapshot
+  des Pfads erschien sie als Lernende
+  (`enrol_state::get_nonparticipant_userids()`).
+
+### Tests
+
+- `local/tests/roster_lifecycle_test.php`: der Roster über echte Wege, mit
+  diesen Fällen:
+  - Einschreibung und Austritt über den Startkurs;
+  - Karenz der aufgeschobenen Löschung (300 s, als Fenster vom Auftraggeber
+    am 2026-11-27 angenommen);
+  - Suspendierung und Abmeldung von außen;
+  - parallele aktive Einschreibung;
+  - Lehrenden-Freigabe ohne und mit Snapshot.
+
+  Geprüft wird jeweils in Teilnehmerliste, Live-Markern und -Zähler,
+  Gruppenübersicht und Nicht-Lernenden.
+
 ## [0.1.11] — 2026-07-24
 
 ### Added — C.4 vollständig: Same-Course-Ausnahme (Session 003, Teil 19)

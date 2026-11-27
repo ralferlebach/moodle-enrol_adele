@@ -86,3 +86,14 @@ gemeinsamen Workflow von Wunderbyte; siehe Issue-Entwurf
    Testseite), **ohne** gleichzeitigen Abgleich.
 3. `package.sh`; das schließt `ci_gate.sh` und `jest_ci.sh` ein.
 4. Lieferung nur, wenn alles grün ist.
+
+## Nachtrag 2026-11-27: Kommentare und Nachweise je Lieferung
+
+- `repovergleich.py <git-dir> <ref> <zip> <titel>`: vergleicht ein Plugin-ZIP Byte
+  für Byte mit einem Commit (nur lesend). Ausgabe: zu löschen, neu, geändert.
+- `pack_nachweise.sh` (REL, V, N, K): baut `adele-<release>-kommentare.zip` und
+  `adele-<release>-nachweise.zip`. Dazu ergänzt es Repository-Vergleiche,
+  SHA-256 jeder Datei der ZIPs, Gate- und Jest-Protokoll von `package.sh` und
+  diese Skripte.
+- `e2e_all2.sh` sichert je Suite `test-results` (Bildschirmfotos, Videos, Traces
+  bei Fehlern) und den Ausschnitt des Serverlogs unter `/tmp/results_<plugin>_<suite>`.

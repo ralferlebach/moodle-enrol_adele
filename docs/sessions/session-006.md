@@ -3583,3 +3583,29 @@ in dieser Sitzung nicht freigegeben).
       jetzt das Plugin-Verzeichnis selbst. Lokal gehört der Elternordner
       root (in der CI dem Runner), daher übergibt das Gate ihn während der
       Prüfung. Danach Gate grün.
+
+## Teil 84 — Re-Audit 2026-11-27 (75/91): Release 0.8.0, Lieferung `2026112700` mit Kommentaren und Nachweisen
+
+- **Auftraggeber (2026-11-27):**
+  - Alle Versionsnamen auf 0.8.0.
+  - Künftig liefere ich Überarbeitungskommentare und Nachweise mit, wie bei
+    catquizlab: `adele-<release>-kommentare.zip` (`kommentare/<issue>-kommentar-<release>.md`)
+    und `adele-<release>-nachweise.zip` (`nachweise/LIESMICH.md`, Repository gegen ZIP,
+    Gate, PHPUnit, E2E, lokale Belege je Punkt, Werkzeug).
+- **Entscheidungen (2026-11-27):**
+  - Karenzfenster im Roster hinnehmen.
+  - CatQuiz: nur `ALiSe-v-1.2.0-legacy`, später `migration-zu-moodle-5.x`.
+  - FeedbackModal: Der Auftraggeber bat um ein Beispiel. Bildschirmfotos und
+    eine Erklärung sind geliefert, die Entscheidung steht aus.
+- **#13 AK1.5:**
+  - Neuer Lebenszyklustest über echte Wege. Die Karenz ist belegt 300 s plus
+    Cron.
+  - Prüffall kind 3 → Befund: Eine Person nur mit Lehrenden-Freigabe erschien
+    mit Snapshot als Lernende. In `get_nonparticipant_userids()` behoben,
+    Gegenprobe rot, beide Datenbanken grün.
+- **CI:** Die Actions-API ist ohne Push-Freigabe nicht lesbar (nicht
+  umgangen). Die öffentlichen Listen sind gelesen, die Detailseiten waren
+  rate-limitiert. Die HEADs der drei Repositories sind byte-gleich mit
+  `2026112600`.
+- **M2:** Im Gesamtlauf `0.8.0` grün, insgesamt 1 von 7 Läufen rot, Ursache
+  unbelegt. Die Prüfkette sichert jetzt Ergebnisse und Serverlog je Suite.
