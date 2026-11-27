@@ -20,6 +20,13 @@ test.describe('Learning path enrolment management', () => {
 
     await expect(page.getByRole('heading', { name: /Learning path enrolment management/i })).toBeVisible();
 
+    // Narrowed to the seeded path first: the list is paged (50 rows, sorted by
+    // course), and on a site with more learning paths than a fresh CI site
+    // the seeded row can sit on a later page (local stand, 2026-11-27: 146
+    // instances, 3 pages).
+    await page.selectOption('#adelefilterlp', env.learningPathId);
+    await page.getByRole('button', { name: 'Apply filter' }).click();
+
     // Scoped to the table row, not to the page: the learning path name also
     // appears as an option in the filter select, so an unscoped text match
     // resolves to two elements and fails on strict mode — while proving

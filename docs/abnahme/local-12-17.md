@@ -86,3 +86,29 @@ Die Zuordnung jedes offenen Punkts zu Code und Tests steht in `nachweise-2026112
   - #14: **abnahmefähig** (vorher testseitig offen). Der k6-Lauf steht in der CI aus.
   - #15: **abnahmefähig**.
   - Für alle gilt: DoD = CI am Commit.
+
+## Nachtrag `2026112600` (Re-Audit 2026-11-26)
+
+Die Zuordnung steht in `nachweise-20261126.md`.
+
+- **#13 AK1.5 (neuer Befund, belegt, behoben):** Gesperrte, abgelaufene,
+  noch nicht begonnene und deaktivierte ADELE-Einschreibungen zählten als
+  Lernende. Jetzt gilt die Moodle-Semantik. Gesperrte zählen nur im
+  Host-Modus „verborgen“ des eigenen Pfads. Neuer Test mit 3 Fällen über
+  Teilnehmerliste, Live-Daten, Gruppenübersicht und Nicht-Lernende;
+  Gegenprobe 3 von 3 rot.
+- **#13 DoD1.2–1.4:** E2E G5 (Fehlerfall, Gruppenwechsel bei offener Liste,
+  Ablehnung durch den Server).
+- **#14 DoD2-L5 / #15 DoD3.5:** Der k6-Lauf ohne Live-Endpunkte ist jetzt
+  rot. Jeder der drei Endpunkte muss beantwortet werden, das Ergebnis steht
+  in der Zusammenfassung des Laufs.
+- **#12 AK0-L2 / #16 AK0-M4:** **Entschieden: Variante A** (Auftraggeberseite,
+  2026-11-26, 21:56). Code unverändert, AK-Texte einfügefertig in
+  `issues/local_adele-12-16-ak-userlist-entwurf.md`.
+- **Entscheidungen:**
+  - #12 und #16: **abnahmefähig**, sobald die AK-Texte in GitHub
+    übernommen sind (Freigabe liegt vor).
+  - #13: **abnahmefähig**, nachdem der Roster korrigiert ist.
+  - #14 und #15: **abnahmefähig**; offen ist der k6-Lauf mit Live-Endpunkten
+    in der CI.
+  - Für alle gilt: DoD = CI auf `development` am Commit.

@@ -1,14 +1,21 @@
-# Textentwurf: #12 AK0-L2 und #16 AK0-M4 nach der Entscheidung vom 2026-11-22
+# Neuer AK-Text: #12 AK0-L2 und #16 AK0-M4 (Variante A, freigegeben 2026-11-26)
 
-> **Stand:** Entwurf (2026-11-23) zum Einfügen in GitHub – **gilt nur, wenn
-> die Auftraggeberseite Variante A bestätigt** (Re-Audit 2026-11-22 §3: „Sollmatrix
-> `NOGROUPS` × `userlist=1/2` ausdrücklich bestätigen“). Bei Variante B wird
-> der Code zurückgebaut und die bisherigen Texte bleiben.
+> **Stand:** **freigegeben** von der Auftraggeberseite (Ralf Erlebach) am
+> 2026-11-26, 21:56: „Entscheidung: A“. Das beantwortet den Re-Audit vom
+> 2026-11-22 (§3) und vom 2026-11-26 (P0). Den Text unten unverändert in die
+> Issues #12 und #16 übernehmen; die Freigabe mit Datum im Issue-Text
+> vermerken.
 
-## Entscheidung (2026-11-22, 09:52)
+## Entscheidungen
 
-„Die Einstellung ‚Nur die eigenen Ergebnisse anzeigen‘ soll nur im
-Nicht-Gruppen-Modus angezeigt und aktiv sein.“
+- 2026-11-22, 09:52 (Vorgabe):
+
+  „Die Einstellung ‚Nur die eigenen Ergebnisse anzeigen‘ soll nur im
+  Nicht-Gruppen-Modus angezeigt und aktiv sein.“
+- 2026-11-26, 21:56 (Freigabe der Sollmatrix): „Entscheidung: A“ – im
+  Modus „Keine Gruppen“ zeigt „Ergebnisse aller“ (`userlist=1`) die
+  Lernenden der Aktivität ohne IDs, Benutzernamen und Links; „nur eigene“
+  (`userlist=2`) die eigene Zeile.
 
 ## #12 AK0-L2 – neuer Wortlaut
 
@@ -33,7 +40,7 @@ Nicht-Gruppen-Modus angezeigt und aktiv sein.“
   Wechsel erhalten und gilt wieder, sobald die Aktivität ohne Gruppen ist.
   Gruppenmodi sind über keinen anderen Host-Kontext umgehbar.
 
-## Nachweise (Stand `2026112300`)
+## Nachweise (Stand `2026112600`)
 
 - PHPUnit `local_adele/tests/issue569_userlist_privacy_test.php`
   (`test_all_results_setting_lists_the_learners_without_ids`,

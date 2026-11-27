@@ -1127,3 +1127,21 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   MiniMap (`issues/local_adele-issue-minimap-node-ids.md`). Im Knoten- und
   im Kursdialog (A18, E2) wird geprüft, dass ein Klick auf das Label sein
   Feld fokussiert.
+
+### Nachtrag 2026-11-26 (`2026112600`, Re-Audit 2026-11-26)
+
+- **G5 – andere eingeschriebene Personen (#13 DoD1.2–1.4):**
+  - Fixture G16M um Theo erweitert (Tutor, ohne Bearbeitungsrechte, in
+    Gruppe Mitte).
+  - Abgebrochene Antwort: Fehlertext, kein Name; das nächste Öffnen lädt neu.
+  - Bei offener Liste folgt sie dem Gruppenwechsel (Nord → Mitte → alle →
+    Nord): Theo erscheint nur bei Mitte und bei allen, Tessa nie (außerhalb
+    der Gruppierung, #13 AK1.6). Keine Lernenden in der Liste, Rangliste
+    unverändert, axe-Prüfung.
+  - Ein Lernender sieht keinen Schalter, und der Server lehnt seine direkte
+    Anfrage ab.
+- **A18 (local_adele):** neuer Schritt **Boost mit sichtbarer MiniMap**.
+  Boost begrenzt die Inhaltsbreite; gemessen gab es auch bei 2400 px keine
+  MiniMap. Der Schritt hebt die Begrenzung auf und prüft MiniMap-Knoten,
+  doppelte IDs, Referenzen und `dropdownMenuButton`. Der Classic-Schritt
+  prüft jetzt auch, dass die MiniMap sichtbar ist.

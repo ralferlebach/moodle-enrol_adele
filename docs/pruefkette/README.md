@@ -52,6 +52,10 @@ war. Ursachen (belegt):
    - phpmd nur als Bericht, die CI scheitert nicht daran;
    - die vorbereitenden Zeilen aus `extra_plugin_runners`, wo die CI sie
      ausführt (`GITHUB_WORKSPACE` mit dem Checkout in `./plugin`).
+   - seit 2026-11-26 auch `ignore_names` und `codechecker_ignore_paths`
+     wie der gemeinsame Workflow. `phpdocchecker_ignore_paths` wirkt dort
+     nicht (moodle-plugin-ci liest `PHPDOC_IGNORE_PATHS`), also auch hier
+     nicht.
 5. Das Ergebnis lautet **GATE GREEN** oder **GATE RED**, der Exit-Code
    ist entsprechend gesetzt.
 

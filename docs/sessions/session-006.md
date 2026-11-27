@@ -3505,3 +3505,81 @@ in dieser Sitzung nicht freigegeben).
 - **Issue-Entwürfe:**
   - `issues/moodle-plugin-ci-grunt-restore-readonly.md` (an moodlehq);
   - `issues/catalyst-moodle-workflows-pin-plugin-ci.md` (Version festschreiben, Wunderbyte).
+
+## Teil 83 — Re-Audit 2026-11-26 (73/91): Nacharbeiten, Lieferung `2026112600`
+
+- **P0 `userlist` ohne Gruppen:** Die Entscheidung A/B ist erneut angefragt
+  (26.11.). **Antwort von Ralf, 2026-11-26 21:56: „Entscheidung: A“.** Der
+  Code bleibt unverändert; die AK-Texte für #12 und #16 sind einfügefertig,
+  mit Freigabevermerk.
+- **P1 ADELE-Einschreibungsstatus (#13 AK1.5), neuer Befund, belegt:**
+  `roster_members_sql()` zählte jede enrol_adele-Einschreibung, egal ob
+  gesperrt, abgelaufen, nicht begonnen oder aus einer deaktivierten Instanz.
+  - Festgelegt nach der Moodle-Semantik plus #588: Gesperrte zählen nur
+    im Modus „verborgen“ des eigenen Pfads.
+  - Neuer Test mit 3 Fällen über alle Sichten. Auf dem alten Code 3 von 3
+    rot, auf dem neuen grün.
+  - `roster_course_scope_test` bildet „verborgen“ jetzt ausdrücklich nach.
+  - Die erste Fassung las `time()` und verstieß damit gegen #582
+    (`clock_usage_test` rot); jetzt läuft die Zeit über die Uhr.
+- **P1 k6:** Der Live-Teil ist Pflicht, und ein Zähler pro Endpunkt muss
+  über 0 liegen. Die Workflow-Eingabe `live` und die Zusammenfassung sind
+  neu. k6 selbst lief hier nicht.
+- **P1 Nicht-Lernende:**
+  - E2E G5, Fixture G16M um Theo erweitert.
+  - Erst angenommen, Tessa erscheine bei „alle Teilnehmer“ unter den
+    anderen Personen; tatsächlich schränkt die Gruppierung die Liste ein
+    (#13 AK1.6). Der Test prüft jetzt mit Theo.
+  - Ob „alle Teilnehmer“ angeboten wird, habe ich nachgemessen; die
+    Prüfung läuft jetzt ohne Bedingung.
+- **P2 DOM-IDs:** A18 Boost mit sichtbarer MiniMap. Gemessen zeigt Boost
+  sie sonst auch bei 2400 px nicht. catquiz `main` vs. legacy ist belegt;
+  der Feedback-Dialog wartet auf eine Entscheidung.
+- **P2 Werkzeugkette/Lint:**
+  - Der gemeinsame Workflow hat keine Versions-Eingabe (belegt). Das Gate
+    liest jetzt alle Ignore-Eingaben.
+  - Lint 88 → 85 (computed-Rückgabe, zwei geschützte Leerzeichen); die 6
+    Prop-Mutationen sind bewertet.
+- **Einmal rot, Ursache zunächst offen:** Ein Gruppen-E2E-Lauf (Chromium,
+  `groups-live.spec.ts`) war einmal rot, während parallel PHPUnit lief. Die
+  Ausgabe war schon überschrieben, als ich nachsah. Der Gesamtlauf hat es
+  dann gezeigt: G5 war rot, weil späte Antworten die gewählte Gruppe
+  überschrieben (Produktfehler, belegt und behoben, siehe
+  `abnahme/nachweise-20261126.md`). M1 war rot, weil der Testhelfer zu früh
+  klickte (behoben).
+- **Prüfstand-Fehler (meiner):** Während des Gesamtlaufs habe ich erneut
+  `sync_work.sh` aufgerufen, gegen die eigene Regel aus Teil 81; das Skript
+  startet den Webserver neu. Ich habe den Lauf verworfen und nach dem
+  Neubau des Bundles komplett neu gestartet. Zur Absicherung verweigert
+  `sync_work.sh` jetzt den Abgleich, solange ein Playwright-Lauf aktiv ist.
+- **18 rote lokale E2E-Fälle im nächsten Gesamtlauf (meine Regression):**
+  Lernende sahen ihre eigene Zeile nicht mehr. Ursache, belegt: Die neue
+  Prüfung im Store verglich die Gruppen-ID. Die Übersicht setzt beim Start
+  die Vorgabegruppe (-1 → 0); dadurch wurde die Antwort mit den
+  Pfadbeziehungen verworfen, obwohl niemand eine Gruppe gewählt hatte.
+  - Behoben: Der Store zählt ausdrückliche Gruppenwahlen (`groupchoice`,
+    erhöht nur in `setGroupId`). Verworfen wird eine Antwort nur, wenn
+    seit der Anfrage eine andere Gruppe gewählt wurde. `TeacherView.vue`
+    prüft dasselbe.
+  - Neuer Jest-Fall für genau diesen Ablauf (Vorgabegruppe ist keine
+    Wahl); Jest 898/898 grün. Die drei betroffenen Specs
+    (alternative-routes, progress-linear, final-completion) einzeln: 9/9
+    grün. Danach Gesamtlauf neu.
+- **Gesamtlauf und Gate vor der Lieferung (2026-11-27):**
+  - E2E lokal: einmal rot `running-path-change` M2; die Ursache ist offen.
+    Einzeln 3/3 und hinter `roles-transfer-ownership` 2/2 grün. Ebenfalls
+    rot war Smoke enrol `manage.spec.ts`; Ursache belegt: Die Liste der
+    lokalen Seite hat 3 Seiten, im Test ist jetzt der Lernpfad gefiltert.
+  - `e2e_all2.sh` sichert jetzt die Ergebnisse jeder Suite. Das
+    M2-Video hatte der Firefox-Lauf überschrieben.
+  - PHPUnit 512/149/75/70 auf beiden Datenbanken grün.
+  - Das Gate brach zuerst wegen vollem Datenträger ab (alte Werkzeugkopien
+    und Composer-Cache gelöscht). Danach rot, zu Recht:
+    - codechecker local: 30 Formatbefunde im neuen
+      `roster_adele_enrolment_status_test.php`, behoben mit phpcbf;
+      der Test ist auf beiden Datenbanken weiter grün.
+    - grunt mod: moodle-plugin-ci ist jetzt 4.5.13 und behebt das gemeldete
+      Wiederherstellungsproblem upstream. Die Wiederherstellung entfernt
+      jetzt das Plugin-Verzeichnis selbst. Lokal gehört der Elternordner
+      root (in der CI dem Runner), daher übergibt das Gate ihn während der
+      Prüfung. Danach Gate grün.

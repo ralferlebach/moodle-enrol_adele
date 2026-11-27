@@ -23,6 +23,11 @@
 #
 # Usage: /tmp/ci_gate.sh [local mod enrol]      exit 0 only if all steps pass.
 set -u
+# It moves the test site's plugins aside for a while: never during a browser run.
+if pgrep -f "playwright test" >/dev/null; then
+  echo "ci_gate.sh: a Playwright run is active - the gate would move its plugins away. Not now." >&2
+  exit 3
+fi
 M=/home/claude/moodlefix
 GH=/home/claude/gh
 RUNAS=claude
@@ -78,6 +83,8 @@ i = job.get('with', {}) or {}
 ignore = ','.join(x for x in ['tests/fixtures'] + [s.strip() for s in str(i.get('ignore_paths', '') or '').split(',') if s.strip()])
 print(f"IGNORE='{ignore}'")
 print(f"MUSTACHE='{i.get('mustache_ignore_names', '') or ''}'")
+print(f"IGNNAMES='{i.get('ignore_names', '') or ''}'")
+print(f"CCIGNORE='{i.get('codechecker_ignore_paths', '') or ''}'")
 print(f"MAXW='{i.get('codechecker_max_warnings', '') if i.get('codechecker_max_warnings', '') != '' else ''}'")
 print(f"GRUNT='{'no' if i.get('disable_grunt') else 'yes'}'")
 print(f"PHPMD='{'yes' if i.get('enable_phpmd') else 'no'}'")
@@ -95,8 +102,14 @@ PY
   git -C "$STAGE" init -q && git -C "$STAGE" add -A && git -C "$STAGE" -c user.name=gate -c user.email=gate@localhost commit -qm stage && git -C "$STAGE" gc -q
   # The ignores reach the CI's commands through "moodle-plugin-ci install",
   # which turns IGNORE_PATHS / <COMMAND>_IGNORE_NAMES into .moodle-plugin-ci.yml.
+  # (catalyst ci.yml: IGNORE_PATHS, IGNORE_NAMES, MUSTACHE_IGNORE_NAMES,
+  # CODECHECKER_IGNORE_PATHS, PHPDOCCHECKER_IGNORE_PATHS)
   { echo "filter:"; echo "  notPaths: [${IGNORE//,/, }]"
+    [ -n "$IGNNAMES" ] && echo "  notNames: [${IGNNAMES//,/, }]"
     [ -n "$MUSTACHE" ] && { echo "filter-mustache:"; echo "  notNames: [${MUSTACHE//,/, }]"; }
+    [ -n "$CCIGNORE" ] && { echo "filter-codechecker:"; echo "  notPaths: [${CCIGNORE//,/, }]"; }
+    # PHPDOCCHECKER_IGNORE_PATHS: no command of that name in moodle-plugin-ci
+    # (it reads PHPDOC_IGNORE_PATHS), so it has no effect in the CI either.
   } > "$STAGE/.moodle-plugin-ci.yml"
   chown -R $RUNAS "$STAGEROOT"
   # The workflow's own preparation lines ("Install dependencies" step), run
@@ -118,6 +131,10 @@ PY
   steps="$steps codechecker phpdoc validate savepoints mustache"
   [ "$GRUNT" = yes ] && steps="$steps grunt"
   echo "== $p  (IGNORE_PATHS=$IGNORE${MUSTACHE:+, MUSTACHE_IGNORE_NAMES=$MUSTACHE}, codechecker --max-warnings=${MAXW:-default}, grunt=$GRUNT)"
+  # The runner user owns the Moodle tree in the CI. moodle-plugin-ci 4.5.13
+  # restores after grunt by removing the plugin directory itself, which needs
+  # write access to its parent (2026-11-27).
+  chown $RUNAS "$M/$type"
   for s in $steps; do
     args=""
     case $s in
@@ -134,7 +151,7 @@ PY
       echo "ok   $p $s"
     fi
   done
-  rm -rf "$dest"; mv "$ASIDE/$p" "$dest"
+  rm -rf "$dest"; mv "$ASIDE/$p" "$dest"; chown root "$M/$type"
 done
 rm -rf "$STAGEROOT"
 [ $rc -eq 0 ] && echo "GATE GREEN" || echo "GATE RED"

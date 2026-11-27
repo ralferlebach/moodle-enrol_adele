@@ -3,6 +3,14 @@
 > **Stand:** Entwurf 2026-11-23 zur Meldung an moodlehq/moodle-plugin-ci
 > (betrifft jedes Plugin mit grunt-Schritt und Git-Checkout). In
 > mod_adele mit einer Zeile im Workflow umgangen.
+>
+> **Nachtrag 2026-11-27: upstream behoben, nicht mehr melden.**
+> moodle-plugin-ci 4.5.13 (2026-11-23), CHANGELOG: „Fixed `grunt` command
+> failing to restore the plugin when it contains read-only files, such as
+> `.git` objects.“ `restorePlugin()` entfernt das Plugin-Verzeichnis jetzt
+> zuerst und spiegelt dann die Sicherung zurück. Das Gate installiert
+> 4.5.13 und ist damit grün. Die `chmod`-Zeile in mod_adele schadet nicht
+> und kann bei Gelegenheit entfallen.
 
 ## Beobachtung
 

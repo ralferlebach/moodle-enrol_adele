@@ -1,4 +1,10 @@
 #!/bin/bash
+# Refuse while a browser run is going: this script restarts the web server
+# (rule since 2026-11-23, broken twice - now enforced, 2026-11-26).
+if pgrep -f "playwright test" >/dev/null && [ "${SYNC_DURING_E2E:-}" != "I know" ]; then
+  echo "sync_work.sh: a Playwright run is active - not syncing (the server restart would break it)." >&2
+  exit 3
+fi
 # Mirror the work copies (git clones of ralferlebach development) into the test site.
 set -e
 M=/home/claude/moodlefix

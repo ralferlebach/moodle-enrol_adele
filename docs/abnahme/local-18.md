@@ -23,3 +23,13 @@
   - **Lint:** Vue-3-Regelsatz statt Vue 2. Baseline 92 → 88, Einordnung in `nachweise-20261123.md`, Issue-Entwurf `issues/local_adele-issue-eslint-vue2-rules.md`.
   - **DoD2 Feedback-Dialog:** weiter ohne Einstieg (Issue-Entwurf).
   - **Entscheidung: abnahmefähig**, außer DoD2 zum Feedback-Dialog: Dort ist zu entscheiden, ob der Dialog bleibt.
+- **Nachtrag `2026112600` (Re-Audit 2026-11-26):**
+  - Neu in E2E A18: Boost mit sichtbarer MiniMap. Die Inhaltsbreite wird
+    angehoben; gemessen zeigt Boost die MiniMap sonst nicht. Im Classic-Schritt
+    wird die MiniMap jetzt ausdrücklich gefordert.
+  - local_catquiz `main` hat `dropdownMenuButton` noch, legacy nicht
+    (belegt). Entscheidungsvorlage: `issues/local_catquiz-main-dropdownmenubutton.md`.
+  - Lint-Baseline 88 → 85; die 6 Prop-Mutationen sind einzeln bewertet,
+    das Laufzeitrisiko ist gering.
+  - **Entscheidung: abnahmefähig, außer** DoD2 (Feedback-Dialog) und der
+    catquiz-Branchfrage – beides bei der Auftraggeberseite.
