@@ -3609,3 +3609,25 @@ in dieser Sitzung nicht freigegeben).
   `2026112600`.
 - **M2:** Im Gesamtlauf `0.8.0` grün, insgesamt 1 von 7 Läufen rot, Ursache
   unbelegt. Die Prüfkette sichert jetzt Ergebnisse und Serverlog je Suite.
+
+## Teil 85 — Re-Audit 2026-11-27 abends (78/91): FeedbackModal entfernt, kind-3-Härtung, `2026112701`
+
+- **Auftraggeber:**
+  - Fragte, was das Modal ist. Antwort, belegt: Rest der Feedback-Bearbeitung
+    von 01/2024 (`5f858f2`), seit 03/2024 (`bf98dfe`) ohne Öffner, keine
+    Warnung vor ungespeicherten Änderungen.
+  - Diese Warnung gibt es nur an den eigenen Knöpfen der Editoren,
+    `beforeunload` fehlt; dazu neuer Issue-Entwurf.
+  - 21:28 „Ja, bitte entfernen.“
+- **Umgesetzt:**
+  - Dialog, Einbindung, `DIALOGS.feedback`, `store.state.feedback` und der
+    Sprachstring entfernt.
+  - E1 prüft jetzt auch den Feedback-Knoten im Abschlusseditor.
+  - Jest 897/897, Lint 85, Bundle-Gate grün.
+- **P2 #13:** Rolle einer inaktiven Lehrenden-Freigabe zählte mit;
+  reproduziert (Gegenprobe 2/2 rot), behoben, beide Datenbanken grün.
+- Zwischendurch stand PostgreSQL still (Verbindung abgelehnt); mit
+  `ensure.sh` neu gestartet, danach Upgrade der Entwicklungsseite.
+- Release bleibt `0.8.0`, Version `2026112701`. Die Pakete heißen
+  `adele-0.8.0-2026112701-{kommentare,nachweise}.zip`, um die Pakete von
+  `2026112700` nicht zu überschreiben.

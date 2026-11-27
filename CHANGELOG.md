@@ -5,6 +5,22 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-11-27, Version 2026112701
+
+### Removed
+
+- local_adele #18 DoD2: Der nie erreichbare Dialog „Feedback bearbeiten“
+  (`FeedbackModal.vue`) ist entfernt, mit Freigabe des Auftraggebers vom
+  2026-11-27. Das Feedback wird im Feedback-Knoten bearbeitet;
+  regressionsgeprüft mit E2E E1 im Zugangs- und im Abschlusseditor.
+
+### Fixed
+
+- local_adele #13 (Re-Audit 2026-11-27 abends, P2): Die Rolle einer
+  ausgesetzten oder abgelaufenen Lehrenden-Freigabe (kind 3) zählt nicht mehr.
+  Eine Lehrende mit eigener Einschreibung und inaktiver Studierenden-Freigabe
+  erschien vorher als Lernende.
+
 ## [0.8.0] — 2026-11-27 (2026112700, local_adele, mod_adele, enrol_adele)
 
 Releasename aller drei Plugins auf 0.8.0. Ausführlich im Prüfstand

@@ -2,6 +2,27 @@
 
 > **Stand:** Entwurf (2026-11-19), noch nicht eingereicht. Gefunden beim
 > Umsetzen von ralferlebach/moodle-local_adele #18 (eindeutige DOM-IDs).
+>
+> **Erledigt in 0.8.0 (`2026112701`): Der Dialog ist entfernt.** Der
+> Auftraggeber hat das am 2026-11-27 um 21:28 freigegeben („Ja, bitte
+> entfernen.“), nachdem er Bildschirmfotos und die Herkunft gesehen hatte:
+> - Januar 2024 (`5f858f2`, „Completion Feedback GH-40“) öffnete ein Knopf am
+>   Feedback-Knoten den Dialog.
+> - Seit März 2024 (`bf98dfe`) wird das Feedback direkt im Feedback-Knoten
+>   bearbeitet; Knopf und Übergabe entfielen damals, der Dialog blieb
+>   eingebunden.
+> - Der Dialog war kein Anfang einer Warnung vor ungespeicherten Änderungen.
+>   Diese Lücke steht getrennt in
+>   `local_adele-issue-unsaved-changes-on-leave.md`.
+>
+> Entfernt sind `vue3/components/modals/FeedbackModal.vue`, seine Einbindung in
+> `CompletionFlow.vue`, `DIALOGS.feedback`, `store.state.feedback` und der
+> Sprachstring `modals_edit_feedback` (de/en). Regressionsprüfung des
+> Feedback-Knotens: E2E E1 (`editor-reference-path.spec.ts`) schreibt das
+> Feedback jetzt auch im Abschlusseditor, speichert, prüft den gespeicherten
+> Wert und zeigt ihn in neuer Sitzung wieder an. Auf der Seite ist kein
+> `feedbackModal` mehr. Jest `issue18_dom_ids.spec.js` prüft, dass nichts mehr
+> auf den Dialog verweist. Dieser Entwurf wird **nicht** gemeldet.
 
 ## Befund (belegt im Quelltext, 2026-11-19)
 

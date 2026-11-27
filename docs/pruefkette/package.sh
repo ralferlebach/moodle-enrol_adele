@@ -9,8 +9,8 @@ if [ "${SKIP_GATE:-}" != "I know" ]; then
   bash /tmp/jest_ci.sh > /tmp/jest_last.log 2>&1 || { grep -E "^(FAIL|SKIP)" /tmp/jest_last.log; echo "PACKAGE REFUSED: Jest workflow red (/tmp/jest_last.log)"; exit 1; }
   echo "gate green: $(grep -c '^ok' /tmp/gate_last.log) static steps, Jest workflow $(grep -c '^OK' /tmp/jest_last.log) steps"
 fi
-V=2026112700
-PREV=2026112600
+V=2026112701
+PREV=2026112700
 OUT=/mnt/user-data/outputs
 for p in local mod enrol; do
   src=/home/claude/gh/moodle-${p}_adele

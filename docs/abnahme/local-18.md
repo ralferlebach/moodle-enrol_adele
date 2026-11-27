@@ -33,3 +33,32 @@
     das Laufzeitrisiko ist gering.
   - **Entscheidung: abnahmefähig, außer** DoD2 (Feedback-Dialog) und der
     catquiz-Branchfrage – beides bei der Auftraggeberseite.
+
+- **Nachtrag `2026112701` (Re-Audit 2026-11-27 abends, P1 FeedbackModal, Option A):**
+  - **Entscheidung des Auftraggebers (2026-11-27, 21:28):** „Ja, bitte entfernen.“
+    Vorher hatte er Bildschirmfotos und die Herkunft erhalten: ein Rest der
+    Feedback-Bearbeitung von 01/2024 (`5f858f2`), seit 03/2024 (`bf98dfe`) ohne
+    Öffner. Der Dialog war kein Anfang einer Warnung vor ungespeicherten
+    Änderungen.
+  - **Entfernt:**
+    - `FeedbackModal.vue` und seine Einbindung in `CompletionFlow.vue`;
+    - `DIALOGS.feedback` (`domIds.js`, `.d.ts`);
+    - `store.state.feedback`;
+    - Sprachstring `modals_edit_feedback` (de/en).
+  - **DoD2, transparent angepasst** (Vorschlag für den Issue-Text): „Node-,
+    Kurs- und Tutorial-Dialog per Playwright: Name, Fokus, Labels, Escape,
+    Fokus-Rückgabe. Der Feedback-Dialog entfällt; er wurde mit Freigabe des
+    Auftraggebers vom 27.11.2026 entfernt (0.8.0, `2026112701`). Die
+    Feedback-Bearbeitung im Feedback-Knoten ist regressionsgeprüft.“ Belege:
+    - Node- und Tutorial-Dialog: E2E A18 (`dom-ids.spec.ts`);
+    - Kursdialog: E2E E2 (`editor-combinations.spec.ts`);
+    - Feedback-Knoten im Zugangs- und im Abschlusseditor: E2E E1
+      (`editor-reference-path.spec.ts`, neu: Abschlusseditor, gespeicherter
+      Wert, neue Sitzung, kein `feedbackModal` auf der Seite).
+  - **DoD3** (gleichzeitige Dialoginstanzen, mehrere Einbettungen):
+    - Jest „the same dialog twice in one application“;
+    - E2E A18 „three ADELE applications on one course page“ (keine ID doppelt,
+      jede Referenz in ihrer Anwendung) in Boost mit sichtbarer MiniMap und in
+      Classic.
+  - Neuer Issue-Entwurf zur fehlenden Warnung beim Verlassen der Seite:
+    `issues/local_adele-issue-unsaved-changes-on-leave.md`.
