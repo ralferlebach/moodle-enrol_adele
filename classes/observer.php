@@ -118,16 +118,22 @@ class observer {
         // local_adele's own host-course index rather than mod_adele's {adele}
         // table directly.
         $lpids = \local_adele\enrol_state::get_learningpaths_embedded_in_course($courseid);
-        if (!$lpids) {
+        // ... and the paths for which the course is a node course of a
+        // source 2/3 embedding: leaving that course is leaving the source
+        // the subscription may have come from, and the same rule decides
+        // (A-4; mod_adele #37 criterion 2). Only for learners of the path -
+        // a member of a node course is not a learner of every path in it.
+        $nodelpids = array_diff(self::paths_with_node_source($courseid), $lpids);
+        if (!$lpids && !$nodelpids) {
             return;
         }
 
-        foreach ($lpids as $lpid) {
+        foreach (array_merge($lpids, $nodelpids) as $lpid) {
             if (self::is_user_carried($lpid, $userid)) {
                 continue;
             }
             if (
-                $learnersonly
+                ($learnersonly || in_array($lpid, $nodelpids))
                 && !$DB->record_exists('local_adele_path_user', ['learning_path_id' => $lpid, 'user_id' => $userid])
             ) {
                 continue;
@@ -148,11 +154,12 @@ class observer {
             \core\task\manager::queue_adhoc_task($task, true);
 
             reconciler::purge_user($lpid, $userid);
-            // Leaving the learning path must also clear every option-2/3
-            // host-course enrolment it created, not just target-course ones:
-            // the learning path may be embedded in several host courses at
-            // once, each potentially having granted host-course access.
-            reconciler::purge_all_host_user($lpid, $userid);
+            // Every option-2/3 host-course enrolment of the path loses its
+            // access now, in every host course embedding it - suspended, not
+            // removed (mod_adele #20): a return within the grace period
+            // reactivates the same record. The deferred task removes them
+            // once the departure proved durable (mod_adele #21).
+            reconciler::suspend_all_host_user($lpid, $userid);
 
             // Mark that whole-path removal actually fired for this user/path
             // (not the routine per-node suspend/reactivate cycle, which is
@@ -168,15 +175,50 @@ class observer {
     }
 
     /**
+     * The learning paths for which a course is a qualifying node course of
+     * an embedding with source 2 ("starting node") or 3 ("any course of the
+     * path").
+     *
+     * @param int $courseid The course.
+     * @return int[] Learning path ids.
+     */
+    private static function paths_with_node_source(int $courseid): array {
+        global $DB;
+        $result = [];
+        foreach (\local_adele\enrol_state::get_learningpaths_with_host_embeddings() as $lpid) {
+            $hasoption2 = false;
+            $hasoption3 = false;
+            foreach (\local_adele\enrol_state::get_host_embeddings((int) $lpid) as $embedding) {
+                $hasoption2 = $hasoption2 || $embedding['option2'];
+                $hasoption3 = $hasoption3 || $embedding['option3'];
+            }
+            if (!$hasoption2 && !$hasoption3) {
+                continue;
+            }
+            $json = json_decode((string) $DB->get_field('local_adele_learning_paths', 'json', ['id' => $lpid]), true);
+            foreach (($json['tree']['nodes'] ?? []) as $node) {
+                $courses = array_map('intval', (array) ($node['data']['course_node_id'] ?? []));
+                $starting = in_array('starting_node', (array) ($node['parentCourse'] ?? []));
+                if (in_array($courseid, $courses, true) && ($hasoption3 || ($hasoption2 && $starting))) {
+                    $result[] = (int) $lpid;
+                    break;
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
      * Whether any subscription option of any embedding still carries the user.
      *
-     * Option 1 carries while the user is enrolled (any method, suspension
-     * counts) in an embedding course. Option 2 carries while the user is
-     * enrolled in a starting-node course, option 3 while enrolled in any node
-     * course. For options 2 and 3, enrolments created by ADELE's own
-     * instances do not count — otherwise access would keep itself alive
-     * circularly. In every case "enrolled" means: as a participant
-     * (local_adele #587) — teaching a course carries nobody.
+     * Option 1 carries while the user is enrolled in an embedding course,
+     * option 2 while enrolled in a starting-node course, option 3 while
+     * enrolled in any node course. "Enrolled" is the one definition of
+     * local_adele: an effective enrolment of one's own - active, inside its
+     * time window, through an enabled method (mod_adele #30), not made by
+     * ADELE (mod_adele #37: otherwise access would keep itself alive and
+     * spread from path to path) - as a participant (local_adele #587).
+     * Subscribing applies exactly the same rule.
      *
      * @param int $lpid The learning path id.
      * @param int $userid The user id.
@@ -244,43 +286,20 @@ class observer {
 
     /**
      * Whether the user takes part in one of the given courses by their own
-     * right: a non-ADELE enrolment, as a participant.
+     * right: an effective enrolment of their own, as a participant - the one
+     * definition of local_adele (mod_adele #30, #37; local_adele #587).
      *
-     * Suspended enrolments count. Expired enrolments (timeend passed),
-     * not-yet-started enrolments (timestart in the future) and enrolments
-     * via a disabled enrol instance do NOT count.
+     * Suspended enrolments do not count (unless the site setting
+     * mod_adele/sourcesincludesuspended says so), nor do expired ones,
+     * not-yet-started ones, enrolments via a disabled method and enrolments
+     * ADELE made itself.
      *
      * @param int $userid The user id.
      * @param int[] $courseids Course ids to check.
      * @return bool
      */
     private static function has_foreign_enrolment(int $userid, array $courseids): bool {
-        global $DB;
-
-        if (!$courseids) {
-            return false;
-        }
-        [$insql, $inparams] = $DB->get_in_or_equal(array_unique($courseids), SQL_PARAMS_NAMED);
-        $now = \core\di::get(\core\clock::class)->time();
-        $sql = "SELECT DISTINCT e.courseid
-                  FROM {user_enrolments} ue
-                  JOIN {enrol} e ON e.id = ue.enrolid
-                 WHERE ue.userid = :userid
-                       AND e.enrol <> 'adele'
-                       AND e.status = :enabled
-                       AND (ue.timestart = 0 OR ue.timestart <= :now1)
-                       AND (ue.timeend = 0 OR ue.timeend > :now2)
-                       AND e.courseid {$insql}";
-        $enrolledin = $DB->get_fieldset_sql($sql, [
-            'userid' => $userid,
-            'enabled' => ENROL_INSTANCE_ENABLED,
-            'now1' => $now,
-            'now2' => $now,
-        ] + $inparams);
-        // ... and only as a PARTICIPANT (local_adele #587). The definition is
-        // local_adele's, shared with mod_adele's participant sources; the
-        // declared dependency guarantees the method.
-        foreach ($enrolledin as $courseid) {
+        foreach (\local_adele\enrol_state::get_effectively_enrolled_courseids($userid, $courseids) as $courseid) {
             if (\local_adele\enrol_state::is_participant((int) $courseid, $userid)) {
                 return true;
             }

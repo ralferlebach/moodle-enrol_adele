@@ -1,0 +1,112 @@
+name: Release gate (backup, restore, privacy)
+
+# mod_adele #33 (enrol_adele): backup/restore and privacy across every supported pairing,
+# as a gate of its own. A red job here blocks the release: it runs for every
+# pull request into main and for every release tag, and is meant to be a
+# required status check of main (branch protection, set in the repository
+# settings).
+#
+# Tested: Moodle 4.5 (the only line local_adele is released for), PHP 8.2
+# and 8.3, PostgreSQL, MariaDB and MySQL. PHP 8.1 and older are not tested
+# (local_adele #11); version.php is not changed by that.
+"on":
+  pull_request:
+    branches: [main]
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_USER: 'root'
+          MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+          MYSQL_CHARACTER_SET_SERVER: "utf8mb4"
+          MYSQL_COLLATION_SERVER: "utf8mb4_unicode_ci"
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 3
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_USER: 'root'
+          MYSQL_ALLOW_EMPTY_PASSWORD: "true"
+          MYSQL_CHARACTER_SET_SERVER: "utf8mb4"
+          MYSQL_COLLATION_SERVER: "utf8mb4_unicode_ci"
+        ports:
+          - 3307:3306
+        options: --health-cmd="mysqladmin ping" --health-interval 10s --health-timeout 5s --health-retries 3
+
+    strategy:
+      fail-fast: false
+      matrix:
+        moodle-branch: ['MOODLE_405_STABLE']
+        php: ['8.2', '8.3']
+        database: ['pgsql', 'mariadb', 'mysqli']
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v6
+        with:
+          path: plugin
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pgsql, mysqli, zip, gd, xmlrpc, soap
+          ini-values: max_input_vars=5000
+          coverage: none
+
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+          echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
+
+      - name: Add the companion plugins
+        # The same rule as moodle-plugin-ci.yml: from the owner of the code
+        # under test (the PR head for a pull request), from the branch of the
+        # same name if there is one, otherwise main.
+        env:
+          OWNER: ${{ github.event.pull_request.head.repo.owner.login || github.repository_owner }}
+          REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle-local_wunderbyte_table
+          for sib in local mod; do
+            url="https://github.com/$OWNER/moodle-${sib}_adele.git"
+            br=main
+            git ls-remote --exit-code --heads "$url" "$REF" >/dev/null 2>&1 && br="$REF"
+            echo "companion ${sib}_adele: $OWNER@$br"
+            moodle-plugin-ci add-plugin --branch "$br" "$OWNER/moodle-${sib}_adele"
+          done
+
+      - name: Install Moodle
+        run: |
+          if [ "${{ matrix.database }}" = "mysqli" ]; then export DB_PORT=3307; else unset DB_PORT; fi
+          moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1 ${DB_PORT:+--db-port=$DB_PORT} --no-init
+          cd moodle && php admin/tool/phpunit/cli/init.php
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle-branch }}
+
+      - name: Backup, restore and privacy of all three plugins
+        run: cd moodle && vendor/bin/phpunit --group adele_release --fail-on-risky --fail-on-warning
+
+      - name: Moodle's own privacy compliance checks for the three plugins
+        run: cd moodle && vendor/bin/phpunit privacy/tests/privacy/provider_test.php --filter adele --fail-on-risky

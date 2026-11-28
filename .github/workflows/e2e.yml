@@ -10,8 +10,8 @@ name: E2E
 #
 # EVERY run uploads ONE artefact with the complete evidence, whether the suite
 # passed, failed or was cancelled:
-#   playwright-report/  HTML report, every test with screenshot and video
-#   test-results/       the same videos by test name, traces for failures
+#   playwright-report/  HTML report, every test with screenshot (videos: below)
+#   test-results/       videos by test name, traces for failures
 #   results.json        complete machine-readable result tree
 #   junit.xml           the same in JUnit format
 #   run.log             console output
@@ -23,6 +23,9 @@ name: E2E
 # The video of a PASSING run is part of the point: the plan uses these
 # recordings as evidence that the intended journey works, and they are reused
 # as documentation.
+# Videos (decision 2026-11-22): a green run - and a cancelled one - keeps the
+# video of every test; a red run keeps only the videos of the failed tests
+# (support/keep-failed-videos.mjs), so the evidence is not buried.
 #
 # NOTE: workflow_dispatch only appears in the Actions UI once this file is on
 # the repository's DEFAULT branch.
@@ -36,12 +39,11 @@ name: E2E
         type: string
         default: ''
       php_version:
-        description: PHP version (Moodle 4.5 supports 8.1 to 8.3).
+        description: 'PHP version - tested are 8.2 and 8.3 (8.1 and older are not tested, local_adele #11).'
         type: choice
         options:
           - '8.3'
           - '8.2'
-          - '8.1'
         default: '8.3'
       sibling_ref:
         description: >-
@@ -97,9 +99,15 @@ jobs:
           mkdir -p "$RUNNER_TEMP/e2e-export"
 
       - name: Check out plugin
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: plugin
+
+      # A run on another branch than "development" tests another state - say
+      # so where it cannot be missed (smoke runs of 2026-11-23 on "main").
+      - name: Warn about another branch
+        if: github.ref_name != 'development'
+        run: echo "::warning title=Not the development branch::This run tests '$GITHUB_REF_NAME'. The current state is on 'development' - choose it under 'Use workflow from'."
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -109,7 +117,7 @@ jobs:
           ini-values: max_input_vars=5000
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
@@ -183,14 +191,33 @@ jobs:
             [mod/adaptivequiz/catmodel/catquiz]="ralferlebach/moodle-adaptivequizcatmodel_catquiz|$CATQUIZ_REF"
             [local/catquiz]="ralferlebach/moodle-local_catquiz|$CATQUIZ_REF"
           )
+          # Submodules are fetched one by one: a submodule pinned to a commit
+          # its repository no longer has (local_catquiz pins
+          # catquizcentralhub/host to ec77e605, gone from that repository -
+          # CI 2026-11-19) falls back to the repository's default branch,
+          # with a warning, instead of stopping the run.
+          fetch_submodules() {
+            local dir="$1" key name subpath url
+            [ -f "$dir/.gitmodules" ] || return 0
+            git -C "$dir" config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
+            while read -r key subpath; do
+              name="${key#submodule.}"; name="${name%.path}"
+              url="$(git -C "$dir" config -f .gitmodules --get "submodule.$name.url")"
+              if ! git -C "$dir" submodule update --init --depth 1 -- "$subpath" >/dev/null 2>&1; then
+                echo "::warning::$(basename "$dir"): submodule $subpath is pinned to a commit $url does not have - using its default branch."
+                rm -rf "${dir:?}/$subpath"
+                git clone --quiet --depth 1 "$url" "$dir/$subpath"
+              fi
+            done
+          }
           # Order matters: the adapter lives INSIDE mod/adaptivequiz.
           for path in local/wunderbyte_table mod/adaptivequiz mod/adaptivequiz/catmodel/catquiz local/catquiz; do
             repo="${EXTRA[$path]%%|*}"
             ref="${EXTRA[$path]##*|}"
             src="$RUNNER_TEMP/src_$(basename "$repo")"
             rm -rf "$src"
-            git clone --quiet --depth 1 --branch "$ref" --recurse-submodules --shallow-submodules \
-              "https://github.com/$repo.git" "$src"
+            git clone --quiet --depth 1 --branch "$ref" "https://github.com/$repo.git" "$src"
+            fetch_submodules "$src"
             echo "| $(basename "$repo") | $repo | $ref | $(git -C "$src" rev-parse HEAD) |" \
               >> "$RUNNER_TEMP/plugins.md"
             dest="$MOODLE_WEBROOT/$path"
@@ -274,7 +301,15 @@ jobs:
           # npm ci, not npm install: it fails loudly when the lockfile is
           # missing rather than resolving whatever is current that day.
           npm ci
-          npx playwright install --with-deps chromium
+          # Firefox for the browser-dependent stories (mod_adele #32,
+          # local_adele #18, see playwright.config.ts); a plugin whose suite
+          # has none skips it.
+          if grep -q "ADELE_E2E_FIREFOX" playwright.config.ts; then
+            npx playwright install --with-deps chromium firefox
+            echo "ADELE_E2E_FIREFOX=1" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
           # The server test clock for the time chains (plan section 9):
           # libfaketime, preloaded into the PHP processes only.
           sudo apt-get install -y -qq faketime >/dev/null
@@ -352,8 +387,9 @@ jobs:
             fi
             node "plugin/tests/e2e/support/summarize-results.mjs" \
               "${PLUGIN}_adele E2E" "$EXPORT_DIR/results.json"
-            echo "Videos of ALL tests - passed ones too - are in the artefact" \
-              "**e2e-results-${PLUGIN}_adele-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT**." \
+            echo "Videos are in the artefact" \
+              "**e2e-results-${PLUGIN}_adele-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT**:" \
+              "on a green run of every test, on a red run only of the failed tests." \
               "Open \`playwright-report/index.html\`, or run" \
               "\`npx playwright show-report playwright-report\` to view traces too."
           } > "$summary"
@@ -380,12 +416,55 @@ jobs:
         if: failure()
         run: tail -100 "$RUNNER_TEMP/moodle-server.log" || true
 
+      # A stalled web server (CI 2026-11-21: every request from one moment on
+      # accepted, none answered) leaves no trace in the server log. What the
+      # PHP processes and the database were doing is the evidence.
+      - name: Show what the server and the database were doing on failure
+        if: failure()
+        env:
+          PGPASSWORD: moodle
+        run: |
+          echo "--- PHP processes (state, wait channel, elapsed)"
+          ps -eo pid,ppid,stat,etime,wchan:24,args | grep -E '[p]hp' || true
+          echo "--- open requests in the server log (accepted, not answered)"
+          python3 - "$RUNNER_TEMP/moodle-server.log" <<'PY' || true
+          import re, sys
+          pending = {}
+          for line in open(sys.argv[1], errors='replace'):
+              m = re.match(r'\[(\d+)\] \[(.*?)\] (\S+) (.*)', line.strip())
+              if not m:
+                  continue
+              peer, what = m.group(3), m.group(4)
+              if what == 'Accepted':
+                  pending[peer] = line.strip()
+              elif what.startswith('[') or what.startswith('Closing') or what.startswith('Closed'):
+                  pending.pop(peer, None)
+          print('\n'.join(list(pending.values())[-20:]) or 'none')
+          PY
+          echo "--- database sessions not idle"
+          psql -h 127.0.0.1 -U moodle -d moodle -X -c \
+            "SELECT pid, state, wait_event_type, wait_event, now() - xact_start AS xact_age, left(query, 160) AS query
+               FROM pg_stat_activity WHERE datname = 'moodle' AND state <> 'idle' ORDER BY xact_start" || true
+          echo "--- locks waited for"
+          psql -h 127.0.0.1 -U moodle -d moodle -X -c \
+            "SELECT l.pid, l.locktype, l.mode, l.relation::regclass, l.granted FROM pg_locks l WHERE NOT l.granted" || true
+
+      # A red run delivers the videos of the failed tests only (decision
+      # 2026-11-22); green and cancelled runs keep all of them.
+      - name: Keep the videos of the failed tests only
+        if: failure()
+        run: |
+          [ -n "${EXPORT_DIR:-}" ] || exit 0
+          node "plugin/tests/e2e/support/keep-failed-videos.mjs" \
+            "$EXPORT_DIR/results.json" "$EXPORT_DIR" \
+            | tee -a "$EXPORT_DIR/summary.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
       # One artefact, always: passed, failed or cancelled. The name carries the
       # run attempt because artefact names must be unique within a run, and
       # "Re-run jobs" would otherwise fail at this step.
       - name: Upload results with videos
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: e2e-results-${{ env.PLUGIN }}_adele-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/e2e-export

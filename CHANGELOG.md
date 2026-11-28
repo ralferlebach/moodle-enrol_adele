@@ -5,6 +5,71 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-11-28, Version 2026112800
+
+### Tests
+
+- local_adele #14 DoD2-L4: E2E L4 (mod `groups-live.spec.ts`):
+  - dieselbe Person aktiv an zwei Knoten;
+  - Avatar, Name und Zustand;
+  - nie Beobachtete ohne Marker;
+  - kontrollierter Ablauf des Fensters: Polling ohne Neuladen, der inaktive
+    Marker nur am zuletzt beobachteten Knoten.
+- local_adele #18 DoD3: E2E D1 (Chromium und Firefox): zwei Instanzen desselben
+  Dialogs gleichzeitig in einer Anwendung.
+
+### Prüfkette
+
+- `package.sh` prüft die Lieferung so, wie das Repository sie bekommt: ZIP über
+  `origin/development`, die zu löschenden Dateien und das Bundle-Gate ohne und
+  mit den Löschungen (`overlay_check.sh`). Auslöser: Bundle-Gate rot auf
+  `f618e747`, weil `FeedbackModal.vue` im Repository blieb.
+
+## [0.8.0] — 2026-11-27, Version 2026112701
+
+### Removed
+
+- local_adele #18 DoD2: Der nie erreichbare Dialog „Feedback bearbeiten“
+  (`FeedbackModal.vue`) ist entfernt, mit Freigabe des Auftraggebers vom
+  2026-11-27. Das Feedback wird im Feedback-Knoten bearbeitet;
+  regressionsgeprüft mit E2E E1 im Zugangs- und im Abschlusseditor.
+
+### Fixed
+
+- local_adele #13 (Re-Audit 2026-11-27 abends, P2): Die Rolle einer
+  ausgesetzten oder abgelaufenen Lehrenden-Freigabe (kind 3) zählt nicht mehr.
+  Eine Lehrende mit eigener Einschreibung und inaktiver Studierenden-Freigabe
+  erschien vorher als Lernende.
+
+## [0.8.0] — 2026-11-27 (2026112700, local_adele, mod_adele, enrol_adele)
+
+Releasename aller drei Plugins auf 0.8.0. Ausführlich im Prüfstand
+(`docs/abnahme/README.md`), in den Nachweisen
+(`docs/abnahme/nachweise-20261127.md`) und in den Kommentaren je Issue
+(Paket `adele-0.8.0-kommentare.zip`).
+
+### Fixed
+
+- local_adele #13 AK1.5: Eine Person, die nur über eine Lehrenden-Freigabe der
+  Lehrenden-Ansicht (enrol_adele kind 3) im Kurs ist, gilt jetzt als Personal.
+  Vorher stand sie als „ohne Lernpfad“ in den Listen, und mit einem Snapshot
+  des Pfads erschien sie als Lernende
+  (`enrol_state::get_nonparticipant_userids()`).
+
+### Tests
+
+- `local/tests/roster_lifecycle_test.php`: der Roster über echte Wege, mit
+  diesen Fällen:
+  - Einschreibung und Austritt über den Startkurs;
+  - Karenz der aufgeschobenen Löschung (300 s, als Fenster vom Auftraggeber
+    am 2026-11-27 angenommen);
+  - Suspendierung und Abmeldung von außen;
+  - parallele aktive Einschreibung;
+  - Lehrenden-Freigabe ohne und mit Snapshot.
+
+  Geprüft wird jeweils in Teilnehmerliste, Live-Markern und -Zähler,
+  Gruppenübersicht und Nicht-Lernenden.
+
 ## [0.1.11] — 2026-07-24
 
 ### Added — C.4 vollständig: Same-Course-Ausnahme (Session 003, Teil 19)

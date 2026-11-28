@@ -45,8 +45,8 @@ Jeder Lauf lädt **ein** Artefakt hoch, bei Erfolg, Fehlschlag und Abbruch:
 `e2e-results-<plugin>-<run-id>-<attempt>`.
 
 ```
-playwright-report/   HTML-Report, jeder Test mit Screenshot und Video
-test-results/        Videos (video.webm) je Test, Traces nur bei Fehlschlag
+playwright-report/   HTML-Report, jeder Test mit Screenshot (Videos: s. u.)
+test-results/        Videos (video.webm) je Test (s. u.), Traces nur bei Fehlschlag
 results.json         vollständiger Ergebnisbaum
 junit.xml            dasselbe im JUnit-Format
 run.log              Konsolenausgabe
@@ -57,6 +57,18 @@ moodle-server.log.gz Anfrageprotokoll
 ```
 
 Videos entstehen für **jeden** Test, auch für bestandene (`video: 'on'`).
+**Ausgeliefert** werden sie seit `2026112200` (Vorgabe 2026-11-22) so: bei
+grünem (und bei abgebrochenem) Lauf alle; bei rotem Lauf **nur die der
+fehlgeschlagenen Tests**. Der Schritt „Keep the videos of the failed tests
+only“ (`if: failure()`) liest `results.json` und löscht jedes andere Video,
+auch die Kopie im HTML-Report (`data/<SHA-1>.webm`, Abgleich über den
+Inhalt) – dort zeigen bestandene Tests dann kein Video. Bei Wiederholungen
+(nur Smoke, `retries: 1`) bleiben alle fehlgeschlagenen Versuche. Ist der Lauf
+rot, ohne dass ein Test fehlschlug (z. B. Story-Abdeckung), bleibt kein Video;
+fehlt `results.json`, bleiben alle. Liste der behaltenen Videos in
+`summary.md` und der Job-Summary. Skript:
+`tests/e2e/support/keep-failed-videos.mjs` (je Plugin); dieselbe Regel gilt im
+Smoke-Workflow (`playwright.yml`, dazu JSON-Reporter) und im NVDA-Workflow.
 Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
 
 ## 3. Grundsätze der Suite
@@ -81,7 +93,8 @@ Anmeldungen laufen im Hintergrund per HTTP und sind nicht Teil der Aufnahme.
 - **Ein Artefakt je Lauf, immer.** Auch die Smoke-Workflows laden seit
   `2026100202` Report und Videos bei grünem **und** rotem Lauf hoch; vorher
   gab es bei Fehlschlag nur die fehlgeschlagenen Verzeichnisse ohne Video —
-  also genau dann keine Aufnahme, wenn sie gebraucht wird.
+  also genau dann keine Aufnahme, wenn sie gebraucht wird. Seit `2026112200`
+  enthält ein roter Lauf nur noch die Videos der fehlgeschlagenen Tests (§ 2).
 - **Warteschlange abarbeiten statt warten.** `expectCourseOpenAfterTasks` und
   `expectCourseClosedAfterTasks`
   ruft `admin/cli/adhoc_task.php` begrenzt wiederholt auf (höchstens 60 s),
@@ -253,7 +266,8 @@ Eingaben: nur der Titelfilter (`grep`), die Geschwister-Referenz
 Playwright-Projekt fährt. Mit einer neueren Bibliothek (das Lockfile hatte
 0.35.0) installiert das Setup ein NVDA, das die Integration nicht findet.
 
-Im Artefakt liegt neben Report und Video das **Sprachprotokoll** je Test
+Im Artefakt liegt neben Report und Video (roter Lauf: nur die der
+fehlgeschlagenen Tests, § 2) das **Sprachprotokoll** je Test
 (`nvda-spoken-phrases.txt`, als Anhang im HTML-Report, und als
 `transcripts/*.txt` mit Commit, Datum und Adresse im Kopf). Es ist das, was eine
 Durchsicht zuerst lesen sollte; das Video zeigt denselben Lauf von außen.
@@ -808,3 +822,337 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   Kette B geprüft.
 - **D:** ein späterer, schlechterer CAT-Versuch nimmt nichts zurück
   (Bestergebnis); die anderen Lernenden bleiben unverändert.
+
+## Nachtrag `2026100729`: Kurszugriff in der Lehrendenansicht (TP1)
+
+- **Neu mod `teacher-course-access.spec.ts`, Stories K1–K5** (in
+  `stories.json` verlangt; K4 als Rücknahme mit `@withdrawal`): Kurse der
+  aktiven Kachel mit Status, Link nur bei Zugang, neuer Tab; Ablehnung des
+  Dienstes für Lernende und fremde Kontexte; Entzug außerhalb von ADELE
+  nimmt den Link beim nächsten Aktivieren; Tastatur, Escape, Fokus;
+  nichts davon für Lernende und im Pfadeditor.
+- **Fixture KZ** (local `seed_fixtures.php`): Gastkurs `E2EKZ` mit „Verzweigt,
+  gestapelt B1", zwei Lehrpersonen (mit und ohne Bearbeitungsrecht) in T01
+  und T03, nicht in T02; je Lauf wiederhergestellt. Exporte
+  `ADELE_FIXTURE_KZ_*`.
+
+## Nachtrag `2026100730`: die Einstellung des Kurszugriffs (#600, TP3)
+
+- **Neu mod `teacher-course-access-settings.spec.ts`, Stories K6–K8** (K7
+  als Rücknahme mit `@withdrawal`): zugelassene Modi und Standard der
+  Website über Moodles Administrationsseite; neue Aktivität übernimmt den
+  Standard, bestehende behält ihren Modus; ein entzogener Modus bleibt
+  gespeichert, ist im Formular markiert, wird beim Speichern nicht still
+  geändert, ein eingeschleuster Wert nicht gespeichert, und die
+  Lehrendenansicht wirkt als „Nur vorhandener Zugang" – zurückgegeben
+  wirkt er wieder; Lehrperson ohne Bearbeitungsrecht kann die Einstellung
+  nicht ändern.
+- **Seed:** setzt `teachercourseaccessmodes` und
+  `teachercourseaccessdefault` je Lauf auf den Auslieferungszustand
+  (`existing_only`).
+- `support/host.ts` `storedEmbedding()` liest auch `teachercourseaccessmode`.
+
+## Nachtrag `2026100731`: „Zugang anfragen" (#600, TP2)
+
+- **Neu mod `teacher-course-access-request.spec.ts`, Stories K9–K12** (K11
+  und K12 als Rücknahmen mit `@withdrawal`): Anfrage an die verantwortliche
+  Person des Zielkurses mit bearbeitetem Text, beim Empfänger genau so
+  angekommen, keine Einschreibung; Abbrechen (Escape, Abbrechen) sendet
+  nichts; ohne Ansprechperson kein „Senden", sondern Kontakt und Text zum
+  Kopieren; gefälschte Aufrufe und entzogener Modus abgelehnt, nichts
+  angekommen. `beforeEach` mit Neu-Seed: jede Kette beginnt ohne
+  Mitteilungen und mit den Einstellungen des Auslieferungszustands.
+- **Seed:** `fx_kz_owner` (Trainer/in in T02), Anfrage-Einstellungen
+  zurückgesetzt; Exporte `ADELE_FIXTURE_KZ_OWNER(_ID)`,
+  `ADELE_FIXTURE_KZ_LEARNER_ID`.
+- **Neu `support/teacheraccess.ts`:** Website-Einstellungen, Modus der
+  Aktivität, wirksamer Modus, empfangene Anfragen (Server), Aktivieren des
+  KZ-Stapels.
+
+## Nachtrag `2026100732`: Einschreibung über enrol_adele (#600, TP4)
+
+- **Neu mod `teacher-course-access-enrol.spec.ts`, Stories K13–K18** (K14,
+  K15, K17, K18 als Rücknahmen mit `@withdrawal`): Einschreibung als
+  Teilnehmer/in nach Bestätigung über enrol_adele mit der Rolle der Website;
+  gefälschte Aufrufe abgelehnt; entzogener Modus nimmt die Einschreibung
+  zurück (eigene Kursmitgliedschaft bleibt); Richtlinie 2 (Herabsetzen ohne
+  Befugnis nimmt die höhere Einschreibung, kein Heraufsetzen), 1 (gesperrt,
+  Wert bleibt) und 3 (Delegation, zurück zu 2 nimmt die Einschreibung);
+  gelöschte Aktivität nimmt ihre Einschreibungen mit.
+- **Seed:** Richtlinie 2, Rollen je Einschreibemodus nach Archetyp,
+  Berechtigungstabelle geleert; `fx_kz_teacher` als Bearbeiter/in des
+  KZ-Pfads (siehe Issue-Entwurf `mod_adele-issue-form-path-not-editable.md`).
+- **`loginAs` (alle drei Plugins):** eine vom vorigen Seitenstand ausgelöste
+  Navigation (Weiterleitung auf die Anmeldung) wird zu Ende geführt, dann
+  wird die Seite erneut verlassen; vorher brach H3 daran einmal ab.
+
+## Nachtrag `2026100734`: ADELE-Einschreibungen sind keine Quelle (#37, Master-Issue P0–P2, Paket P0)
+
+- **Neu mod `adele-source-shared-node.spec.ts`, Story H4** (`@withdrawal`,
+  in `stories.json` unter `required` und `withdrawal`): zwei Pfade teilen den
+  Knotenkurs T01. Eine Einbettung „Linear A2" (Startknoten und „irgendein
+  Kurs") in `E2E37B` nimmt die ADELE-Einschreibung, die `fx_37_learner` über
+  den Pfad in `E2E37A` in T01 erhalten hat, weder live noch nach dem
+  nächtlichen Abgleich als Quelle: kein Abo, Kurs `E2E37B` zu. Gegenprobe:
+  eigene T01-Einschreibung über die Teilnehmerseite → Abo, Kurs offen.
+  Rücknahme: nur die manuelle Methode in T01 beendet → Kurs zu, die
+  ADELE-Einschreibung in T01 bleibt.
+- **Hilfen in der Spec:** `nightlySweep()` (geplanter Task
+  `\enrol_adele\task\reconcile_task`), `enrolAsStudent`, `unenrolMethod()`
+  (wählt die Methode über `[data-enrolinstancename]`).
+- **Seed (local `seed_fixtures.php`), Block S37** vor dem KZ-Block:
+  `fx_37_learner` nur in `E2E37A` (bettet „E2E Linear vier Schritte" mit
+  Quelle 1 ein), `E2E37B` leer; Einschreibungen und Aktivitäten beider Kurse
+  werden bei jedem Seed zurückgesetzt. Exportiert
+  `ADELE_FIXTURE_S37_{HOST_A,HOST_B,LEARNER,LEARNER_NAME,PATH_A,PATH_B,T01}`.
+- **Behat neu mod `mod_adele_index.feature`** (`@mod_adele_index`, 4
+  Szenarien) für `index.php` (#31); Lauf mit
+  `--tags=@mod_adele_index` neben `@mod_adele_use`.
+
+## Nachtrag `2026100735`: Node-Kurs-Einschreibungen nach dem Speichern (#20, #21)
+
+- **Neu mod `node-enrolment-after-save.spec.ts`, Story H5** (`@withdrawal`,
+  in `stories.json` unter `required` und `withdrawal`):
+  - Quelle „any course" in `E2E20`: erst die Aktivität über das Formular,
+    dann tritt `fx_20_any` einem späteren Knoten bei → Abo, Gastkurs über
+    enrol_adele (Teilnehmerseite: genau eine Methode, nicht „Manual"); zweite
+    Mitgliedschaft (Startknoten), die erste endet → bleibt drin; die letzte
+    endet → `adele:1`, Kurs zu, Abo wartet; Karenzzeit über die Testuhr →
+    weder Einschreibung noch Abo; Außenstehende/r nie getragen.
+  - Quelle „starting node" in `E2E20S`: späterer Knoten allein → nichts;
+    Startknoten → drin; Austritt und Rückkehr in der Karenzzeit → aktiv und
+    nach der Karenzzeit nicht entfernt.
+- **Seed (local), Block S20:** `fx_20_any`, `fx_20_start`, leere Kurse
+  `E2E20`/`E2E20S`, Pfad „E2E Linear vier Schritte"; Rücksetzen aller
+  Einschreibungen der beiden in den Kursen des Pfads und den Gastkursen,
+  ihrer Abos und offener `remove_user_path_adhoc`-Aufgaben. Exportiert
+  `ADELE_FIXTURE_S20_{HOST_ANY,HOST_START,PATH,START_COURSE,LATER_COURSE,ANY,ANY_NAME,START,START_NAME}`.
+- **`support/host.ts`:** `nightlySweep()`, `enrolAsStudent()`,
+  `unenrolMethod()` aus `adele-source-shared-node.spec.ts` hierher
+  verschoben (von H4 und H5 genutzt).
+
+## Nachtrag `2026100736`: Aktualisierung, Auto-Fokus, gestapelte Kurse, erste Einbettung (Master-Issue P0–P2, Paket P2)
+
+- **Neu mod `path-refresh.spec.ts`:** Story R26 (`@story:R26`, 5 Tests:
+  Modus 0, 1, 2 mit langsamem Server, 3, fehlschlagender Server) und F27
+  (`@story:F27`, 2 Tests: Lernenden-Fokus nach Abschluss in einem zweiten
+  Tab, Ansicht bleibt bei unveränderten Abfragen; Auto-Fokus aus). Setzt
+  die Einstellungen per `admin/cli/cfg.php` und stellt die Standards am
+  Ende wieder her.
+- **Neu mod `stacked-courses.spec.ts`:** Story S17 (ausgeklappter Stapel
+  `E2EKZ`, Kurs-ID, Name, Tastatur, erneutes Ausklappen).
+- **Neu mod `first-embedding.spec.ts`:** Story S11 (neuer Kurs je Lauf).
+- **Seed (local), Block S26:** `fx_26_learner` auf „Linear A1" über
+  `E2E26`; Abschlüsse, Pfad-Datensatz und ADELE-Einschreibungen werden
+  zurückgesetzt. Exportiert `ADELE_FIXTURE_S26_{HOST,LEARNER,PATH,NODES}`.
+- **`playwright.config.ts` (mod):** Projekt `firefox` für R26, F27, S17,
+  aktiv bei `ADELE_E2E_FIREFOX`; `e2e.yml` installiert dann Firefox.
+- `stories.json`: S11, S17, R26, F27 unter `required`, F27 unter
+  `withdrawal`.
+
+### Nachtrag `2026100736`, Re-Audit 0735 (2026-10-18)
+
+- **Seed S26 geändert:** eigener Pfad „E2E26 Linear“ (Kopie von „Linear A1“
+  ohne die abgelaufenen Zeitfenster der Knoten 2 und 3) statt einer
+  Einbettung von „Linear A1“ – diese nahm den Referenz-Lernenden beim
+  nächsten Seed vom Pfad. Neu `fx_26_teacher` (Trainer/in in E2E26, keine
+  Pfadbearbeitung); Exporte zusätzlich `ADELE_FIXTURE_S26_{TEACHER,LEARNER_ID,CM}`.
+- **Seed S27P (neu):** „E2E27 Parallel“ – der S26-Pfad mit Knoten 3 neben
+  Knoten 2 (beide warten nur auf Knoten 1); `fx_27p_learner` über `E2E27P`.
+  Exporte `ADELE_FIXTURE_S27P_{CM,LEARNER}`.
+- **Seed S17 (neu):** „E2E17 Vertauscht“ – Kopie von „Verzweigt, gestapelt
+  B1“ mit den ersten beiden Kursen des Stapels in umgekehrter Reihenfolge;
+  `fx_17_learner` über `E2E17`. Exporte `ADELE_FIXTURE_S17_{CM,LEARNER,ORDER}`.
+- **Seed KZ:** Workaround für mod_adele #43 entfernt – die Bearbeiterzeile
+  der Trainerin am Pfad wird gelöscht; K16 speichert das Formular ohne
+  Pfadrecht.
+- **Seed S11:** eigene Pfade „E2E11 Erster/Zweiter Pfad“; ältere
+  `E2E11-*`-Kurse werden gelöscht.
+- **`path-refresh.spec.ts`:** neu „teacher default (Testfall 1, 2, 6)“,
+  „Testfall 8“ (Ziehen nicht unterbrochen) und „Testfall 4“ (parallele
+  nächste Knoten gemeinsam im Blick); `afterEach` entfernt Routen
+  (`unrouteAll`), Hilfsfunktionen `settled`, `inView` (sichtbarer Teil im
+  Fenster), `lookAway`, `learnerFinishes`, `teacherOpensLearner`.
+- **`stacked-courses.spec.ts`:** Karte mit Rolle, eindeutiger ID,
+  Überschrift und sichtbarer Beschreibung (Kurzname, Kurs-ID, Status);
+  keine doppelte DOM-ID außerhalb der Kanten (Issue-Entwurf
+  `local_adele-issue-duplicate-edges.md`); Ausklappknopf mit
+  `aria-expanded`/`aria-controls`, Escape aus einem Panel, sichtbarer
+  Fokus, erneutes Ausklappen per Enter; zweiter Test mit vertauschter
+  Reihenfolge.
+- **`support/fixtures.ts::setSystemRole()` (alle drei Plugins):** Suche
+  im Rollenzuweisungs-Dialog Taste für Taste (`pressSequentially`). Befund
+  (belegt, Gesamtlauf 2026-10-18): mit den neuen Fixture-Personen hat die
+  Website 109 mögliche Personen; Moodle zeigt ab 100 nur „Zu viele
+  Benutzer – bitte Suche verwenden“, und ein per `fill()` gesetzter
+  Suchtext startet die Suche nicht (sie reagiert auf Tastenereignisse).
+  R5 war dadurch rot, mit der Änderung grün.
+
+## Nachtrag `2026101800`: eine Kante je Verbindung (local_adele #603)
+
+- **Neu local `editor-duplicate-edges.spec.ts`** (Story E1, 2 Tests):
+  erneutes Verbinden zweier verbundener Knoten → eine Kante im Graphen, eine
+  gespeichert; gespeicherter Referenzpfad mit Kopien („Verzweigt, gestapelt
+  B1“, vom Seed wie exportiert geschrieben: 7 Kanten) → 5 gezeichnet, ein
+  `path`-Element je Verbindung, keine DOM-ID doppelt im Graphen, beim Laden
+  nichts geschrieben.
+- **`stacked-courses.spec.ts`:** Ausnahme für `.vue-flow__edges` entfernt –
+  die ganze Seite ohne doppelte DOM-ID.
+- Der Seed schreibt die Referenzpfade weiterhin wie exportiert (mit Kopien);
+  so prüfen die Ketten auch die Darstellung historischer Daten.
+
+## Nachtrag `2026111900`: DOM-IDs, Gruppen, Live-Aktivität (local_adele #12 – #18)
+
+- **Neu local `dom-ids.spec.ts`** (Story A18, 3 Tests, Chromium **und**
+  Firefox): ganze Seite ohne doppelte DOM-ID (Übersicht, Editor mit allen
+  Dialogen, Kursseite `E2EM18` mit drei Anwendungen); jede `for`/`aria-*`/
+  `list`/`data-target`/Marker-Referenz zeigt auf genau ein Element derselben
+  Anwendung; Knoten- und Tutorial-Dialog per Tastatur (Name, Fokus, Labels,
+  Escape, Fokus zurück, axe). Firefox-Projekt in local (`grep @story:A18`);
+  `e2e.yml` von local und enrol installieren Firefox wie mod.
+- **`editor-duplicate-edges.spec.ts`:** prüft jetzt die ganze Seite; die
+  Kanten-IDs tragen das Präfix der Anwendung (`adele1-…`).
+- **Nachtrag `2026112000`:** A18 „Editor“ prüft zusätzlich, dass die Felder
+  `goalnameplaceholder` und `goalsubjectplaceholder` über `name` erreichbar
+  sind (Behat-Locator, CI 2026-11-20).
+- **Neu mod `groups-live.spec.ts`** (Stories G16, L17; 6 Tests): Fixture
+  `E2EG16` (Pfad „E2E Gruppen G16“, Gruppen Rot/Blau, Aktivitäten
+  „getrennt“ mit Live-Markern und „sichtbar“ ohne). G1–G3 Ranglisten,
+  Mittelwerte, Gruppenwahl, Ablehnung fremder Gruppen, Nicht-Lernende, Nutzlast
+  der Server-Antworten ohne fremde Namen; L1 Marker und Zähler nach echtem
+  Kursaufruf, Aktualisierung per Polling ohne Neuladen, Zähler → Namen →
+  Pfad der Person zentriert auf den Knoten, Escape/Fokus; L2 ausgeschaltet;
+  M1 Aktivitätseinstellungen. `beforeEach` setzt die Fixture zurück
+  (Knotenstatus der Schnappschüsse, Live-Aktivität, Schalter): ein Kursaufruf
+  berechnet den Schnappschuss aus den echten Kursabschlüssen neu.
+- **Selektoren:** Teilnehmerliste über `data-testid="adele-userlist-*"`
+  (E2E und Behat) statt `#adele-userlist-*`; Stapel-Schaltfläche über
+  `data-testid="stack-toggle-<Knoten>"`; IDs mit Präfix werden mit
+  `[id*=…]`/`[id$=…]` oder dem Ausdruck `^adele\d+-…$` geprüft.
+- **Seed:** Fixtures `E2EM18` (drei Einbettungen auf einer Kursseite) und
+  `G16` (Variablen `ADELE_FIXTURE_G16_*`, `ADELE_FIXTURE_M18_HOST`).
+- **P1/P2/P3 an #12 angepasst (Verhaltensänderung, verlangt von AK0-L2):**
+  ohne Gruppen sehen Teilnehmende auch bei „Ergebnisse aller Teilnehmenden“
+  nur die eigene Zeile (`learner-data.spec.ts` P2/P3). Damit die Rücknahme
+  „alle → nur eigene“ (P1/P2, `withdrawn-settings.spec.ts`) weiter etwas
+  ändert, hat die umschaltbare Einbettung im Seed getrennte Gruppen; Alpha
+  und Beta teilen eine – „alle“ zeigt die Gruppenrangliste, „nur eigene“
+  schließt sie.
+- **Seed-Fund (belegt):** `E2EM18` bettete zunächst den Referenzpfad
+  „Linear A1“ ein; das Entfernen der alten Aktivitäten beim nächsten Seed
+  nahm student01 den Pfad (Rücknahme nicht getragener Abonnements). Jetzt
+  eigene Kopien „E2E M18 Linear“/„E2E M18 Verzweigt“.
+- **Reihenfolge lokal:** Die Smoke-Suites lesen `fix.env`; nach den E2E-Läufen
+  (die neu seeden und Pfad-IDs ändern) zuerst `seed.sh`. Der Smoke-Test „hat
+  noch nicht gelaufen“ (enrol) setzt voraus, dass kein Abgleich lief
+  (`enrol_adele/lastreport` leer) – in CI frische Site.
+
+### Nachtrag 2026-11-21 (`2026112101`)
+
+- **Einschreiben über Moodles Dialog:** nur noch über `enrolInDialog`
+  (mod `support/host.ts`, local `support/enrol.ts`). Der Helfer prüft die
+  Auswahl im Autocomplete, wiederholt sie notfalls per Tastatur und prüft
+  Moodles Antwort (`count: 1`). Anlass: CI-Lauf, in dem der Klick auf den
+  Vorschlag verloren ging und das Formular ohne Nutzer abgeschickt wurde.
+- **R26:** der Zähler wartet vor dem Zurücksetzen, bis keine Anfrage der
+  vorigen Seite mehr offen ist.
+- **A18:** neuer Test „overview: the controls ADELE-SR-01 listens for …“ –
+  Vorprüfung des NVDA-Laufs im Accessibility-Baum.
+- **Lokaler Stand:** jede Suite auf frisch geseedeter Seite, Smoke vor E2E,
+  wie in der CI (eine Seite je Workflow).
+
+### Nachtrag 2026-11-22 (`2026112102`)
+
+- **L3 (mod, `groups-live.spec.ts`):** der Rückweg von einer lernenden
+  Person – vom Marker und per Tastatur über Zähler und Namen: Gruppe,
+  Ausschnitt des Graphen, Scrollposition und Fokus wie verlassen (#15 AK3.5,
+  DoD3.4). G2 prüft den Mittelwert über alle Lernenden („Mittel über N
+  Lernende“).
+- **A18 (local, `dom-ids.spec.ts`):** kein `dropdownMenuButton` auf der
+  Seite, ADELE-Link der Navigation ohne ID (#18 AK4/DoD3).
+- **E2 (local, `editor-combinations.spec.ts`):** Kursdialog eines Stapels per
+  Tastatur – eigener Titel, Felder mit eigenen Labels, Escape, Fokus zurück
+  zum Öffner, keine doppelte ID (#18 DoD2).
+- **Server-Uhr:** Ketten, in denen nur Aufgaben in der Zukunft laufen müssen
+  (H1–H3 Ablauffrist, Karenzfrist nach dem Speichern), verschieben nur die
+  Uhr des Aufgabenlaufs (`cliClockEnv()`); die Uhr des Webservers bleibt.
+  Wo der Webserver die verschobene Zeit sehen muss (local T, F), verlässt
+  die Seite vor jedem Wechsel die Website (`moveServerClock()`). Die
+  Uhr-Datei wird atomar geschrieben (Anlass: CI 2026-11-21, Webserver ab
+  einem Uhr-Rücksprung ohne Antwort).
+- **Diagnose:** bei Fehlern zeigen die E2E-Workflows offene Anfragen des
+  Webservers, PHP-Prozesse, laufende Transaktionen und wartende Sperren.
+- **P1/P2/P3 – „Teilnehmer sehen“ nur ohne Gruppen (Entscheidung
+  2026-11-22, ersetzt die Anpassung vom 2026-11-19 oben):** ohne Gruppen
+  zeigt „Ergebnisse aller anderer Teilnehmer“ Teilnehmenden die Lernenden der
+  Aktivität, ohne Link; der Server schickt fremde Zeilen ohne ID und
+  Benutzernamen (`learner-data.spec.ts` P2/P3). Die umschaltbare Einbettung
+  hat im Seed wieder **keine** Gruppen; die Rücknahme „alle → nur eigene“
+  (`withdrawn-settings.spec.ts`) prüft das ohne Gruppen und schaltet danach
+  auf getrennte Gruppen: das Feld ist verborgen, ein gespeichertes „nur
+  eigene“ ändert nichts (die Gruppenrangliste zeigt beide), zurück ohne
+  Gruppen ist das Feld wieder da und „nur eigene“ gilt.
+
+### Nachtrag 2026-11-23 (`2026112300`, Re-Audit 2026-11-22)
+
+- **G4 – mehrere Aktivitäten mit verschiedenen Gruppierungen (#16 DoD0-M3,
+  #12 DoD0-L4):** Neue Fixture G16M, Kurs `E2EG16M`, gleicher Pfad wie G16.
+  - Gruppen Nord, Mitte und Sued; Gruppierung NM = Nord + Mitte, MS = Mitte + Sued.
+  - Aktivität „Nord-Mitte“: getrennte Gruppen, Gruppierung NM. Aktivität
+    „Mitte-Sued“: sichtbare Gruppen, Gruppierung MS.
+  - Personen: Nele (Nord), Mats (Mitte), Sina (Sued); Tessa als Lehrerin mit
+    Bearbeitungsrechten.
+  - `groups-live.spec.ts` G4, zwei Fälle:
+    - Lehrerin: Jede Aktivität bietet und listet nur die Gruppen ihrer
+      Gruppierung. Die Liste folgt dem Gruppenwechsel. Eine Gruppe der
+      anderen Gruppierung lehnt der Server ab, auch wenn sie direkt
+      angefragt wird.
+    - Mats: In jeder Aktivität sieht er seine Gruppe; in den sichtbaren
+      Gruppen nur den Mittelwert der anderen Gruppe der eigenen
+      Gruppierung.
+    - Nele in „Mitte-Sued“: Sie sieht niemanden sonst, weder auf der Seite
+      noch in den Antworten des Servers.
+- **G1/G2:** Fremde Namen werden jetzt über den Nachnamen gesucht. Die
+  Teilnehmerliste zeigt Vor- und Nachname in eigenen Zellen, die Antworten
+  des Servers in eigenen Feldern. Die Suche nach dem vollen Namen hätte ein
+  Leck nicht gefunden.
+- **G3:** Vor dem Umschalter geht keine Anfrage
+  `local_adele_get_non_learners` raus (#13 AK1.2). Danach greift die
+  Beobachtung, das ist mitgeprüft.
+- **P2:** Die Liste ohne Gruppen hat in keiner Zeile einen Link oder Knopf.
+  Über die Ersatz-ID einer fremden Zeile lässt sich kein Pfad abrufen.
+- **A18 (local_adele):** Der Fall mit drei Anwendungen läuft zusätzlich im
+  **Classic-Theme**: keine ID doppelt, kein `dropdownMenuButton`, der
+  Navigationslink führt zur Übersicht. Dieser Schritt fand die IDs der
+  MiniMap (`issues/local_adele-issue-minimap-node-ids.md`). Im Knoten- und
+  im Kursdialog (A18, E2) wird geprüft, dass ein Klick auf das Label sein
+  Feld fokussiert.
+
+### Nachtrag 2026-11-26 (`2026112600`, Re-Audit 2026-11-26)
+
+- **G5 – andere eingeschriebene Personen (#13 DoD1.2–1.4):**
+  - Fixture G16M um Theo erweitert (Tutor, ohne Bearbeitungsrechte, in
+    Gruppe Mitte).
+  - Abgebrochene Antwort: Fehlertext, kein Name; das nächste Öffnen lädt neu.
+  - Bei offener Liste folgt sie dem Gruppenwechsel (Nord → Mitte → alle →
+    Nord): Theo erscheint nur bei Mitte und bei allen, Tessa nie (außerhalb
+    der Gruppierung, #13 AK1.6). Keine Lernenden in der Liste, Rangliste
+    unverändert, axe-Prüfung.
+  - Ein Lernender sieht keinen Schalter, und der Server lehnt seine direkte
+    Anfrage ab.
+- **A18 (local_adele):** neuer Schritt **Boost mit sichtbarer MiniMap**.
+  Boost begrenzt die Inhaltsbreite; gemessen gab es auch bei 2400 px keine
+  MiniMap. Der Schritt hebt die Begrenzung auf und prüft MiniMap-Knoten,
+  doppelte IDs, Referenzen und `dropdownMenuButton`. Der Classic-Schritt
+  prüft jetzt auch, dass die MiniMap sichtbar ist.
+
+## Nachtrag 2026-11-28
+
+- mod `groups-live.spec.ts`:
+  - **L4** (#14 DoD2-L4): zwei aktive Knoten, Avatar, Name, Zustand, nie
+    Beobachtete ohne Marker; Fensterablauf über die Testuhr `seenAgo()`, Polling
+    ohne Neuladen, der inaktive Marker nur am letzten Knoten.
+  - **D1** (#18 DoD3, `@story:A18`, auch Firefox): zwei Personenlisten-Dialoge
+    gleichzeitig.
+- mod `stories.json`: `alsoCovered: ["A18"]`; das Firefox-Projekt von mod
+  läuft jetzt auf `R26|F27|S17|A18`.

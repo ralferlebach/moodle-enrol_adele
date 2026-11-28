@@ -80,6 +80,7 @@ require_once($CFG->dirroot . '/backup/controller/restore_controller.class.php');
  *
  * @covers \enrol_adele_plugin::restore_instance
  * @covers \enrol_adele_plugin::restore_user_enrolment
+ * @group      adele_release
  */
 final class backup_restore_test extends advanced_testcase {
     /**

@@ -48,8 +48,10 @@ use enrol_adele\local\reconciler;
  * and the row goes.
  *
  * Access revocation is deliberately NOT deferred: the observer purges the
- * enrolments immediately, because withdrawing access is correct and wanted
- * the moment entitlement ends. Only the destruction of history waits.
+ * target-course enrolments and suspends the host-course enrolments
+ * immediately, because withdrawing access is correct and wanted the moment
+ * entitlement ends. Only the destruction of history waits - and with it the
+ * removal of the suspended host-course enrolments (mod_adele #20, #21).
  *
  * That split leaves one gap this task has to close itself. For the length of
  * the wait the user path record is still active, so any recompute happening

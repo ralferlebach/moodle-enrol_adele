@@ -67,7 +67,7 @@ Reconciliation.
 |---|---|
 | `local_adele` | Fachliche Wahrheit. Berechnet User-Paths und Knotenstatus; liefert die Soll-Zustands-Funktion (2.2); ruft `enrol_adele` nach jedem Recompute optional auf. |
 | `enrol_adele` | Technische Ausführung: Instanzen, `user_enrolments`, Reconciliation, Observer für Hostkurs-Austragungen, Verwaltungsseite. Trifft keine fachliche Entscheidung. |
-| `mod_adele` | Anzeige und Eintrags-Auslöser (Optionen 1/2/3). Schreibt weiterhin per `enrol_manual` in den **Hostkurs** ein (F-7). Fasst Zielkurse nie an. |
+| `mod_adele` | Anzeige und Eintrags-Auslöser (Optionen 1/2/3). Host-Kurs-Einschreibungen (Optionen 2/3) entstehen ausschließlich über `enrol_adele` (Abschnitt 1a; Entscheidung #20, 2026-10-17: kein `enrol_manual`-Weg). Fasst Zielkurse nie an. |
 
 ### 1.4 Abhängigkeitsrichtung
 
@@ -85,6 +85,17 @@ wie zuvor. Es findet keine Einschreibung über `enrol_manual` mehr statt;
 `debugging()`. `local_adele`/`mod_adele` laufen weiterhin fehlerfrei (kein
 Fatal Error für Endnutzer/innen), aber ohne dass ADELE-Einschreibungen
 entstehen, solange `enrol_adele` fehlt.
+
+**Bestätigt (mod_adele #20, Entscheidung 2026-10-17):** `mod_adele` deklariert
+`enrol_adele` als harte Abhängigkeit in `version.php`; ein Betrieb ohne
+`enrol_adele` ist kein unterstütztes Szenario. Der im Issue ursprünglich
+geforderte `enrol_manual`-Rückfall entfällt endgültig, weil er den
+nachvollziehbaren Entzug über `enrol_adele` umginge. Ist `enrol_adele` in
+einem inkonsistenten Zustand nicht aktiv, entsteht keine Einschreibung, auch
+keine über eine andere Methode; es bleibt bei der Warnung. Die letzten Reste
+(`enrol_adele`s Übernahme von `local_adele/enroll_as_setting` bei der
+Installation, die Einstellung selbst) sind mit 2026100734 entfernt;
+`no_manual_fallback_test` belegt beides (statischer Scan und Laufzeit).
 
 ---
 
@@ -146,11 +157,18 @@ selbst bleibt weiterhin rein mechanisch. Ein Wechsel zu `MODE_NONE` löscht eine
 bereits bestehende Einschreibung nicht, sondern suspendiert sie nur (L-Q-07,
 kein Datenverlust bei späterem Zurückwechseln).
 
-**Hard-Removal bei Lernpfad-Verlassen (Teil 12, mod_adele #21, löst E-10):**
-`purge_all_host_user()` räumt beim Verlassen eines Lernpfads (A-4) alle
-Host-Kurs-Instanzen eines Nutzers über sämtliche Embeddings hinweg ab, nicht
-nur die eine, die den Verlust ausgelöst hat — verdrahtet in
-`enrol_adele\observer::user_enrolment_deleted()`. `purge_host_user()`
+**Hard-Removal bei Lernpfad-Verlassen (Teil 12, mod_adele #21, löst E-10;
+geändert 2026-10-17, mod_adele #20):** Beim Verlassen eines Lernpfads (A-4)
+verliert der Nutzer den Zugang zu allen Host-Kursen des Pfads über sämtliche
+Embeddings hinweg, nicht nur zu dem einen, der den Verlust ausgelöst hat. Das
+geschieht zweistufig: `enrol_adele\observer` **suspendiert** sofort jede
+Host-Einschreibung (`suspend_all_host_user()`; #20: „suspendiert, nicht
+gelöscht" – eine Rückkehr in der Karenzzeit reaktiviert denselben
+Datensatz); bestätigt `remove_user_path_adhoc` nach
+`DELAY_SECONDS` (300 s) den Austritt, **trägt** es sie aus
+(`remove_uncarried_user()` → `purge_all_host_user()`; #21). In der
+Karenzzeit erscheint der Nutzer in der Teilnehmerliste des Host-Kurses als
+„nicht aktuell" (vgl. enrol_adele #7). `purge_host_user()`
 (Einzelinstanz) bleibt als Baustein für eine künftige Verwaltungsseiten-Aktion
 erhalten. Löschen eines Lernpfads entfernt Host- wie Zielinstanzen ohnehin
 gleichermaßen, da `purge_learning_path()` nicht nach `customint2` filtert.
@@ -223,6 +241,14 @@ konkrete Fehlerquelle kann ab `local_adele` 0.4.8/`mod_adele` 0.1.11 nicht
 mehr über diesen Pfad auftreten — weiterhin möglich bleibt sie nur über eine
 manuelle Einschreibung durch eine Lehrkraft selbst.
 
+**Regressionstest (mod_adele #11, 2026-10-17):** `first_embedding_test`
+(PHPUnit) und Story S11 (E2E, `first-embedding.spec.ts`): ein neuer Kurs,
+dessen manuelle Einschreibung die Willkommensnachricht sendet; erste und
+zweite Lernpfad-Aktivität über das Formular – keine Nachricht, keine
+Fehlermeldung, keine PHP-Ausgabe, keine fehlgeschlagene Anfrage, kein
+Konsolenfehler. Gegenprobe des Messinstruments: eine manuelle
+Einschreibung in diesem Kurs erzeugt eine Nachricht.
+
 **Kein Plugin-Bug, daher kein Codefix.** Behebbar nur auf Seiten der
 Moodle-Konfiguration: entweder „Willkommensnachricht senden" für die
 betroffene `enrol_manual`-Instanz (bzw. site-weit als Standard)
@@ -231,12 +257,12 @@ konfigurieren, damit der Versand tatsächlich gelingt statt fehlzuschlagen.
 
 ## 1c. D.5 umgesetzt: Ablösung von `local_adele/enroll_as_setting` (Teil 17)
 
-`local_adele/enroll_as_setting` ist jetzt in Sprachdatei und Beschreibung
+~~`local_adele/enroll_as_setting` ist jetzt in Sprachdatei und Beschreibung
 als veraltet gekennzeichnet, bleibt aber funktional erhalten — es wirkt nur
-noch als Rückfallebene für den `enrol_manual`-Pfad, wenn `enrol_adele` fehlt
-oder inaktiv ist (dieselben zwei Stellen wie in 1b:
-`node_completion.php`/`relation_update.php`). `enrol_adele/roleid` ist die
-alleinige Quelle, sobald `enrol_adele` aktiv ist.
+noch als Rückfallebene für den `enrol_manual`-Pfad.~~ **Überholt (2026100734,
+mod_adele #20):** Die Einstellung ist entfernt (`local_adele` Upgrade-Schritt
+2026100734 löscht sie, `enrol_adele` übernimmt sie bei der Installation nicht
+mehr). `enrol_adele/roleid` ist die einzige Quelle der Rolle.
 
 Einmalige Übernahme statt reiner Laufzeit-Rückfallebene: `enrol_adele`s
 `db/install.php` (Erstinstallation neben bereits konfiguriertem
@@ -246,6 +272,57 @@ Wert einmalig als Startwert für `enrol_adele/roleid`, sofern Letzteres noch
 nicht gesetzt ist — der effektiv zugewiesene Rolle bleibt über das Upgrade
 hinweg gleich, statt beim nächsten `instance_manager::get_role_id()`-Aufruf
 stillschweigend auf den Student-Archetyp-Standard zurückzufallen.
+
+## 1d. Teilnehmerquellen: die eine Definition einer wirksamen Einschreibung (mod_adele #30, #37; 2026-10-17)
+
+Ob jemand über eine Teilnehmerquelle (1 „dieser Kurs", 2 „Startknoten",
+3 „irgendein Kurs des Pfads") zu einem Lernpfad kommt und Zugang zu einem
+Gastkurs erhält, und ob er beim Austritt noch getragen wird (A-4), entscheidet
+**eine** Definition in `local_adele\enrol_state::effective_enrolment_sql()`
+(SQL-Baustein) bzw. `get_effectively_enrolled_courseids()` und
+`is_effective_participant()`. Eine Einschreibung zählt nur, wenn
+
+* sie **nicht von ADELE** angelegt wurde (`enrol <> 'adele'`) – **Entscheidung
+  zu #37:** ADELE-eigene Einschreibungen (Ziel-, Gast- und
+  Lehrenden-Instanzen) sind für keine der drei Quellen und nicht für A-4 eine
+  unabhängige Quelle; sonst setzte sich ein Abo über geteilte Kurse von Pfad
+  zu Pfad fort. Zweite, unabhängige Sicherung: eine von `enrol_adele`
+  vergebene Rolle (`component = 'enrol_adele'`) macht niemanden zum
+  Teilnehmenden (`is_participant()`, local_adele #587);
+* die Methode aktiviert ist, die Einschreibung im Zeitraum liegt
+  (`timestart`/`timeend`) und **nicht ausgesetzt** ist (`ue.status =
+  ENROL_USER_ACTIVE`, #30);
+* die Person darin eine der bewerteten Rollen der Website hat (#593).
+
+Website-Einstellung `mod_adele/sourcesincludesuspended` (Standard aus): an,
+zählen ausgesetzte Einschreibungen wieder mit (Verhalten vor #30); Zeitraum
+und Methodenstatus zählen immer. Eine Änderung wendet die Quellen aller
+Aktivitäten neu an und gleicht ihre Gastkurse ab.
+
+Verwendet von: Abo bei Einschreibung und Rollenvergabe (local_adele
+`enrollment`), Quellen 1–3 beim Ereignis und beim Speichern (mod_adele
+Observer, `host_policy::has_foreign_enrolment()`, Kandidaten), A-4
+(`enrol_adele\observer::is_user_carried()`), Kursliste der Lehrenden
+(`get_nonparticipant_userids()`). Ereignisse: `user_enrolment_created`,
+`user_enrolment_updated` (Aussetzen/Reaktivieren, mod_adele),
+`user_enrolment_deleted`, `role_assigned`/`role_unassigned`.
+
+## 1e. Lernpfad-Auswahl im Aktivitätsformular (mod_adele #43; 2026-10-18)
+
+`mod_adele\local\path_choice` entscheidet serverseitig, nie aus den
+angezeigten Optionen:
+
+* Angeboten werden die Pfade, die die Person bearbeiten darf, und bei einer
+  bestehenden Aktivität zusätzlich der gespeicherte Pfad, sofern er noch
+  existiert.
+* Den gespeicherten Pfad behalten darf, wer die Aktivität bearbeiten darf –
+  ohne dadurch ein Bearbeitungsrecht am Pfad zu erhalten.
+* Ein anderer Pfad braucht das Bearbeitungsrecht an diesem Pfad
+  (Administrator/innen: jeder Pfad); ein gefälschter Wert wird abgewiesen
+  (`mform_path_not_editable`).
+* Ein gelöschter oder unbekannter Pfad kann nicht behalten werden
+  (`mform_path_missing`); das Formular zeigt den Hinweis
+  `mform_path_missing_stored`, ein neuer Pfad ist zu wählen.
 
 ## 2. Soll-Zustand
 
@@ -371,9 +448,22 @@ Einschreibungen existieren  ⇔  User-Path status = 'active'
 ```
 
 * Knoten zu → User-Path bleibt aktiv, nur `$entitled` schrumpft → Suspendierung.
-* Zugangsverlust nach A-4 → User-Path wird deaktiviert **und** `purge_user()`.
+* Zugangsverlust nach A-4 → Zieleinschreibungen sofort `purge_user()`,
+  Host-Einschreibungen sofort suspendiert; nach der Karenzzeit wird der
+  User-Path gelöscht und die Host-Einschreibungen werden ausgetragen
+  (`remove_uncarried_user()`), es sei denn, der Nutzer wird inzwischen wieder
+  getragen.
 * Lernpfad gelöscht → User-Paths werden deaktiviert/archiviert **und**
   `purge_learning_path()`. (Snapshots bleiben laut #446 bewusst erhalten.)
+* **Suspendiert vs. endgültig entfernt (enrol_adele #7).** Eine
+  suspendierte ADELE-Einschreibung bleibt **sichtbar** in der
+  Teilnehmerliste (Status suspendiert, kein Kurszugang, von Hand nicht
+  entfernbar, weil enrol_adele sie besitzt) – bis die Frist
+  `enrol_adele/suspendedretention` (Tage seit der Suspendierung; 0 =
+  unbegrenzt) abgelaufen ist; dann entfernt der Abgleich sie **endgültig**
+  samt ihrer Rollen. Eine Einschreibung derselben Person über eine andere
+  Methode bleibt unberührt und aktiv (`roles_and_retention_test`,
+  `clock_boundaries_test`).
 
 **Entschieden (R-1):** Die Deaktivierung nach A-4 erfolgt als **Löschung** des
 `local_adele_path_user`-Datensatzes. Kursabgeleiteter Fortschritt re-deriviert
@@ -414,23 +504,27 @@ Die Einschreibeoptionen (`{adele}.participantslist`, Kommaliste, Mehrfachauswahl
 | Option | Bedeutung | Wirkung auf A-4 |
 |---|---|---|
 | `1` | Mitgliedschaft im einbettenden Kurs | trägt den Nutzer nur, solange er dort Mitglied ist |
-| `2` | Mitglied in einem Startknoten-Kurs | von Hostkurs-Austragung **unberührt** |
-| `3` | Mitglied in irgendeinem Knoten-Kurs (aus Branch `fix-enrolment-issue`, A-15) | von Hostkurs-Austragung **unberührt** |
+| `2` | Mitglied in einem Startknoten-Kurs | Austritt aus diesem Startknoten-Kurs löst A-4 aus (2026-10-17) |
+| `3` | Mitglied in irgendeinem Knoten-Kurs (aus Branch `fix-enrolment-issue`, A-15) | Austritt aus diesem Knoten-Kurs löst A-4 aus (2026-10-17) |
 
-Algorithmus bei `user_enrolment_deleted` für Nutzer *U* im Kurs *H*:
+Algorithmus bei `user_enrolment_deleted` (und `role_unassigned`) für Nutzer
+*U* im Kurs *H*:
 
 1. Instanz des Events ist `enrol = 'adele'` → abbrechen (Rekursionsschutz).
-2. Alle `{adele}`-Aktivitäten in *H* ermitteln → betroffene Lernpfade.
+2. Alle `{adele}`-Aktivitäten in *H* ermitteln → betroffene Lernpfade; dazu
+   (mod_adele #37, Kriterium 2) die Lernpfade, für die *H* ein Startknoten-
+   (Quelle 2) bzw. Knoten-Kurs (Quelle 3) einer Einbettung ist – nur wenn *U*
+   sie abonniert hat.
 3. Für jeden betroffenen Lernpfad *L* prüfen, ob *U* noch getragen wird:
    a. Existiert eine andere Einbettung von *L* mit Option 1 in einem Kurs, in
-      dem *U* noch eingeschrieben ist (Suspendierung zählt als eingeschrieben,
-      A-8)? → getragen.
+      dem *U* noch **wirksam** eingeschrieben ist (Abschnitt 1d; Aussetzung
+      zählt seit #30 nicht mehr, außer per Website-Einstellung)? → getragen.
    b. Hat irgendeine Einbettung von *L* Option 2, und ist *U* in einem
       Startknoten-Kurs von *L* eingeschrieben? → getragen.
    c. Hat irgendeine Einbettung von *L* Option 3, und ist *U* in irgendeinem
-      Knoten-Kurs von *L* eingeschrieben? → getragen. **Achtung:** Zielkurs-
-      Einschreibungen der ADELE-Instanz selbst zählen hier *nicht* als tragend,
-      sonst hielte sich der Zugang zirkulär selbst am Leben.
+      Knoten-Kurs von *L* eingeschrieben? → getragen. **Achtung:** Für a–c
+      zählen ADELE-eigene Einschreibungen *nicht* (Abschnitt 1d, #37), sonst
+      hielte sich der Zugang zirkulär selbst am Leben.
 4. Getragen → nichts tun.
 5. Nicht getragen → User-Path von *U* für *L* deaktivieren (R-1), dann
    `purge_user($lpid, $userid)`.
@@ -494,6 +588,59 @@ Ohne diese aktive Implementierung würde Moodle die Einschreibungen je nach
 Restore-Einstellung in `manual` umwandeln — genau die Vermischung, die dieses
 Vorhaben beseitigt.
 
+### 5.2a Sicherung und Wiederherstellung von mod_adele (mod_adele #29, #41; 2026-10-17)
+
+* Gesichert und wiederhergestellt werden alle Felder von `{adele}`
+  (einschließlich `hostenrolmentmode`, `teachercourseaccessmode`,
+  `teachercourseaccessgrantor` als Nutzerverweis) und die Dateien der
+  Beschreibung. Ältere Sicherungen ohne `hostenrolmentmode` ergeben
+  `visible`, ohne Modus `existing_only`; unbekannte Werte werden auf diese
+  Standards gesetzt.
+* Der Lernpfad ist ein Website-Datensatz von local_adele und nicht Teil der
+  Sicherung: auf **derselben Website** und noch vorhanden → derselbe Pfad;
+  von einer **anderen Website** oder gelöscht → `learningpathid = 0`
+  (Aktivität ohne Pfad, Hinweis im Wiederherstellungsprotokoll und auf der
+  Seite der Aktivität). Keine Verknüpfung über eine zufällig gleiche Nummer.
+* Abos (`local_adele_path_user`) und ADELE-Einschreibungen werden **nie** aus
+  der Sicherung übernommen (auch nicht mit Nutzerdaten, siehe 5.2); nach dem
+  Wiederherstellen leitet `after_restore()` sie aus der Zielwebsite ab wie
+  beim Anlegen (Quellen, Gastkursabgleich, Modus).
+
+* Wiederherstellung in **denselben Kurs** (hinzufügen): eine zweite
+  Aktivität mit demselben Pfad; der Gastkurs-Index nennt den Kurs einmal,
+  niemand erhält eine zweite Einschreibung oder ein zweites Abo
+  (`restore_policy_test`, mod_adele #33).
+
+### 5.2b Datenschutz (Privacy-API) der drei Plugins (mod_adele #33; Entscheidung 2026-10-17)
+
+Eine Löschanfrage entfernt die Daten **der Person**, nicht fremde Daten und
+nicht geteilte Inhalte („Anonymisieren"):
+
+| Datum | Export | Löschung |
+|---|---|---|
+| eigene Teilnahme (`local_adele_path_user.user_id`) | ja | gelöscht; die ADELE-Einschreibungen der Person auf diesem Pfad (Ziel- und Gastkurse) werden mit ausgetragen |
+| von der Person angelegte Teilnahme anderer (`path_user.createdby`) | ja | bleibt, `createdby = 0` |
+| Bearbeitungsrecht (`local_adele_lp_editors`) | ja | gelöscht |
+| angelegter Lernpfad (`learning_paths.createdby`) | ja | Pfad bleibt; Eigentümerschaft an die dienstälteste verbleibende Bearbeiterin (#571), sonst `createdby = 0` („ohne Eigentümer/in") |
+| gewählter Lehrenden-Zugangsmodus (`adele.teachercourseaccessgrantor`, mod_adele) | ja (Modulkontext) | `0`; der Modus hat damit keine Befugnis mehr, die darüber erteilten Lehrenden-Einschreibungen werden sofort zurückgenommen; erneutes Speichern durch eine befugte Person delegiert neu |
+| Lehrenden-Zuweisungen (`enrol_adele_teacher_grants`) | ja (Kurskontext) | gelöscht samt der Einschreibung |
+
+„Alle Nutzer im Systemkontext" löscht alle Teilnahmen und
+Bearbeitungsrechte, nicht die Lernpfade (deren `createdby` wird 0). Nach
+jeder Löschung gibt es keinen verwaisten Verweis (Aktivität ohne Pfad,
+ADELE-Einschreibung ohne Teilnahme). Nebenwirkung: Behält ein Konto nach der
+Löschung tragende Mitgliedschaften (z. B. Quelle 3), abonniert der nächste
+Abgleich es neu, mit leerem Fortschritt. Tests: `local_adele\privacy_provider_test`,
+`mod_adele\teacher_enrolment_test::test_privacy_of_the_grantor`,
+`test_privacy` (enrol), Moodles `core_privacy\privacy\provider_test`.
+
+**Release-Gate:** Die Tests von Sicherung, Wiederherstellung und Datenschutz
+tragen die PHPUnit-Gruppe `adele_release`; `.github/workflows/release-gate.yml`
+(alle drei Plugins) führt sie mit Moodles Konformitätsprüfung für
+Moodle 4.5 × PHP 8.2–8.3 × PostgreSQL/MariaDB/MySQL bei jedem Pull Request
+nach `main` und jedem Release-Tag aus. Als Pflichtprüfung von `main`
+(Branch-Schutz) blockiert ein roter Lauf das Release.
+
 ### 5.3 Rolleneinstellung (A-11/F-8)
 
 `local_adele/enroll_as_setting` hat exakt zwei Verwendungsstellen
@@ -531,6 +678,207 @@ Beide Aktionen laufen als Ad-hoc-Task, wenn die Nutzerzahl eine Schwelle
 überschreitet (UI bleibt responsiv), und lösen die Events aus 7.3 aus.
 
 ---
+
+## 6a. Geöffneter Lernpfad: Aktualisierung, Auto-Fokus, gestapelte Kurse (mod_adele #26, #27, #17, #32; 2026-10-17)
+
+**Aktualisierung (#26).** Website-Einstellungen von local_adele (Abschnitt
+„Geöffneter Lernpfad"), beim Rendern der Seite einmal als Attribut
+`pathviewsettings` übergeben (`local_adele\path_view_settings`); gelesen in
+`composables/flowHelper/pathViewSettings.js`, ungültige Werte gelten als
+Standard.
+
+| Einstellung | Werte | Standard |
+|---|---|---|
+| `pathpollingmode` | 0 aus · 1 bei Fokus · 2 Fokus + Abfrage solange sichtbar und aktiv · 3 Fokus + Abfrage auch im Hintergrund | 2 |
+| `pathpollinginterval` | 1000–300000 ms | 3000 |
+| `pathpollingdebounce` | 0–10000 ms | 300 |
+
+`useUserPathRefresh` (Composable) macht beim Start keinen Abruf (der erste
+Abruf ist der der Seite), registriert Fokus-, Sichtbarkeits- und
+`pageshow`-Ereignisse (nur aus dem Vor-/Zurück-Cache), fasst Ereignisse im
+Zusammenfassungsfenster zusammen, plant die nächste Abfrage erst nach der
+Antwort der vorigen (nie zwei parallel), pausiert in Modus 2 bei
+Fokusverlust und setzt nach der nächsten Fokus-Aktualisierung fort,
+verdoppelt den Abstand nach Fehlern (höchstens ×8, höchstens 5 min), zeigt
+nach drei Fehlern in Folge einmal einen Hinweis und entfernt beim Unmount
+alle Listener und Timer. Jede Aktualisierung ruft nur
+`local_adele_get_user_path_relation` (reiner Lesezugriff; belegt: keine
+Schreibvorgänge, keine Ereignisse, keine Aufgaben). Die Liste der anderen
+Teilnehmenden (#568) folgt nur bei einer Rückkehr zur Seite, nicht bei
+jeder Abfrage. Die Lehrendenansicht eines Lernpfads aktualisiert sich
+ebenfalls, aber nicht während dort gearbeitet wird (offener Dialog,
+Eingabefeld im Graphen, Verschieben/Zoomen).
+
+**Auto-Fokus (#27).** `pathautofocusenabled` (Standard an),
+`pathautofocusteachermode` (Standard 1), `pathautofocuslearnermode`
+(Standard 2); Modi 0 kein Fokus · 1 zuletzt abgeschlossener/geänderter
+Knoten · 2 nächste geöffnete, nicht abgeschlossene Knoten. Rolle: Lehrende,
+wenn der Server die Lehrendenansicht gewählt hat (`view_mode`, aus den
+wirksamen Rechten) oder der Pfad einer anderen Person gezeigt wird; sonst
+Lernende. Drei getrennte Funktionen (`composables/flowHelper/autofocus.js`):
+`compareUserPathStates()` (nur Zustand – Status, Abschluss- und
+Restriktionsstatus –, nie Texte, Farben, Layout), `resolveAutofocusTarget()`
+(Modus 2: alle offenen Knoten ohne offenen Vorgänger gemeinsam; Rückfall:
+zuletzt abgeschlossen, zuletzt geändert, Startknoten),
+`focusNodes()` (nur `fitView`). Reihung „zuletzt": gespeicherte Zeit
+(`laststatechange`/`statuschangedat`/`completedat`, sofern vorhanden – heute
+schreibt der Server keines davon), dann Abschluss vor anderer Änderung, dann
+Knoten-ID. Fokussiert wird nur bei einer echten Änderung, einmal je Zustand,
+nicht während einer Interaktion; ohne Änderung bleibt die Ansicht, wo die
+Person sie hingeschoben hat. Kein Speichern, keine Neuberechnung.
+
+**Befund (belegt) und Behebung (#32):** `StudentView` gab den geladenen
+Pfad als Eigenschaft `userlearningpathparent` weiter, `UserPath` las
+`user_learningpath_parent` – jede Lernendenansicht lud den Pfad deshalb
+zweimal (gemessen: zwei Abrufe beim Laden; nach der Behebung einer).
+
+**Gestapelte Kurse (#17).** Jede ausgeklappte Kurs-Karte trägt die echte
+Kurs-ID: VueFlow-Knoten `…_expanded_courses_<Kurs-ID>`, Klasse
+`adele-expanded-course-<Kurs-ID>`, zugänglicher Name „<Kursname> (Kurs-ID
+<ID>)" (auch bei gleichen Kursnamen eindeutig), an der Karte
+`data-course-id`, `data-node-id`, `data-testid="expanded-course-<ID>"` und
+`title`. Unabhängig von Reihenfolge und erneutem Ausklappen
+(`composables/nodesHelper/expandedCourse.js`).
+
+**Ergänzungen aus dem Re-Audit 0735 (2026-10-18).**
+
+* *Überholte und hängende Anfragen (#26):* Jede Anfrage trägt eine
+  Generation; eine Antwort, die eine neuere Anfrage oder `stop()` überholt
+  hat, wird verworfen – ein älterer Zustand kommt nie zurück. Eine Anfrage
+  ohne Antwort gilt nach `requestTimeout()` = 3 × Intervall (mindestens
+  10 s, höchstens 60 s) als gescheitert; das Abfragen bleibt nicht hängen.
+* *Tastaturfokus (#27):* Auto-Fokus bewegt nur die Ansicht. Baut eine
+  Änderung den Graphen neu auf, bekommt das zuvor fokussierte Element (über
+  `data-testid`, sonst Knoten und Position) den Fokus zurück, ohne zu
+  scrollen (`composables/flowHelper/keyboardFocus.js`); liegt der Fokus
+  außerhalb des Graphen, wird er nicht angefasst; nach 3 s wird aufgegeben
+  (keine Fokusfalle).
+* *Kurs-Karten (#17):* Karte `role="group"` mit eindeutiger
+  DOM-ID `adele-expanded-course-<Knoten>-<Kurs-ID>`, benannt durch ihre
+  Überschrift, beschrieben durch eine sichtbare Zeile mit Kurzname, eigenem
+  Kursnamen (wenn die Überschrift einen vergebenen Namen zeigt), Kurs-ID
+  und Status in Worten; Kurz- und Kursname liefert der Server für jede
+  Ansicht (`course_node_id_description.<id>.shortname`/`.coursefullname`).
+  Der zugängliche Name des Knotens: „<Name> (<Kurzname>, Kurs-ID <ID>)".
+  „Zum Kurs" ist ein Link (neuer Tab). Die Infokarte trägt eine ID je
+  Stapel und Kurs (vorher bei allen gleich, `…-undefined`).
+* *Ausklappen (#17, TP-08):* Schaltfläche mit Namen, `aria-expanded`,
+  `aria-controls` (die Karten, nur solange sie da sind), `aria-disabled`
+  statt `disabled` während des Faltens (der Fokus bleibt), Escape auf der
+  Schaltfläche oder in einer Karte klappt ein und gibt der Schaltfläche den
+  Fokus, sichtbarer Fokus (`:focus-visible`). Gleich für beide
+  Stapel-Knoten.
+
+**Browser.** Die browserabhängigen Ketten (R26, F27, S17) laufen im
+E2E-Workflow zusätzlich in Firefox (Projekt `firefox`, sobald
+`ADELE_E2E_FIREFOX` gesetzt ist).
+
+## 6b. Eine Kante je Verbindung (local_adele #603; 2026-10-18)
+
+**Identität.** Eine Kante des Lernpfad-Baums ist bestimmt durch `type`
+(fehlt: `default`), `source`, `sourceHandle`, `target`, `targetHandle` –
+nicht durch ihre ID (`source + target` des Editors, kann kollidieren).
+Parallele Kanten mit gleichen Griffen gibt es nicht; ein anderer Griff ist
+eine andere Verbindung.
+
+**Regel** (`local_adele\path_edges::normalize()`, gleich in
+`composables/flowHelper/normalizeEdges.js`): die erste Kante je Verbindung
+bleibt an ihrer Stelle, spätere Kopien entfallen; eine Kante, deren ID eine
+andere Verbindung schon trägt, erhält `<id>_2`, `<id>_3`, … (Konflikt wird
+gemeldet). Deterministisch, idempotent, alle anderen Kanten unverändert.
+
+**Wo.** Editor: keine zweite Kante beim Verbinden, Ablegen, UND-Verknüpfen
+und beim Übernehmen in `tree.edges`. Server: Speichern, Aktualisieren,
+Duplizieren normalisieren (ein sauberer Pfad bleibt Byte für Byte gleich);
+Laden für Editor und Personenansicht zeigt normalisiert, schreibt nichts.
+Bestand: Upgrade-Schritt `2026101800` (Bericht je Pfad, je Datensatz eine
+Transaktion, wiederholbar); Vorschau `php local/adele/cli/repair_path_edges.php`,
+Reparatur mit `--execute`. Pfade von Personen: nur Kopien entfallen,
+Fortschritt bleibt, ID-Konflikte werden gezählt und nicht geändert.
+Lernpfade sind nicht Teil der Moodle-Sicherung; einen eigenen Import gibt es
+nicht.
+
+**Entstehung (belegt):** erneutes Verbinden zweier verbundener Knoten hängte
+die rohe Kante ein zweites Mal an `tree.edges`.
+
+**Verzögerte Schritte der Pfadansicht (Re-Audit 2026100736, B).** Fit,
+Fokus, Tastaturfokus und Zeichnen der Module laufen nur, solange die Ansicht
+eingehängt ist; ein Schritt einer früheren Aktualisierung tut nichts mehr,
+sobald eine spätere da ist (`UserPath.vue`: `later()`, Generation).
+
+## 6c. Gruppen, Nicht-Lernende, Live-Aktivität und Knotenzähler (ralferlebach/moodle-local_adele #12 – #18; 2026-11-19)
+
+**Vertrag (mod_adele #16).** Die Aktivität unterstützt Gruppenmodus und
+Gruppierung. Was eine Person durch eine Aktivität sieht, entscheidet allein
+der Server aus dem konkreten `cmid`: `\mod_adele\local\context_contract`
+(effektiver Gruppenmodus inkl. Kurszwang, Gruppierung, wählbare Gruppen,
+gezeigte Gruppe, Sicht, Live-Einstellungen). Eine Gruppe, die die Person
+nicht sehen darf, wird abgelehnt.
+
+**Kohorte.** `\local_adele\cohort`: Roster des Gastkurses ∩ aktiver Pfad ∩
+Teilnahme per Rolle ∩ Gruppe – dieselben Personen für Teilnehmerliste,
+Ranglisten, Mittelwerte, Nicht-Lernende, Marker und Zähler.
+
+**Sichtbarkeit (#12).**
+
+| Modus | Lernende | Lehrende |
+|---|---|---|
+| keine Gruppen | der eigene Pfad; Teilnehmerliste je nach „Teilnehmer sehen“: „nur eigene Ergebnisse“ die eigene Zeile, „Ergebnisse aller anderer Teilnehmer“ die Rangliste der Lernenden der Aktivität (Name, Fortschritt, Rang; fremde Zeilen ohne ID und Benutzernamen, nichts anklickbar) | Lernende des Kurses |
+| getrennte Gruppen | je eigener Gruppe eine Rangliste (Name, Fortschritt; keine IDs, nichts anklickbar) | Lernende der gewählten Gruppe |
+| sichtbare Gruppen | wie getrennt, dazu der Mittelwert der eigenen Gruppe über ihrer Liste und die Mittelwerte der anderen Gruppen (ohne Namen) | wie getrennt, dazu die Mittelwerte |
+
+**„Teilnehmer sehen“ (`userlist`) gilt nur ohne Gruppen** (Entscheidung
+2026-11-22, ersetzt die am selben Tag getroffene Ausnahme „nur eigene
+Ergebnisse schließt auch Gruppenranglisten“): Das Formular zeigt das Feld
+nur beim Gruppenmodus „Keine Gruppen“ (`hideIf`; erzwingt der Kurs einen
+Gruppenmodus, entfällt das Feld, der gespeicherte Wert bleibt). Ohne Gruppen
+entscheidet es: `1` – Lernende sehen über den Modulkontext der Aktivität die
+Rangliste ihrer Lernenden (`cohort::learner_roster_scope()`; fremde Zeilen
+mit negativer laufender ID und leerem Benutzernamen), `2` – nur die eigene
+Zeile (#569). Über jeden anderen Kontext (Kurs, anderes Modul) nur die
+eigene Zeile. Mit Gruppen gilt die Matrix unabhängig vom gespeicherten Wert
+(`cohort::own_results_only()`). Damit ist die Lesart von #12 AK0-L2/#16
+AK0-M4 „ohne Gruppen immer nur die eigene Zeile“ (Stand `2026111900` bis
+`2026112101`) für „Ergebnisse aller anderer Teilnehmer“ zurückgenommen.
+Mittelwert: arithmetisch über **alle**
+Lernenden der Gruppe (verschieden, per Rolle teilnehmend); Lernende ohne
+Pfad oder Fortschritt zählen mit 0 % und werden genannt („Mittel über 4
+Lernende; 1 ohne Fortschritt, mit 0 % gezählt“); eine Gruppe ohne Lernende
+„Keine Daten“ (nie 0 % oder NaN).
+
+**Lehrende über jeden Kontext (#12 AK0-L1/L6, #16 AK0-M4).** Wer Lernende
+sieht oder ändert, ist an die Gruppen der Aktivität gebunden – über den
+Modulkontext der Aktivität ihre Gruppenwahl, über jeden anderen Kontext
+(Kurs, anderes Modul, Aktivität eines anderen Pfads) höchstens, was die
+Aktivitäten des Pfads im Kurs zusammen geben (`cohort::teacher_scope()`);
+gilt für Rangliste, einzelnen Pfad und Speichern.
+
+**Nicht-Lernende (#13).** Auf Anfrage der Lehrenden ein eigener Abschnitt:
+eingeschriebene Personen der Gruppe, die nicht per Rolle teilnehmen oder
+keinen Pfad haben. Nichts wird angelegt.
+
+**Live-Aktivität (#14, #17) und Knotenzähler (#15).** Aktivität = Moodle hat
+einen Kurs- oder Aktivitätsaufruf erfasst (`course_viewed`,
+`course_module_viewed`); keine Anwesenheit. Gespeichert je Person und Kurs
+die letzte Zeit (`local_adele_activity`), nur für Personen auf einem
+Lernpfad, Aufbewahrung `liveretention` (30 Tage). Je Aktivität: Schalter
+(Standard aus) und Fenster (Standard 5 Minuten, 1–60). Lehrende sehen je
+Knoten: aktive Personen (an jedem Knoten mit dem Kurs), inaktive nur am
+Knoten des zuletzt gesehenen Kurses – ist das nicht ein Knoten (zwei Kurse in
+derselben Sekunde, ein Kurs in mehreren Knoten), an jedem dieser Knoten mit
+dem Hinweis „nicht eindeutig: an N Knoten“, ohne willkürliche Auswahl –,
+und zwei Zähler (aktiv, abgeschlossen),
+deren Namenslisten seitenweise geladen werden; ein Name oder ein Marker
+öffnet den Pfad der Person, zentriert auf den Knoten; zurück kommt die
+Übersicht mit Gruppe, Ausschnitt, Scrollposition und Fokus wie verlassen. Ausgeschaltet: keine personenbezogenen
+Live-Daten, nur der Zähler „abgeschlossen“. Ein Schnappschuss je Aktivität
+und Abfrageintervall (`livepollinterval`, 30 s).
+
+**Eindeutige DOM-IDs (#18).** Jede ADELE-Anwendung einer Seite präfixiert
+ihre IDs (`adele1-`, `adele2-`, …); Dialoge, Felder, Knoten, Kanten und
+VueFlow-Marker kollidieren auch bei mehreren Einbettungen nicht. Derselbe
+Dialog zweimal in einer Anwendung: die zweite Instanz bekommt eine eigene
+Nummer (`adele1-nodeModal-2`).
 
 ## 7. Ausbaustufen, API, Events
 
@@ -595,7 +943,7 @@ Die Einzeloperationen sind bereits durch die Kern-Events
 | ~~O-2~~ | Bestandsdaten | erledigt (F-9): unangetastet |
 | ~~O-3~~ | Knoten-ID-Stabilität | erledigt: IDs werden nach Löschung wiederverwendet → zustandslose Architektur gewählt, keine persistierten Knoten-Referenzen |
 | ~~O-4~~ | Rolleneinstellung | erledigt (F-8): wandert zu `enrol_adele/roleid`, Abschnitt 5.3 |
-| ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor (Lastenheft Abschnitt 4) |
+| ~~O-5~~ | Gruppenzuordnung | erledigt: außen vor für die Einschreibung (Lastenheft Abschnitt 4); Sichtbarkeit nach Gruppen seit `2026111900`, Abschnitt 6c |
 | ~~O-6~~ | Austragungs-Propagation bei Option 1 | erledigt (F-2/F-4): Regelwerk Abschnitt 4 |
 | ~~E-10~~ | `purge_host_user()` existiert, ist aber an keinen automatischen Trigger geknüpft. Löst nicht mit ab, wenn ein Nutzer den Lernpfad über A-4 verlässt — Host-Kurs-Einschreibungen bleiben aktiv bestehen. [mod_adele #21](https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/21), Arbeitsplan Phase F.1. | erledigt (Teil 12, `enrol_adele` 0.1.4) |
 | ~~E-11~~ | mod_adele-Issue #11 ("Message was not sent" beim ersten Anlegen eines Lernpfads in einem Kurs): **Ursache bestätigt** (Screenshot des echten Fehlertexts, Teil 17) — Moodles eigenes `enrol_manual`-Feature „Willkommensnachricht senden" (`sendcoursewelcomemessage`, seit lang etablierter Moodle-Core-Bestandteil), ausgelöst durch eine `enrol_manual`-Einschreibung, deren Willkommensnachricht über das Messaging-Subsystem (`core\message\manager`) nicht zugestellt werden konnte (typischerweise: kein konfigurierter Nachrichten-Prozessor auf der Demo-Instanz). Kein Bug in `enrol_adele`/`local_adele`/`mod_adele` — keines der drei Plugins enthält eigenen Messaging-Code (gezielt nachgeprüft, Teil 17). Betrifft ausschließlich den `enrol_manual`-Rückfallpfad (wenn `enrol_adele` fehlt/inaktiv) bzw. eine manuelle Einschreibung durch die Lehrkraft selbst — nicht die reguläre `enrol_adele`-Einschreibung, die keine Willkommensnachricht kennt. Siehe Abschnitt 1a für Details. | geklärt, kein Plugin-Bug (Teil 17) |

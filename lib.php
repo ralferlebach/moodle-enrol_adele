@@ -194,6 +194,11 @@ class enrol_adele_plugin extends enrol_plugin {
         $issamecourse = ($target === \backup::TARGET_CURRENT_ADDING || $target === \backup::TARGET_CURRENT_DELETING);
 
         $field = self::FIELD_LEARNINGPATHID;
+        // The teacher grants (kind 3) are not restored: they belong to the
+        // activity that gave them and to its course, not to a course copy.
+        if ((int) ($data->customint2 ?? 0) === \enrol_adele\local\instance_manager::KIND_TEACHER) {
+            return;
+        }
         if (
             $issamecourse
             && isset($data->$field)

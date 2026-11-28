@@ -36,6 +36,7 @@ use enrol_adele\local\reconciler;
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers      \enrol_adele\local\reconciler::sync_roles
  * @covers      \enrol_adele\local\reconciler::reconcile_all
+ * @group      adele_release
  */
 final class roles_and_retention_test extends \advanced_testcase {
     /**
@@ -342,5 +343,56 @@ final class roles_and_retention_test extends \advanced_testcase {
             $DB->record_exists('user_enrolments', ['id' => $ue->id]),
             'With retention 0 nothing may be removed, however old.'
         );
+    }
+
+    /**
+     * The course's participant list before and after the retention period
+     * (enrol_adele #7, re-audit TP-07): while suspended, the person is still
+     * listed (as suspended, not as active); after the period the ADELE
+     * enrolment is gone and so is the person - unless they hold an enrolment
+     * of their own, which keeps them listed and active, untouched.
+     *
+     * @return void
+     */
+    public function test_participant_list_before_and_after_the_period(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->preventResetByRollback();
+        $course = $this->getDataGenerator()->create_course();
+        $context = \context_course::instance($course->id);
+        [$lpid, $onlyadele] = $this->plant((int) $course->id);
+        [$lpid2, $alsoown] = $this->plant((int) $course->id);
+        $this->getDataGenerator()->enrol_user($alsoown, $course->id, 'student', 'manual');
+        set_config('suspendedretention', 30, 'enrol_adele');
+        reconciler::reconcile_user($lpid, $onlyadele);
+        reconciler::reconcile_user($lpid2, $alsoown);
+        $listed = fn(bool $onlyactive) => array_map(
+            'intval',
+            array_keys(get_enrolled_users($context, '', 0, 'u.id', null, 0, 0, $onlyactive))
+        );
+        $this->assertEqualsCanonicalizing([$onlyadele, $alsoown], $listed(true), 'Both active participants.');
+
+        foreach ([[$lpid, $onlyadele], [$lpid2, $alsoown]] as [$path, $user]) {
+            $DB->set_field('local_adele_path_user', 'status', 'inactive', ['learning_path_id' => $path, 'user_id' => $user]);
+        }
+        reconciler::reconcile_all();
+        $this->assertEqualsCanonicalizing([$onlyadele, $alsoown], $listed(false), 'Suspended: still on the list.');
+        $this->assertSame([$alsoown], $listed(true), 'Active only through the own enrolment.');
+
+        $DB->set_field_select(
+            'user_enrolments',
+            'timemodified',
+            time() - 31 * DAYSECS,
+            'enrolid IN (SELECT id FROM {enrol} WHERE enrol = :adele AND courseid = :c)',
+            ['adele' => 'adele', 'c' => $course->id]
+        );
+        reconciler::reconcile_all();
+        $this->assertSame([$alsoown], $listed(false), 'After the period: the ADELE-only person is gone from the list.');
+        $this->assertSame([$alsoown], $listed(true), 'The own enrolment untouched and active.');
+        $this->assertSame(0, $DB->count_records_sql(
+            "SELECT COUNT(1) FROM {user_enrolments} ue JOIN {enrol} e ON e.id = ue.enrolid
+              WHERE e.enrol = 'adele' AND e.courseid = :c",
+            ['c' => $course->id]
+        ));
     }
 }

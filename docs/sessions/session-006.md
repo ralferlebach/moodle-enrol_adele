@@ -2305,3 +2305,1342 @@ Produktcode, kein PHP, keine E2E-Datei.
   „Withdrawal control" in allen drei vollständig.
   Ausgeliefert als „mod_adele+enrol_adele: Löschen = sauber weg,
   Wiederherstellung schreibt ein" und „E2E-Issue (Addendum D)".
+
+## Teil 64 — Kurszugriff in der Lehrendenansicht, TP1: Kurslinks im Lesemodus (2026-10-16)
+
+- **Auftrag des Nutzers:** „Nimm dir das neue Issue zur Kursverlinkung in der
+  Lehreransicht und setze dieses um." (Issue-Datei
+  `mod_adele_IMPROVEMENT_Kurszugriff_Lehrendenansicht.md`, auf GitHub noch
+  ohne Nummer.) Geliefert wird nach dem Schnitt des Issues Teilpaket für
+  Teilpaket; dies ist **TP1**: Modus `existing_only`, nur Anzeige und Link,
+  keine Einschreibung, keine Anfrage.
+- **Server (mod_adele):**
+  - neu `classes/local/node_course_access.php`: die Knotenkurse des
+    eingebetteten Pfads in Pfadreihenfolge (Stapel in ihrer eigenen
+    Reihenfolge), ohne gelöschte Kurse und ohne die Startseite; „offen"
+    genau dann, wenn Moodle die Person hineinlässt
+    (`can_access_course(..., onlyactive = true)`: ausgesetzte Einschreibung
+    und verborgener Kurs ohne Recht = kein Zugang); Link nur bei „offen".
+  - neu Webservice `mod_adele_get_node_course_access` (`db/services.php`):
+    nur Kontext einer mod_adele-Aktivität, nur Lehrendenansicht
+    (`view_mode::for_context` = `teacher`), sonst `nopermissions`.
+- **Client (local_adele, Vue):** neu `TeacherCourseAccess.vue` auf der
+  aktiven Kachel (Klick oder Enter auf der fokussierten Kachel), nur in der
+  Lehrendenansicht einer Einbettung – nicht für Lernende, nicht im Editor.
+  Je Kurs Kurzname, Langname als eigener Text, Status in Worten, „Kurs
+  öffnen" (neuer Tab, `noopener noreferrer`) nur bei Zugang. Gleiche
+  Kurznamen erhalten die Kurs-ID. Umschalter mit `aria-expanded` /
+  `aria-controls`, Escape schließt und gibt den Fokus an die Kachel zurück,
+  Ergebnis über die Live-Region angesagt, deckende Fläche mit
+  Fokusrahmen. Store: `activeNodeId`, `nodeCourseAccess`,
+  `fetchNodeCourseAccess` (bei Ablehnung bleibt nichts „offen").
+  Strings en/de.
+- **Befund (belegt), als Issue-Entwurf:** Ein gelöschter Knotenkurs bricht die
+  Auswertung des Pfads ab (`learning_path_update::get_course()` →
+  `get_course()` → `dml_missing_record_exception`, aus
+  `course_completed::get_completion_status()`); im PHPUnit-Test dadurch
+  aufgefallen, dass die Einschreibung einer Lehrperson in den Gastkurs mit
+  abbrach. Entwurf `docs/issues/local_adele-issue-deleted-node-course.md`;
+  der Test umgeht den Fall bis dahin.
+- **PHPUnit (mod, neu `node_course_access_test`, 3 Tests):** offen genau, wo
+  Moodle hineinlässt (aktiv ja; ausgesetzt, verborgen, nicht eingeschrieben
+  nein; gelöschter Kurs und Startseite ohne Zeile; Stapelreihenfolge);
+  Administrator überall offen; wer fragen darf (Lehrperson mit und ohne
+  Bearbeitungsrecht ja, Lernende und Außenstehende nein, Kurskontext nein).
+  Proben: `onlyactive` = false → rot; Ansichtsprüfung entfernt → rot.
+- **Jest (local):** `TeacherCourseAccess.matrix.spec.js` (18) und
+  `store.nodecourseaccess.spec.js` (4).
+- **E2E (mod, neu `teacher-course-access.spec.ts`, Stories K1–K5):** Fixture
+  KZ: „Verzweigt, gestapelt B1" (Knoten 1 = Stapel T01–T03) in `E2EKZ`;
+  `fx_kz_teacher` (Bearbeitungsrecht) und `fx_kz_tutor` (ohne) in T01 und
+  T03, in T02 nicht; `fx_kz_learner`.
+  - K1/K2: vor der Aktivierung nichts; aktiviert T01/T03 „Zugang" mit Link,
+    T02 „Kein Kurszugang" ohne Link; der Link öffnet den Kurs selbst im
+    neuen Tab, der Graph bleibt.
+  - K3: kein Link und keine Schaltfläche für T02, nirgends auf der Seite; der
+    Dienst lehnt Lernende ab (`nopermissions`) und einen Kontext, der keine
+    Einbettung ist.
+  - K4 (`@withdrawal`): Administrator meldet die Lehrperson über Moodles
+    Teilnehmerseite aus T03 ab → neue Sitzung, erneut aktiviert: T03 ohne
+    Link, T01 weiter offen.
+  - K5: Enter auf der Kachel, Kurz- und Langname je Zeile, zugänglicher Name
+    des Links, Umschalter-ARIA; Link per Tastatur geöffnet; Escape schließt,
+    Fokus zurück auf der Kachel; Lernende und Pfadeditor ohne Kursaktionen.
+  - Mutationsproben: Zugang immer „offen" → K3 und K4 rot; Ansichtsprüfung
+    entfernt → K3 rot.
+- **Prüfstand `2026100729`:** phpcs (nach Korrektur von fünf Warnungen im
+  neuen PHPUnit-Test: Zeilenlänge, Kommentaranfang) und PHPDoc-Checker ohne
+  Befund; actionlint ohne Befund; PHPUnit local 402 (1 übersprungen, 1
+  unvollständig: catquiz nicht installiert, wie bisher), enrol 63, mod 29
+  (+3); Jest 96 Suiten, 721 bestanden, 0 übersprungen, Abdeckungsschwelle
+  gehalten; Smoke 17; Behat `mod_adele_use` grün; E2E local 78/78, enrol
+  6/6, mod 27/27 (+5), Story-Abdeckung einschließlich „Withdrawal control"
+  in allen drei vollständig.
+  Ausgeliefert als „mod_adele: Kurszugriff Lehrendenansicht (TP1)".
+  Als Nächstes TP3 (Einstellung `teachercourseaccessmode`), dann TP2, TP4,
+  TP5.
+
+## Teil 65 — #600 TP3: Einstellung `teachercourseaccessmode`; #601 behoben (2026-10-16)
+
+- **Auftrag des Nutzers:** „Weiter mit TP3, die Issues liegen unter #600 und
+  #601. Bitte den Bug mitfixen." Das Kurszugriffs-Issue ist local_adele
+  **#600** (Teil 64 nannte es „noch ohne Nummer"), der Befund aus Teil 64
+  ist local_adele **#601**.
+- **#601 (local_adele), Ursache wie im Entwurf:**
+  `learning_path_update::get_course()` gibt für einen nicht mehr
+  vorhandenen Kurs `null` zurück (statt `get_course()` mit
+  `dml_missing_record_exception`). Die Aufrufer werten `null` als Kurs ohne
+  Abschluss und ohne Fortschritt: `course_completed::get_completion_status()`,
+  `learning_paths::checknodeprogression()`. **Zweite Stelle, erst im Test mit
+  echten Observern sichtbar:** `node_completion::enrol_child_courses()` rief
+  für jeden Kurs des nächsten Knotens die Gruppenzuordnung auf
+  (`groups_get_all_groups` → `context_course::instance`) – auch für den
+  gelöschten; jetzt übersprungen. Ohne diese zweite Behebung wurde die
+  Lernperson nach Abschluss von Knoten 1 in **keinen** Kurs des Stapels
+  eingeschrieben (die Ausnahme im Observer brach den Rest ab).
+  - PHPUnit neu `issue601_deleted_node_course_test` (2 Tests, echte
+    Observer, ohne Event-Senke): Einschreiben, Abschluss von Knoten 1
+    (Einschreibung in B und C des Stapels, Stapel offen), Abschluss von C
+    (Stapel abgeschlossen, gelöschter Kurs zählt als nicht abgeschlossen),
+    Ad-hoc-Aufgaben mit ausgeführt; `checknodeprogression` und
+    `get_completion_status` direkt.
+  - Umgehung in mod `node_course_access_test` entfernt (Teilnehmerquelle
+    „dieser Kurs", immer mit gelöschtem Kurs). Probe: Behebung in
+    `get_course()` zurückgenommen → beide Tests rot.
+- **#600 TP3 (mod_adele):**
+  - neu `settings.php` (bisher keine Plugin-Einstellungen): „Zugelassene
+    Modi" (Mehrfachauswahl; „Nur vorhandener Zugang" immer zugelassen;
+    ausgeliefert nur dieser) und „Standard für neue Aktivitäten".
+  - neu `classes/local/teacher_access_mode.php`: Modi in Rangfolge,
+    `allowed()`, `site_default()`, `effective()` (gespeichert und zugelassen,
+    sonst `existing_only`), `form_options()`, `may_save()`.
+  - Spalte `adele.teachercourseaccessmode` (Standard `existing_only`,
+    Upgrade-Schritt `2026100730`: bestehende Aktivitäten erhalten den am
+    wenigsten privilegierten Modus).
+  - Formular: unter „Lernpfadeinstellungen" → „Mehr anzeigen …"; angeboten
+    werden die zugelassenen Modi und – falls die Website ihn entzogen hat –
+    der gespeicherte, markiert („nicht mehr zugelassen") und mit sichtbarem
+    Hinweis; dann nicht eingeklappt. Prüfung im Formular und zusätzlich in
+    `adele_add_instance`/`adele_update_instance`: neue Aktivität = zugelassener
+    Wert oder Website-Standard; Änderung nur auf einen zugelassenen Modus;
+    sonst bleibt der gespeicherte unverändert.
+  - Sicherung/Wiederherstellung/Duplikat nehmen den Modus mit; ein
+    unbekannter Wert wird beim Wiederherstellen `existing_only`.
+  - Der Webservice nennt den **wirksamen** Modus.
+  - Abhängigkeit mod_adele → local_adele `2026100730`.
+  - **Abgrenzung:** „Zugang anfragen" und die Einschreibemodi sind
+    wählbar und werden aufgelöst, haben aber bis TP2/TP4 keine eigene
+    Aktion; ohne Zugang zeigt die Kachel weiter „Kein Kurszugang". Der
+    Entzug von Grants beim Wegnehmen eines Modus (AK-C3, zweiter Teil)
+    gehört zu TP4 – Grants gibt es noch nicht. Zielrollen und Anfrageweg
+    kommen mit TP4 bzw. TP2.
+- **Befund (belegt), als Issue-Entwurf:** Die Sicherung von mod_adele führt
+  `hostenrolmentmode` nicht mit; ein Duplikat einer Aktivität mit „keine
+  Einschreibung" wird „automatisch" (gemessen: Original `none`, Kopie
+  `visible`). Entwurf `docs/issues/mod_adele-issue-backup-hostenrolmentmode.md`;
+  nicht behoben.
+- **PHPUnit (mod, neu `teacher_access_mode_test`, 7 Tests):** zugelassene
+  Modi (Auslieferung, Rangfolge, Unbekanntes); Standard für neue Aktivitäten
+  (auch nicht zugelassener Standard → `existing_only`; eingereichter nicht
+  zugelassener Wert → Standard); bestehende behalten ihren Modus;
+  Speichern nur zugelassener Modi, auch direkt über
+  `adele_update_instance()`; entzogener Modus bleibt gespeichert, wirkt als
+  `existing_only`, im Formular markiert, unverändert speicherbar,
+  zurückgegeben wirkt er wieder; Webservice nennt den wirksamen Modus;
+  Duplikat behält den Modus. Proben (je rot): `effective()` ohne
+  Website-Prüfung; Schutz in `adele_update_instance` entfernt; Feld aus der
+  Sicherung entfernt; Schutz in `adele_add_instance` entfernt.
+- **E2E (mod, neu `teacher-course-access-settings.spec.ts`, Stories
+  K6–K8):** Seed setzt die Website-Einstellungen je Lauf auf den
+  Auslieferungszustand.
+  - K6: ausgeliefert nur „Nur vorhandener Zugang"; Administrator lässt
+    „Zugang anfragen" zu und macht es zum Standard (Moodles
+    Administrationsseite) → neue Aktivität bietet genau die zwei Modi, ist
+    vorbelegt und gespeichert mit `request`; die bestehende behält
+    `existing_only`.
+  - K7 (`@withdrawal`): Aktivität auf „Zugang anfragen", Lehrendenansicht
+    wirkt mit `request` → Modus entzogen → Formular zeigt ihn markiert mit
+    Hinweis; Speichern aus anderem Grund behält ihn; ein ins Formular
+    eingeschleuster Wert (`enrol_editingteacher`) wird nicht gespeichert;
+    Lehrendenansicht wirkt als `existing_only` → zurückgegeben: Hinweis weg,
+    wirkt wieder mit `request`.
+  - K8: Lehrperson ohne Bearbeitungsrecht nutzt den Kurszugriff, das
+    Einstellungsformular verweigert Moodle; gespeicherter Wert unverändert.
+  - Proben (je rot): Formular ohne den gespeicherten, entzogenen Modus (K7:
+    stille Änderung); `effective()` ohne Website-Prüfung (K7: wirkt weiter
+    mit `request`).
+- **Prüfstand `2026100730`:** phpcs (nach Korrektur der Klammerung einer
+  mehrzeiligen Bedingung in `restore_adele_stepslib.php`) und
+  PHPDoc-Checker ohne Befund; actionlint ohne Befund; PHPUnit local 404
+  (+2; 1 übersprungen, 1 unvollständig wie bisher), enrol 63, mod 36 (+7);
+  Jest 96 Suiten, 721 bestanden, 0 übersprungen; Smoke 17; Behat
+  `mod_adele_use` grün; E2E local 78/78, enrol 6/6, mod 30/30 (+3),
+  Story-Abdeckung einschließlich „Withdrawal control" in allen drei
+  vollständig.
+  Ausgeliefert als „local_adele #600 (TP3)" und „local_adele #601".
+  Als Nächstes TP2 (Anfrageweg).
+
+## Teil 66 — #600 TP2: „Zugang anfragen"; mod_adele #41 behoben (2026-10-16)
+
+- **Auftrag des Nutzers:** „Weiter mit TP2. Issue ist abgelegt unter
+  …/moodle-mod_adele/issues/41" – #41 ist der Befund aus Teil 65
+  (Sicherung verliert `hostenrolmentmode`); er wird mit ausgeliefert.
+- **mod_adele #41:** `hostenrolmentmode` steht in der Feldliste der
+  Sicherung; beim Wiederherstellen wird ein unbekannter Wert `visible`.
+  PHPUnit neu `backup_hostenrolmentmode_test` (2 Tests): Duplikat behält
+  `none` und `hidden`; Import (Sicherung einer Aktivität → anderer Kurs)
+  behält `none`; dieselbe Sicherung **ohne** das Feld (wie eine ältere, das
+  Element im `adele.xml` der Sicherung entfernt) ergibt `visible`. Vor der
+  Behebung beide rot (gemessen: `visible` statt `none`).
+- **#600 TP2 (Server, mod_adele):**
+  - neu `classes/local/access_request.php`: Empfänger = aktive Mitglieder
+    **des angefragten Kurses** mit `enrol/manual:enrol` (Website-Einstellung
+    „Wer gefragt wird", alternativ `moodle/course:enrolreview`), nie die
+    fragende Person, nie Lehrende des Gastkurses als solche;
+    `require_possible()` (wirksamer Modus `request`, Kurs gehört zum
+    eingebetteten Pfad, kein Zugang); vorausgefüllter Text in der Sprache
+    der Fragenden; `send()` prüft den Empfänger erneut, Text 1–4000
+    Zeichen, sendet eine Moodle-Mitteilung (neuer Nachrichtentyp
+    `mod_adele/courseaccessrequest`, Pop-up und E-Mail) von der fragenden
+    Person, Betreff und Kontext (Gastkurs, Pfad, angefragter Kurs, Link
+    zur Teilnehmerseite) in der Sprache der Empfänger/in, darüber der
+    eigene Text; protokolliert als neues Ereignis
+    `course_access_requested` (ohne den Text).
+  - Webservices `mod_adele_get_access_request` (Empfänger, Entwurf,
+    Kontakt der Website) und `mod_adele_send_access_request`; die
+    gemeinsame Prüfung der Lehrendenansicht steht jetzt in
+    `get_node_course_access::require_teacher_view()`.
+  - Kursliste: im Modus `request` ohne Zugang `request` (es gibt
+    jemanden zu fragen) oder `request_copy` (niemand) – Feldtyp des Status
+    auf `PARAM_ALPHANUMEXT` erweitert (`PARAM_ALPHA` hätte den Unterstrich
+    entfernt).
+  - Website-Einstellungen: „Wer gefragt wird", „Ansprechpartner, wenn
+    niemand gefragt werden kann" (Text).
+- **#600 TP2 (Client, local_adele):** neu `CourseAccessRequestDialog.vue`:
+  modaler Dialog außerhalb des Graphen (Teleport in den Seitenkörper),
+  `role="dialog"`, `aria-modal`, benannt durch die Überschrift, Fokus im
+  Dialog und darin gehalten (Tab/Umschalt+Tab), Escape bricht ab, Fokus
+  zurück auf die auslösende Schaltfläche; Empfänger (eine Person als Text,
+  mehrere als Auswahl), editierbarer Text, „Senden" nur mit Empfänger und
+  nicht leerem Text; ohne Empfänger kein „Senden", sondern Kontakt der
+  Website und „Nachricht kopieren"; Ablehnung des Servers als
+  `role="alert"` mit dessen Begründung, Text bleibt. In der Kachel je Zeile
+  „Zugang anfragen" bzw. „Anfrage vorbereiten" (`<button type="button">`,
+  zugänglicher Name mit Kurz- und Langname); nach dem Senden „Anfrage
+  gesendet" und Ansage über die Live-Region. Store-Aktionen
+  `fetchAccessRequest`, `sendAccessRequest` (ohne Moodle-Fehlerdialog, die
+  Ablehnung geht an den Dialog).
+- **PHPUnit (mod, neu `access_request_test`, 5 Tests):** Zeilenstatus mit und
+  ohne Modus; Empfänger nur das aktive einschreibberechtigte Mitglied von B
+  (nicht Lehrperson ohne Bearbeitungsrecht, nicht ausgesetzt); Entwurf
+  nennt Gastkurs, Pfad, Zielkurs; Kontakt der Website; Website wählt die
+  Empfängerregel; Senden: genau eine Mitteilung an die gewählte Person mit
+  eigenem Text und Kontext, Ereignis mit Empfänger und Kurs, niemand
+  eingeschrieben; gefälschte Aufrufe (falsche, ausgesetzte, lernende,
+  eigene Person als Empfänger; Kurs ohne Ansprechperson; Kurs außerhalb des
+  Pfads; Kurs mit Zugang; leerer Text; Modus entzogen; Lernende) abgelehnt
+  und nichts gesendet. Proben (je rot): Empfängerprüfung, Zugangsprüfung,
+  Pfadprüfung, Modusprüfung entfernt.
+- **Jest (local):** neu `CourseAccessRequestDialog.matrix.spec.js` (9);
+  `TeacherCourseAccess.matrix.spec.js` +3 (Zeilen im Modus `request`,
+  Dialog je Kurs und Fokus zurück, „gesendet" mit Ansage);
+  `store.nodecourseaccess.spec.js` +1.
+- **E2E (mod, neu `teacher-course-access-request.spec.ts`, Stories
+  K9–K12):** Seed: `fx_kz_owner` als Trainer/in in T02 (sonst niemand
+  dort einschreibberechtigt), alte Mitteilungen an ihn gelöscht,
+  Anfrage-Einstellungen zurückgesetzt; Exporte `ADELE_FIXTURE_KZ_OWNER(_ID)`,
+  `ADELE_FIXTURE_KZ_LEARNER_ID`. Gemeinsame Hilfen der Kurszugriffs-Ketten
+  in `support/teacheraccess.ts` (aus der TP3-Kette herausgezogen).
+  - K9: Zeilen je eigener Status/Aktion; Dialog benannt, Empfänger
+    „Fixture Access Owner", Text vorausgefüllt (Gastkurs, Pfad, Zielkurs),
+    vor „Senden" nichts versandt; bearbeitet und gesendet → Zeile „Anfrage
+    gesendet", Fokus zurück; Empfänger hat genau diesen Text von der
+    Lehrperson (Server) und sieht den Betreff auf seiner Mitteilungsseite; erneut
+    aktiviert weiterhin kein Zugang (keine Einschreibung).
+  - K10: geöffnet, bearbeitet, Escape → nichts versandt; Tab bleibt im
+    Dialog; Abbrechen → nichts versandt; Fokus jeweils zurück.
+  - K11 (`@withdrawal`): Kontakt der Website gesetzt, Owner aus T02
+    abgemeldet → „Kein Zugang – niemand zu fragen", „Anfrage vorbereiten";
+    Dialog ohne „Senden", mit Kontakt und Text zum Kopieren.
+  - K12 (`@withdrawal`): gefälschte Aufrufe der Lehrperson (Lernende als
+    Empfänger, Gastkurs, T01 mit Zugang) und einer Lernenden abgelehnt;
+    Website entzieht den Modus → keine Schaltfläche, Dienst lehnt ab; beim
+    Owner kam nichts an.
+  - Proben (je rot): Empfänger ohne Fähigkeitsprüfung (K11, K12); Modusprüfung
+    entfernt (K12); Dialog sendet beim Öffnen (K10 – danach die Prüfung
+    „nichts versandt" direkt nach Escape ergänzt, damit K10 genau daran
+    scheitert).
+- **Prüfstand `2026100731`:** phpcs (nach Korrektur zweier Warnungen:
+  Kommentaranfang in `settings.php`, Zeilenlänge im neuen Test) und
+  PHPDoc-Checker ohne Befund; actionlint ohne Befund; PHPUnit local 404
+  (1 übersprungen, 1 unvollständig wie bisher), enrol 63, mod 43 (+7);
+  Jest 97 Suiten, 734 bestanden, 0 übersprungen; Smoke 17; Behat
+  `mod_adele_use` grün; E2E local 78/78, enrol 6/6, mod 34/34 (+4),
+  Story-Abdeckung einschließlich „Withdrawal control" in allen drei
+  vollständig.
+  Ausgeliefert als „local_adele #600 (TP2)" und „mod_adele #41".
+  Als Nächstes TP4 (Einschreibung über enrol_adele, Richtlinien 1–3).
+
+## Teil 67 — #600 TP4: Einschreibung über enrol_adele, Richtlinien 1–3; Version 0.7.1 beta (2026-10-16)
+
+- **Auftrag des Nutzers:** „Mach weiter mit TP 4 - und setze alle Pulgins auf
+  Maturity_beta und Versionsname 0.7.1 sowie entferne alle Kommentare
+  außerhalb der boiler plate." Gelesen als: in den drei `version.php`
+  `MATURITY_BETA`, `release = '0.7.1'`, und dort alle Kommentare außer
+  Lizenzkopf und Datei-Docblock entfernt (die Begründungen der
+  Abhängigkeitsstände standen nur dort; sie stehen in diesem Protokoll).
+  Version `2026100732`. Abhängigkeiten von mod_adele: local_adele und
+  enrol_adele je `2026100732`.
+- **Offene Richtlinienentscheidung des Issues (4.4):** umgesetzt wie in Teil
+  66 angekündigt und vom Nutzer nicht anders gewünscht: Bestandsschutz
+  schützt nur den gespeicherten Wert. Wer einen Trainer-Modus mit Befugnis
+  speichert, wird als `teachercourseaccessgrantor` gespeichert; der Modus
+  erteilt nur, solange diese Person die Befugnis noch hat; sonst nimmt der
+  Abgleich die Einschreibungen zurück, der Wert bleibt stehen.
+- **enrol_adele:**
+  - erste eigene Tabelle `enrol_adele_teacher_grants` (Quelle `cmid`, Pfad,
+    Kurs, Person, Modus, Rolle); `db/install.xml` neu, Upgrade-Schritt.
+  - neue Instanzart `instance_manager::KIND_TEACHER` (= 3, eine je Kurs,
+    `customint1` = 0) – getrennt von den Lernenden-Instanzen. Alle
+    Lernenden-Durchläufe des Reconcilers schließen sie aus (Ablauf
+    ausgesetzter Einschreibungen, verwaiste Instanzen – ohne Ausschluss
+    hätte `customint1` = 0 sie gelöscht, Probe rot –, Duplikate,
+    Rollenabgleich in zwei Schritten), ebenso die Pfadfilter der
+    Verwaltungsseite und die Kursliste der Lernenden (`roster_members_sql`
+    in local_adele). Sicherungen stellen sie nicht wieder her.
+  - neu `teacher_grants`: `add`, `remove`, `get`, `apply` – Einschreibung,
+    solange eine Berechtigung bleibt; jede Rolle, solange eine Berechtigung
+    sie gibt (Vereinigung über die Quellen); nur Rollenzuweisungen der
+    eigenen Instanz werden angefasst.
+  - Datenschutz: aus dem `null_provider` wird ein Metadaten- und
+    Nutzerlisten-Provider (Export; Löschen nimmt Einschreibung und Rolle mit);
+    der alte String `privacy:metadata` entfällt.
+- **mod_adele:**
+  - Fähigkeiten `mod/adele:enrolinnodecourses` (sich selbst einschreiben;
+    Trainer/in, Trainer/in ohne Bearbeitungsrecht, Manager/in) und
+    `mod/adele:delegatecourseaccess` (Richtlinie 3; Trainer/in, Manager/in).
+  - Website-Einstellungen: Richtlinie (1 gesperrt, 2 behalten/herabsetzen
+    – Standard –, 3 Delegation) und je Einschreibemodus die Rolle
+    (Standard: Archetyp student/teacher/editingteacher). Jede Änderung
+    (auch der zugelassenen Modi) stellt sofort einen Abgleich in die
+    Warteschlange (Rückruf als Klassenmethode – eine Funktion in `lib.php`
+    wird auf der Einstellungsseite nicht geladen; das war der erste
+    Befund der E2E-Kette K14, behoben).
+  - `teacher_access_mode`: Rang, Richtlinie, Zielrolle, Befugnis
+    (`has_rights_in_all_courses`: `moodle/role:assign` und Rolle zuweisbar
+    in **jedem** Kurs des Pfads; Richtlinie 3 zusätzlich die
+    Delegationsfähigkeit), Formularoptionen mit gesperrten Einträgen,
+    `is_locked`, `may_save` nach Richtlinie, `is_authorized`. Der Standard
+    für neue Aktivitäten ist nie ein Trainer-Modus.
+  - Formular: Richtlinie 1 friert die Auswahl für Personen ohne Befugnis ein
+    (Hinweis sichtbar), sonst nur die erlaubten Einträge; die Prüfung nutzt
+    den eingereichten Pfad.
+  - Speichern (`adele_resolve_teacher_mode`): Wert und Grantor nach der
+    Befugnis der speichernden Person; danach Abgleich der Berechtigungen
+    der Aktivität. Löschen der Aktivität entfernt ihre Berechtigungen.
+    Sicherung führt den Grantor als Nutzerverweis (ohne Zuordnung beim
+    Wiederherstellen: 0 – der Modus erteilt dann nichts, bis jemand mit
+    Befugnis speichert).
+  - neu `teacher_enrolment`: `refusal` (Lehrendenansicht, Fähigkeit,
+    wirksamer Einschreibemodus, Befugnis, Kurs des Pfads, Rolle vorhanden,
+    verborgener Kurs nur mit einer Rolle, die ihn sehen darf, enrol_adele
+    aktiv), `enrol` (Zielrolle der Website, nie aus dem Browser; Ereignis
+    `node_course_enrolled`), `holds` (zusätzlich: Rang der Berechtigung ≤
+    wirksamer Modus, Rolle = aktuelle Zielrolle), `reconcile_cm`,
+    `reconcile_all`, `reconcile_path`, `remove_cm`. Auslöser: Speichern
+    und Löschen der Aktivität, Speichern/Löschen des Pfads (Beobachter auf
+    `learnpath_updated`/`learnpath_deleted`), Website-Einstellung, nächtliche
+    Aufgabe `reconcile_teacher_grants`.
+  - Webservice `mod_adele_enrol_in_node_course` (nur Kontext und Kurs);
+    Kursliste mit Status `enrol` (Rolle, Rollenbeschreibung) und
+    `unavailable` (Grund), dazu die Quelle der Einschreibung.
+  - **Entzug:** Einschreibungen dieser Art werden entfernt, nicht
+    ausgesetzt (es gibt keinen Lernstand zu bewahren).
+- **local_adele (Vue):** neu `CourseEnrolConfirmDialog.vue` (Kurs, Rolle mit
+  Beschreibung, Quelle, Hinweis auf die Rücknahme; nur „Einschreiben"
+  schreibt ein; Ablehnung mit Grund; modal wie der Anfragedialog) und
+  `modalFocus.js` (Tastatur beider Dialoge, aus dem Anfragedialog
+  herausgezogen). Kachelzeilen „Kein Zugang – Einschreibung möglich" mit
+  Schaltfläche je Modus und „Kein Zugang – nicht verfügbar" mit Grund; nach
+  der Einschreibung wird neu gefragt, angesagt, und der Fokus liegt auf dem
+  neuen Link.
+- **Befund (belegt), als Issue-Entwurf:** Trainer/innen des Gastkurses, die
+  den eingebetteten Pfad nicht bearbeiten dürfen, können die Aktivität gar
+  nicht speichern – die Pfadauswahl bietet nur bearbeitbare Pfade, der
+  gespeicherte fehlt, „required" (`id_error_learningpathid`, gemessen mit
+  `fx_kz_teacher`). Entwurf
+  `docs/issues/mod_adele-issue-form-path-not-editable.md`; nicht behoben. Für
+  die Richtlinien-Ketten macht der Seed `fx_kz_teacher` zum Bearbeiter des
+  KZ-Pfads (ohne Befugnis in T02).
+- **PHPUnit (mod, neu `teacher_enrolment_test`, 12 Tests):** Einschreibung
+  als Teilnehmer/in (Instanz, Rolle, Ereignis, danach offen); gefälschte
+  Aufrufe; Lernenden-Reconcile lässt die Berechtigungen stehen; Entzug durch
+  Website, Aktivität, Verlassen des Gastkurses – eigene Einschreibung
+  bleibt; zwei Quellen (Vereinigung der Rollen, Herabsetzen, Löschen der
+  Aktivität); Herabsetzen zwischen den Trainer-Modi; Richtlinie 2, 1, 3
+  samt Rückkehr zu 2; geänderte Zielrolle; verborgener Kurs; Datenschutz.
+  `teacher_access_mode_test` an die neue Signatur angepasst. Proben (je rot):
+  Rangprüfung entfernt (zunächst grün – kein Test prüfte sie ohne die
+  Befugnisprüfung; dafür der Test „zwischen den Trainer-Modi" ergänzt, dann
+  rot); Befugnisprüfung entfernt; überzählige Rollen bleiben; Teacher-Art im
+  Waisen-Durchlauf nicht ausgeschlossen; Heraufsetzen unter Richtlinie 2
+  erlaubt.
+- **Jest:** neu `CourseEnrolConfirmDialog.matrix.spec.js` (9),
+  `TeacherCourseAccess.matrix.spec.js` +5, Store +1. Die globale
+  Zweigschwelle (47 %) fiel mit den neuen, vorlagenlastigen Komponenten auf
+  46,6 %; statt die Schwelle zu senken, haben die vier Dateien der
+  Kurszugriffs-Matrizen jetzt eigene Schwellen zu ihren Messwerten (wie im
+  Konfigurationskommentar vorgesehen), zusätzlich acht Randfall-Tests.
+- **E2E (mod, neu `teacher-course-access-enrol.spec.ts`, Stories K13–K18;
+  K14, K15, K17, K18 mit `@withdrawal`):** Seed setzt Richtlinie, Rollen und
+  Berechtigungen zurück.
+  - K13: Bestätigung mit Rolle „Student", Quelle; Escape schreibt nicht ein;
+    „Einschreiben" über enrol_adele, Link fokussiert; neue Sitzung öffnet den
+    Kurs; Teilnehmerseite zeigt Rolle und Methode „ADELE (teacher access)".
+  - K14: gefälschte Aufrufe abgelehnt; Website entzieht den Modus → weg,
+    T01 bleibt offen, Dienst lehnt ab.
+  - K15: Richtlinie 2 – Trainer/in ohne Befugnis setzt „mit
+    Bearbeitungsrecht" auf „ohne" herab → höhere Einschreibung weg; kein
+    Heraufsetzen mehr angeboten.
+  - K16: Richtlinie 1 – gesperrt, Speichern behält den Wert.
+  - K17: Richtlinie 3 – Delegation durch die Trainer/in, Einschreibung als
+    Trainer/in ohne Bearbeitungsrecht; zurück zu 2 → Wert bleibt,
+    Einschreibung weg, Zeile „nicht verfügbar" mit Grund.
+  - K18: Aktivität gelöscht → Einschreibung weg, Kurs nicht mehr offen.
+  - Proben (je rot): Einstellungsänderung ohne Abgleich (K14, K17);
+    Rangprüfung entfernt (K15); Einschreibung schon beim Öffnen der
+    Bestätigung (K13).
+- **Im Prüfstand gefunden und behoben:**
+  - PHPUnit local `roster_course_scope_test` (Lernende in „verborgen"
+    bleiben auf der Liste) wurde rot: Die Ausschlüsse der neuen Art lauteten
+    `customint2 <> 3`; eine Instanz ohne `customint2` (NULL – im Test, und
+    bei Instanzen aus der Zeit vor der Art-Kennung möglich) fiel damit aus
+    allen Lernenden-Durchläufen und aus der Liste. Jetzt
+    `COALESCE(customint2, 0) <> 3` an allen acht Stellen; Test grün.
+  - Voller E2E-Lauf mod: H3 (`withdrawn-settings.spec.ts`) einmal rot –
+    `loginAs` ging nach `about:blank`, und diese Navigation wurde von einer
+    gleichzeitigen Weiterleitung der alten Seite auf
+    `/login/index.php?loginredirect=1` unterbrochen (Fehlermeldung von
+    Playwright, im Schritt nach dem Verschieben der Testuhr). Einzeln
+    zweimal grün. `loginAs` (alle drei Plugins) lässt eine solche
+    Navigation zu Ende laufen und verlässt die Seite dann erneut (höchstens
+    drei Versuche, andere Fehler unverändert).
+- **Unterbrechung und Fortsetzung:** Am 2026-10-16 endete die Sitzung vor
+  dem letzten vollen Prüflauf (Sitzungslimit). Am 2026-10-17 („Mach weiter
+  mit TP 4 …", erneut gesendet) wurde der Stand aus dem Protokoll und dem
+  Arbeitsverzeichnis übernommen, das Vue-Paket neu gebaut und der Prüfstand
+  vollständig wiederholt.
+- **Prüfstand `2026100732`:** phpcs und PHPDoc-Checker ohne Befund;
+  actionlint ohne Befund; PHPUnit local 404 (1 übersprungen, 1
+  unvollständig wie bisher), enrol 63, mod 55 (+12); Jest 98 Suiten, 749
+  bestanden, 0 übersprungen, Schwellen gehalten; Smoke 17; Behat
+  `mod_adele_use` grün; E2E local 78/78, enrol 6/6, mod 40/40 (+6),
+  Story-Abdeckung einschließlich „Withdrawal control" in allen drei
+  vollständig.
+  Ausgeliefert als „local_adele #600 (TP4)" mit Version 0.7.1 (beta).
+  Als Nächstes TP5 (Abnahme).
+
+## Teil 68 — Master-Issue (P0–P2), Paket P0 (2026-10-17)
+
+- **Auftrag des Nutzers:** „…Master_Nacharbeitsissue… Ist eingefügt
+  https://github.com/Wunderbyte-GmbH/moodle-mod_adele/issues/43 bitte
+  abarbeiten. Dann die eingeforderten Nacharbeiten starten und vollumfänglich
+  umsetzen!" Das Master-Issue wurde gegen `main` geprüft; der
+  Entwicklungsstand war in mehreren Punkten weiter (#41 behoben, `after_restore`,
+  `is_participant`, enrol-Core-Clock). Abarbeitung in drei Lieferungen
+  P0 → P1 → P2. Die Original-AKs jedes Einzelissues wurden von GitHub
+  gelesen (WebFetch). Zu jedem Issue liegt ein Abnahmeprotokoll nach
+  Abschnitt 6 des Master-Issues unter `docs/abnahme/` bei.
+- **Datenbankmatrix (D4):** MariaDB 10.11.14 im Arbeitsbereich installiert;
+  die Testseite wählt mit `ADELE_DB=mariadb` eine zweite Konfiguration
+  (eigene Datenbank, eigenes PHPUnit-Datenverzeichnis). PHPUnit läuft damit
+  auf PostgreSQL 16 **und** MariaDB 10.11. MySQL nur in der CI-Matrix.
+- **P0.1 Kompatibilität/CI:** Ursache (belegt aus Run 38969547394 und der
+  Workflow-Datei): Der PR aus dem Fork `ralferlebach:main` lief im Kontext
+  des Upstreams, `extra_plugin_runners` holte die Begleit-Plugins vom
+  `github.repository_owner` (= Wunderbyte-GmbH, deren `main` ohne
+  `enrol_state::is_participant()`). Die 19 Fehler einzeln zuzuordnen war
+  nicht möglich (Job-Log nur angemeldet lesbar); sie stammen alle aus
+  demselben Lauf mit dieser Paarung.
+  - Behebung: In allen drei `moodle-plugin-ci.yml` kommen die Begleiter vom
+    Eigentümer des PR-Heads (`github.event.pull_request.head.repo.owner.login`,
+    sonst `repository_owner`).
+  - Abhängigkeiten im Gleichschritt: jedes Plugin verlangt die beiden
+    anderen in der Version derselben Freigabe (`2026100734`); eine ältere
+    Paarung lehnt Moodle bei der Installation ab, statt später mit
+    „undefined method" zu scheitern.
+  - Neuer Test `tests/sibling_api_test.php` in allen drei Plugins: jede außerhalb
+    der Tests benutzte Klasse/Methode der Geschwister existiert (statisch
+    ermittelt, 8/8/16 Einträge), und die Untergrenzen sind die
+    Freigabeversion. Vorher (Archivstände geprüft) waren die Untergrenzen
+    von local_adele (`mod_adele` 2026082902, `enrol_adele` 2026072500) älter
+    als jeder vorliegende Stand und damit nicht nachprüfbar – auch das ist
+    mit dem Gleichschritt erledigt.
+- **P0.4 #30 (wirksame Einschreibung):** neue zentrale Definition in
+  local_adele (`effective_enrolment_sql()`, `get_effectively_enrolled_courseids()`,
+  `is_effective_participant()`): nicht ADELE, Methode aktiv, im Zeitraum,
+  **nicht ausgesetzt**. Ersetzt die vier gleichlautenden Abfragen
+  (mod `host_policy` ×2, local `get_nonparticipant_userids`, enrol
+  `observer::has_foreign_enrolment`); auch local `enrollment::enrolled()` und
+  `role_assigned_in_course()` (vorher `is_enrolled()` ohne Aktivprüfung)
+  nutzen sie. mod beobachtet jetzt `user_enrolment_updated`
+  (Aussetzen/Reaktivieren wirkt wie Ein-/Ausschreiben). Website-Einstellung
+  `mod_adele/sourcesincludesuspended` (Standard aus; „Setting … auch inaktive
+  Nutzer berücksichtigen" aus der Lösung des Issues), Änderung wendet alle
+  Quellen neu an. PHPUnit neu `effective_source_test` (5): ausgesetzt →
+  nichts; reaktiviert → Abo + Gastkurs, zweimal → dieselbe Einschreibung;
+  erneut ausgesetzt → Zugang weg; zweite aktive Quelle trägt; Zukunft,
+  abgelaufen, deaktivierte Methode → nichts; Quelle 1 gleich; Einstellung
+  an → wie früher. Proben (je rot): Statusfilter entfernt;
+  `user_enrolment_updated`-Beobachter entfernt.
+- **P0.5 #37 (ADELE-Einschreibungen keine Quelle):** Entscheidung im
+  Pflichtenheft (Abschnitt 1d) festgehalten. PHPUnit neu
+  `adele_source_shared_node_test` (4): zwei Pfade teilen den Knotenkurs N;
+  die ADELE-Einschreibung aus Pfad A in N abonniert Pfad B nicht und trägt
+  nicht in dessen Gastkurs – live, beim Speichern (alle drei Durchläufe),
+  nach dem Gastkursabgleich; A-4: beim Verlassen von HB trägt sie nicht,
+  eine eigene in N schon; Gegenprobe eigene Einschreibung in N.
+  - **Befund (belegt) und Behebung:** A-4 wurde nur beim Verlassen eines
+    **einbettenden** Kurses ausgewertet. Wer über Quelle 2/3 (Knotenkurs) zu
+    einem Pfad kam und diesen Knotenkurs verließ, blieb abonniert – samt der
+    ADELE-Einschreibungen in die weiteren Knotenkurse (gemessen in der
+    E2E-Kette: nach Entfernen der eigenen T01-Einschreibung blieben die Abos
+    der Pfade 2 und 3 und deren Zieleinschreibungen T01–T04 aktiv). Jetzt
+    prüft `left_course()` auch die Pfade, für die der verlassene Kurs ein
+    Start-/Knotenkurs einer Quelle-2/3-Einbettung ist (nur für Abonnierte),
+    mit derselben Tragregel. Test „Verlassen des Knotenkurses von Quelle 2":
+    Gastzugang sofort weg, Abo nach der Schonfrist weg, Pfad A bleibt;
+    Probe ohne den neuen Auslöser → rot.
+  - Proben: Ausschluss `enrol <> 'adele'` allein entfernt → grün (die zweite
+    Sicherung über die ADELE-Rolle greift); beide entfernt → zwei Tests rot.
+  - **E2E neu mod `adele-source-shared-node.spec.ts`, Story H4
+    (`@withdrawal`)** mit Fixture S37 (`E2E37A` bettet „E2E Linear vier
+    Schritte" für Mitglieder ein, `fx_37_learner` nur dort → ADELE-
+    Einschreibung in T01; `E2E37B` leer): „Linear A2" mit Startknoten und
+    „irgendein Kurs" in E2E37B → live und nach dem nächtlichen Abgleich nicht
+    auf dem Pfad, Kurs zu; Gegenprobe eigene T01-Einschreibung (über die
+    Teilnehmerseite) → auf dem Pfad, Kurs offen; zurückgenommen (nur die
+    manuelle Methode beendet) → Kurs zu, die ADELE-Einschreibung in T01 bleibt.
+- **P0.6 #31 (`index.php`):** Kurskontext für das Ereignis, neue
+  Ereignisklasse `course_module_instance_list_viewed` (fehlte – Fatal),
+  String `noadeleinstances` (en/de), statt `notice()` Weiterleitung zum Kurs
+  mit Hinweis, Spalten „Abschnitt"/„Name" mit passender Ausrichtung, Tabelle
+  mit `id`. Behat neu `mod_adele_index.feature` (4 Szenarien: leer → Kurs mit
+  Hinweis; befüllt als Lehrperson und Lernende → je eine Zeile; Fremde →
+  keine Liste), läuft mit Entwickler-Debugging ohne Meldung. Probe: alte
+  `index.php` → „Undefined variable $modulecontext". PHPUnit neu
+  `index_event_test`.
+- **P0.2 #41 / P0.3 #29 (Sicherung):** Zusatzprüfungen #41: Duplikat
+  behält auch `visible`; „none" wiederhergestellt neben einer bestehenden
+  Einbettung desselben Pfads im Zielkurs → keine ADELE-Methode, niemand
+  eingeschrieben, Abo des Pfads bleibt. #29:
+  - Wiederherstellung ordnet den Lernpfad nur auf derselben Website und nur,
+    wenn er existiert, zu; sonst `learningpathid = 0` mit Warnung im
+    Protokoll; `view.php` zeigt dann „noch kein Lernpfad gewählt" (vorher
+    leere Seite).
+  - **Befund (belegt) und Behebung:** Die Dateien der Beschreibung wurden
+    gesichert, aber nie wiederhergestellt (`add_related_files` fehlte);
+    `after_execute()` holt sie jetzt.
+  - PHPUnit neu `restore_policy_test` (4): alle Felder und die Datei kommen
+    zurück; fremde Website → kein Pfad, keine Abos/Einschreibungen; gelöschter
+    Pfad → kein Pfad; mit Nutzerdaten: ADELE-Einschreibungen nicht kopiert,
+    nur wer hier berechtigt ist (verborgen, wie der Modus sagt), keine
+    Lernpfad-Datensätze kopiert. Proben: Website-Prüfung entfernt → rot;
+    Dateien nicht wiederhergestellt → rot.
+- **Pflichtenheft:** neuer Abschnitt 1d (Definition, Entscheidung #37,
+  Einstellung, Verwendungsstellen), Abschnitt 4 (A-4 auch beim Verlassen
+  eines Quelle-2/3-Knotenkurses; Aussetzung trägt nicht mehr), neuer
+  Abschnitt 5.2a (Sicherung/Wiederherstellung von mod_adele).
+- **#20 (Rückbau aller manual-Fallbacks):** Nachprüfungsvermerk des Nutzers
+  vom 2026-10-17 und Entscheidung „Abhängigkeit sichert die Funktionalität,
+  alle manual-Fallbacks rückbauen." Im Code der drei Plugins gab es keinen
+  `enrol_manual`-Einschreibweg mehr (seit Session 003, G-Q1a); übrig waren
+  die Einstellung `local_adele/enroll_as_setting` und ihre Übernahme in
+  `enrol_adele/db/install.php`. Beides entfernt; `local_adele` löscht die
+  Einstellung im Upgrade-Schritt 2026100734 (auf der Prüfinstanz belegt:
+  gesetzt → Upgrade → nicht mehr vorhanden). Die Versionen aller drei
+  Plugins stehen deshalb auf 2026100734, damit der Schritt auf bestehenden
+  Installationen läuft. PHPUnit neu `no_manual_fallback_test` (2): statischer
+  Scan (kein `enrol_get_plugin('manual')` im Produktionscode von local/mod);
+  `enrol_adele` deaktiviert → keine Host-Einschreibung über irgendeine
+  Methode, Warnung per `debugging()`. Pflichtenheft 1.3, 1.4, 1c angepasst.
+  - **Befund (belegt), offen für P1:** Ein Test für die übrigen AKs von #20
+    (`node_enrolment_after_save_test`) zeigt, dass das Verlassen des letzten
+    qualifizierenden Node-Kurses die Host-Einschreibung **löscht**; #20
+    verlangt **Suspendierung**, #21 dagegen beim Verlassen des Lernpfads das
+    Austragen. Bei Quelle 2/3 fällt beides zusammen. Vorgesehen für P1:
+    sofort suspendieren, nach bestätigtem Austritt (Karenzzeit,
+    `remove_user_path_adhoc`) austragen. Der Test ist bis dahin nicht Teil der
+    Lieferung.
+- **Prüfstand `2026100734` (alle drei Plugins):** PHPUnit PostgreSQL 16 –
+  local 413 (1 übersprungen, 1 unvollständig wie bisher), enrol 72, mod 89;
+  MariaDB 10.11 – dieselben Zahlen. Playwright-Gesamtlauf PostgreSQL –
+  mod 41, enrol 6, local 78, alle grün; Smoke local 17/17. Behat
+  `@mod_adele_use` 1 Szenario, `@mod_adele_index` 4 Szenarien, grün. Jest
+  98 Suiten / 749 Tests grün. phpcs (moodle) und moodlecheck ohne Befund,
+  actionlint ohne Befund. Upgrade-Schritt 2026100734 auf der Prüfinstanz
+  belegt. MySQL und CI-Läufe des finalen Commits: offen (nach Übernahme).
+- **Nachgang (Nutzer, 2026-10-17):** Die vorgesehene Auflösung zu #20/#21
+  („sofort suspendieren, nach der Karenzzeit austragen") ist bestätigt;
+  Umsetzung in P1.
+
+## Teil 69 — Master-Issue (P0–P2), Paket P1 (2026-10-17)
+
+- **Lieferung P0 (`2026100734`) übergeben**; Rückfrage des Nutzers zu #20
+  beantwortet (offen: AK 3–8; Schließen nach grünem CI-Lauf des finalen
+  Commits, ebenso #30, #37, #31, #41, #29).
+- **#20/#21 (Entscheidung des Nutzers: „Ja, bitte so umsetzen"):**
+  `enrol_adele\observer::left_course()` suspendiert die Host-Einschreibungen
+  (`reconciler::suspend_all_host_user()`, neu) statt sie sofort auszutragen;
+  `remove_user_path_adhoc` trägt sie nach bestätigtem Austritt aus (wie
+  bisher über `remove_uncarried_user()`). PHPUnit neu
+  `node_enrolment_after_save_test` (4); angepasst
+  `reconciler_test::test_leaving_learning_path_purges_every_host_course`.
+  - **Befund (belegt) im Testwerkzeug:** Moodles `runAdhocTasks()` führt
+    auch Aufgaben aus, deren `nextruntime` in der Zukunft liegt – die
+    Karenzzeit war in PHPUnit dadurch unsichtbar (die verzögerte Entfernung
+    lief sofort). Die neuen Tests verwenden `run_due_tasks()` (nur fällige
+    Aufgaben, wie Cron).
+  - **E2E neu mod `node-enrolment-after-save.spec.ts`, Story H5**
+    (`@withdrawal`): zwei Ketten (Quelle „any course" in `E2E20`, Quelle
+    „starting node" in `E2E20S`), Fixture S20 im Seed. Mutationsprobe
+    (sofort löschen) → rot.
+- **#19:** PHPUnit neu `any_node_source_test` (5): Quelle 3 beim Speichern,
+  Deduplizierung, Idempotenz, Quellen 1 und 2 unverändert, alle drei
+  zusammen. Kein Codeänderungsbedarf.
+- **#22:** PHPUnit neu `host_enrolment_mode_test` (3): jeder Modus bei
+  neuer Einbettung (`none` ohne Instanz, `hidden` gelistet ohne Zugang),
+  Wechsel über `update_moduleinfo()` mit demselben Datensatz, fehlender Modus
+  = `visible`. Kein Codeänderungsbedarf.
+- **#23:** PHPUnit neu `host_priority_order_test` (10): jede Paarung in
+  beiden Reihenfolgen, getrennte Gastkurse, Einzelfälle, Live-Pfad mit zwei
+  Runden. Probe „zuletzt gewinnt" → 2 rot. Kein Codeänderungsbedarf.
+- **enrol_adele #7:** PHPUnit neu `participant_list_cycles_test` (2): drei
+  Personen × drei Runden → nach jeder Karenzzeit niemand mehr gelistet;
+  Löschen der Einbettung nimmt alles mit. Bedingungen bewusst sichtbarer
+  Datensätze im Protokoll benannt.
+- **#33:**
+  - **Befund (belegt), behoben nach Entscheidung des Nutzers
+    („Anonymisieren", dazu Issue-Entwurf
+    `local_adele-issue-privacy-delete-foreign-data.md`):** Die
+    Datenschutz-Löschung von local_adele löschte die Lernpfade einer
+    Erstellerin und die von ihr angelegten Teilnahmen anderer, ließ
+    ADELE-Einschreibungen verwaist zurück und löschte bei „alle Nutzer" alle
+    Lernpfade. mod_adele war `null_provider` trotz
+    `teachercourseaccessgrantor`, und der Text `privacy:null_reason` fehlte
+    (Moodles Konformitätsprüfung: Test riskant). Nebenwirkungen dem Nutzer
+    vorab dargelegt (Nachfolgeregel #571, Zugangsanfragen ohne Empfänger bei
+    Pfad ohne Eigentümer/in, neue Delegation nötig).
+  - Neu: `local_adele\privacy_provider_test` (8; Probe mit altem Provider:
+    5 rot), `teacher_enrolment_test::test_privacy_of_the_grantor`,
+    `restore_policy_test` +2 (derselbe Kurs, Gastkurs-Index). PHPUnit-Gruppe
+    `adele_release` an allen Sicherungs-, Wiederherstellungs- und
+    Datenschutztests; `.github/workflows/release-gate.yml` in allen drei
+    Plugins (4.5 × PHP 8.1–8.3 × PostgreSQL/MariaDB/MySQL; PR nach `main`,
+    Tags `v*`, manuell), actionlint ohne Befund. Ein Lauf ist von hier aus
+    nicht auslösbar; der Branch-Schutz ist Sache der Repository-Admins.
+  - Pflichtenheft 5.2a ergänzt, neu 5.2b.
+- **#32 nach P2 verschoben:** Die Tests für Polling, Fokus und Viewport
+  gehören zur Aktualisierungslogik, die #26 (`useUserPathRefresh`) neu
+  baut; heute gibt es nur Fokus-/Sichtbarkeits-Auffrischung in
+  `UserPath.vue`. Tests gegen den alten Stand würden mit P2 ersetzt.
+- **Prüfstand `2026100735` (alle drei Plugins):** PHPUnit PostgreSQL 16 –
+  local 421 (1 übersprungen, 1 unvollständig wie bisher), enrol 72, mod 116;
+  MariaDB 10.11 – dieselben Zahlen. Gruppe `adele_release` 36 Tests;
+  Moodles Konformitätsprüfung (`core_privacy\privacy\provider_test`, Filter
+  `adele`) 12 Tests, beide Datenbanken. Playwright-Gesamtlauf PostgreSQL –
+  mod 43, enrol 6, local 78, alle grün; Smoke local 17/17. Behat
+  `@mod_adele_use` 1, `@mod_adele_index` 4 Szenarien. Jest 749. phpcs,
+  moodlecheck, actionlint ohne Befund. Offen: MySQL, Gate- und CI-Läufe des
+  finalen Commits (nach Übernahme).
+
+## Teil 70 — Master-Issue (P0–P2), Paket P2 (2026-10-17)
+
+- **Lieferung P1 (`2026100735`) übergeben.** P2 umfasst #26, #27, #17, #11,
+  enrol #11 und das aus P1 verschobene #32.
+- **enrol #11:** Alle Zeitlesestellen nutzen die Core-Uhr bereits (frühere
+  Lieferungen; statischer Scan `clock_usage_test`). Neu
+  `clock_boundaries_test` (2): Entzug genau bei `DELAY_SECONDS` fällig, eine
+  Sekunde davor nicht; Aufbewahrung bei genau N Tagen noch nicht, eine
+  Sekunde später entfernt. Probe Wanduhr → beide rot.
+- **#17:** `expandedCourse.js` (Knoten-ID, Name, zugänglicher Name);
+  ausgeklappte Karten tragen `data-course-id`, `data-node-id`,
+  `data-testid`, `title`, der VueFlow-Knoten Klasse und `aria-label` mit
+  Kurs-ID. Jest (7), E2E S17 (`stacked-courses.spec.ts`; Lernendenansicht –
+  die Lehrenden-Übersicht klappt Stapel nicht aus).
+- **#11:** Kein Codeänderungsbedarf (Ursache seit #20 entfernt). Neu
+  `first_embedding_test` (2, mit Gegenprobe des Messinstruments) und E2E S11
+  (`first-embedding.spec.ts`, je Lauf ein neuer Kurs mit
+  Willkommensnachricht der manuellen Einschreibung).
+- **#26:** Einstellungen `pathpollingmode` (0–3, Standard 2),
+  `pathpollinginterval` (1000–300000, 3000), `pathpollingdebounce`
+  (0–10000, 300) mit `admin_setting_bounded_int`; Übergabe als Attribut
+  `pathviewsettings` (`path_view_settings`, fünf Render-Stellen). Composable
+  `useUserPathRefresh`. Die Teilnehmendenliste (#568) folgt nur der Rückkehr
+  zur Seite. Die Lehrendenansicht eines Pfads aktualisiert sich nun auch,
+  außer während dort gearbeitet wird.
+- **#27:** `autofocus.js` mit `compareUserPathStates`,
+  `resolveAutofocusTarget`, `focusNodes`, `autofocusRole`, `autofocusMode`;
+  Einstellungen `pathautofocusenabled` (1), `pathautofocusteachermode` (1),
+  `pathautofocuslearnermode` (2). Fokus erst, wenn die Knoten nach dem
+  Neuaufbau vermessen sind (vorher fand `fitView` keine Größen – in E2E F27
+  gemessen: Knoten 2 blieb außerhalb).
+- **#32, Befund (belegt), behoben:** Eigenschaftsname
+  `userlearningpathparent`/`user_learningpath_parent` – doppelter Abruf jeder
+  Lernendenansicht. Gegenprobe mit dem alten Namen: E2E R26 rot (2 statt 1).
+  Jest neu: `useUserPathRefresh.spec.js` (13), `autofocus.spec.js` (22),
+  `UserPath.refresh.spec.js` (9, Kindkomponenten gemockt, damit ihr
+  ungetesteter Code das Coverage-Gate nicht verfälscht). Firefox-Projekt in
+  der Playwright-Konfiguration von mod_adele für R26/F27/S17, im E2E-Workflow
+  installiert; lokal nicht verfügbar (offen).
+- **E2E neu:** `path-refresh.spec.ts` (R26: 5, F27: 2), Fixture S26 im
+  Seed. Zählung genau der Methode `local_adele_get_user_path_relation`
+  (zunächst zählte ein Teilstring auch `…_relations` mit).
+- **PHPUnit neu:** `path_view_settings_test` (4), `path_refresh_readonly_test`
+  (1, eigener Prozess wegen `externallib.php`).
+
+## Teil 71 — Re-Audit 0735, Nacharbeitsauftrag (2026-10-18)
+
+- **Auftrag:** „ADELE 2026100735 – Code-Re-Audit und verbindlicher
+  Nacharbeitsauftrag (ohne CI)“, TP-01 bis TP-08, einheitliche DoD mit
+  Entscheidung je Issue (codeseitig offen / testseitig offen / abnahmefähig
+  / schließbar). P2 und Re-Audit gehen gemeinsam in `2026100736`.
+- **Nummerierung korrigiert:** GitHub mod_adele #43 ist der Formularfehler
+  (TP-01), #44 der Privacy-Befund. Das Master-Issue (P0–P2) hieß in den
+  Protokollen fälschlich „#43“ – überall auf „Master-Issue (P0–P2)“
+  geändert.
+- **TP-01 #43:** `mod_adele\local\path_choice` (Optionen, Prüfung) im
+  Formular und in `validation()`; PHPUnit `path_choice_test` (a)–(e);
+  E2E-Workaround im Seed entfernt, K16 mit echter Konstellation grün,
+  Gegenprobe altes Formular rot.
+- **TP-02/03/04 #26, #27, #32:** Generation je Anfrage (überholte Antworten
+  verworfen), Zeitlimit `requestTimeout()` für hängende Anfragen;
+  Tastaturfokus über den Neuaufbau hinweg (`keyboardFocus.js`), getrennt vom
+  Viewport. E2E für alle acht Testfälle von #27 – neu Lehrenden-Test
+  (1, 2, 6), Testfall 8 (Ziehen nicht unterbrochen; Gegenprobe ohne Schutz
+  rot) und Testfall 4 (parallele nächste Knoten, Seed „E2E27 Parallel“;
+  Gegenprobe nur ein Ziel rot). Jest gesamt grün mit Coverage-Gate.
+- **TP-05/TP-08 #17, Kurs-Stapel:** DOM-Nachweis am gerenderten Panel
+  (Rolle, eindeutige ID, `aria-labelledby`/`aria-describedby` auf eigene,
+  sichtbare Elemente, Kurzname, Status in Worten); Server liefert Kurz- und
+  Kursname je Kurs. **Befund (belegt), behoben:** alle Infokarten trugen die
+  ID `adele-course-information-undefined`; Gegenprobe rot. Ausklappknopf mit
+  `aria-expanded`/`aria-controls`, `aria-disabled` statt `disabled`, Escape,
+  sichtbarem Fokus; „Zum Kurs“ als Link. E2E S17 erweitert (Escape, Fokus,
+  doppelte IDs) und neu Seed „E2E17 Vertauscht“ (vertauschte Reihenfolge).
+- **Neuer Fund (nicht behoben):** zwei Referenzpfade speichern Kanten
+  doppelt → doppelte DOM-IDs an Kanten; Issue-Entwurf
+  `docs/issues/local_adele-issue-duplicate-edges.md`. Ursache der Duplikate
+  nicht belegt.
+- **TP-06 Abnahme:** Privacy local `test_several_paths_in_bulk`, mod
+  `test_privacy_in_bulk_keeps_independent_access`; Restore je Modus mit
+  Nutzerdaten, Grantor ohne Zuordnung → 0; Negativtests in Gruppe
+  `adele_release` (Release-Blocker) erweitert.
+- **TP-07 Abnahme:** #23 alle Kombinationen und Reihenfolgen (über 300
+  Fälle, live und Abgleich gleich); enrol #7 Teilnehmerliste vor/nach Frist
+  mit unabhängiger Einschreibung; übrige Issues mit vorhandenen Tests belegt
+  (Protokolle).
+- **TP-08:** `cross_plugin_consistency_test` – dieselbe Antwort in mod,
+  enrol, local für aktiv, suspendiert (mit/ohne Ausnahme), abgelaufen, noch
+  nicht begonnen, deaktivierte Methode, nur ADELE, Lehrrolle, Lehrrolle als
+  bewertete Rolle, ohne Rolle; Rollenzuweisung und Einschreibung getrennt.
+  `test_opening_the_teacher_view_grants_nothing` (Policy 3).
+- **Angepasst:** `issue484_node_description_master_merge_test` (die
+  Kurstexte tragen jetzt zusätzlich Kurz- und Kursname),
+  `issue591_keyboard_toggles.spec.js` (neue ID der Infokarte).
+- **Entscheidungen je Issue:** `docs/abnahme/` (je Protokoll Abschnitt
+  „Re-Audit 0735“), Übersicht in `docs/abnahme/README.md`.
+- **Prüfstand `2026100736`:** PHPUnit PostgreSQL 16 und MariaDB 10.11 – local
+  429 (1 übersprungen, 1 unvollständig wie bisher), enrol 75, mod 139;
+  Gruppe `adele_release` 70; Konformitätsprüfung Privacy 12. Playwright –
+  mod 56/56 (zweiter Gesamtlauf; im ersten Gesamtlauf H2 einmal rot:
+  Abschlussknopf deaktiviert, Einzellauf grün, Ursache nicht belegt), enrol
+  6/6, local 77/78 im Gesamtlauf (R5: Rollendialog zeigt ab 100 Personen
+  keine Liste, `fill()` startet die Suche nicht – Hilfsfunktion korrigiert,
+  beide betroffenen Spezifikationen 6/6). Smoke 17/17. Behat
+  `@mod_adele_use` 1, `@mod_adele_index` 4 Szenarien (Behat-Seite neu
+  initialisiert). Jest 827. phpcs, moodlecheck, actionlint ohne Befund.
+  Nicht geprüft: MySQL, Firefox.
+
+## Teil 72 — local_adele #603 und Re-Audit 2026100736 (2026-10-18)
+
+- **Auftrag:** Re-Audit „ADELE 2026100736 – erneuter Code-Re-Audit gegen
+  offene GitHub-Issues“, Abschnitt A (#603) verbindlich; Versionsnummer auf
+  das Datum gesetzt: **2026101800** (alle drei Plugins, gegenseitige
+  Mindestversionen, Upgrade-Schritt).
+- **#603 umgesetzt:** `local_adele\path_edges` (Identität, `normalize()`,
+  `normalize_json()`, `repair_stored()`), CLI `cli/repair_path_edges.php`,
+  Upgrade-Schritt; Editor-Sperren in `handleConnect()`, beim Ablegen,
+  UND-Verknüpfung und `handleAddEdge()`; Normalisierung beim Laden
+  (Editor, Personenansicht, mobil) und Speichern (Store, Server).
+- **Entstehung belegt:** erneutes Verbinden zweier verbundener Knoten –
+  ohne die neuen Sperren und ohne Normalisierung drei Kanten im Graphen nach
+  zwei Zügen (E2E-Gegenprobe); die Kopie ist die rohe Kante von
+  `addCustomEdge()` (ohne `type`), wie in den Fixtures.
+- **Tests:** PHPUnit `path_edges_test` (4; Gegenprobe ohne Normalisierung
+  beim Speichern rot); Jest `normalizeEdges.spec.js` (6); E2E
+  `editor-duplicate-edges.spec.ts` (2; Gegenprobe rot); S17 ohne
+  Kanten-Ausnahme grün.
+- **Neue Funde (Issue-Entwürfe, nicht behoben):** Verbinden in Gegenrichtung
+  legt eine Rückwärtskante an (Zyklus) – `local_adele-issue-reverse-connection.md`;
+  Dialoge des Editors wiederholen DOM-IDs (`exampleModalLabel`, `fullname`,
+  `description`, `dropdownMenuButton`) – `local_adele-issue-duplicate-modal-ids.md`.
+- **Re-Audit B (#26/#27/#32):** Verzögerte Schritte von `UserPath.vue`
+  (Fit, Fokus, Tastaturfokus, Module zeichnen) laufen nicht mehr nach dem
+  Aushängen, und ein Schritt einer früheren Aktualisierung wirkt nicht mehr
+  nach einer späteren. Jest +3 (Gegenprobe: 2 rot).
+- **Upgrade auf der Testsite:** 3 Pfade (6 Kopien), 6 Personenpfade
+  (12 Kopien) bereinigt, 0 ID-Konflikte.
+- **Prüfstand `2026101800`:** PHPUnit PostgreSQL 16 und MariaDB 10.11 – local
+  433, enrol 75, mod 139; Gruppe `adele_release` 70; Konformitätsprüfung 12.
+  Playwright mod 56/56, enrol 6/6, local 80/80; Smoke 17/17; Behat 1 + 4;
+  Jest 836; phpcs, moodlecheck, actionlint ohne Befund.
+
+## Teil 73 — CI-Läufe vom 2026-10-18 ausgewertet (2026-10-19)
+
+- **Quelle:** zwei Log-Archive des Auftraggebers – `moodle405` (local_adele,
+  mysqli/pgsql/mariadb) und `E2E (Moodle 4.5, PHP 8.3)` (mod_adele,
+  Chromium + Firefox); Stand der Läufe: `2026100736`.
+- **Codechecker (alle drei Datenbanken rot), Ursache belegt:**
+  `moodle.PHPUnit.TestCaseCovers.Missing` für
+  `path_refresh_readonly_test::test_a_refresh_reads_only` – das Attribut
+  `#[RunTestsInSeparateProcesses]` zwischen Klassen-Docblock und Klasse
+  verdeckt dem Prüfer das `@covers` der Klasse (`--max-warnings=0`). Lokal
+  meldete phpcs mit derselben moodle-cs-Version (3.7.0) nichts; Behebung:
+  `@covers` zusätzlich an der Methode. PHPUnit, Behat (12 Szenarien) und
+  Jest (827) waren in allen drei CI-Jobs grün.
+- **E2E Firefox, S17 Test 1 rot, Ursache belegt:** nach Escape in einem
+  Panel hat die Ausklappschaltfläche den Fokus, aber `:focus-visible` ist in
+  Firefox falsch (Chromium: wahr). Der Fokus wird per Skript gesetzt; Firefox
+  zeigt ihn in diesem Ablauf nicht. Behebung im Produkt (eine Tastaturaktion
+  soll einen sichtbaren Fokus hinterlassen): `focus({ preventScroll: true,
+  focusVisible: true })` in `CustomStagNodeEdit.vue` und `OrCourses.vue`;
+  Jest prüft den Aufruf. Firefox ist hier nicht installierbar – der Nachweis
+  folgt im nächsten CI-Lauf. Alle übrigen 67 Tests (Chromium und Firefox)
+  grün, keine Wiederholungen.
+- **Warnung „Node.js 20 is deprecated“:** `actions/checkout@v4`,
+  `setup-node@v4`, `upload-artifact@v4` in allen Workflows der drei Plugins
+  auf `checkout@v6`, `setup-node@v5`, `upload-artifact@v6` (die Versionen,
+  mit denen der zentrale Workflow schon läuft); actionlint ohne Befund.
+
+## Teil 74 — Nacharbeiten 2026-11-19: CI, #11 – #18, #603 (2026-11-19/20)
+
+- **Auftrag:** Nacharbeitsauftrag `ADELE_Nacharbeiten_20261119_2026101800.md`
+  (Re-Audit des Stands `2026101800`), sechs CI-Log-Archive; „alle
+  geschedulten Workflows auf manuell“, „CI fixen“, „Nacharbeit
+  vollumfänglich“. Neue Regel: AK = Codeeigenschaft, DoD = automatische CI.
+- **Umgebung neu aufgebaut** (Container ersetzt): Arbeitskopien sind jetzt
+  Git-Klone von `ralferlebach/*` `development` (local `7d9894a`, enrol
+  `bdd5fc7`, mod `f13d371`), Testsite Moodle 4.5.16+, PostgreSQL 16 und
+  MariaDB 10.11, Playwright Chromium **und Firefox**.
+- **CI, Ursachen belegt:**
+  - moodle405 (3 DB), E2E (3 Plugins), Tunnel-Job: local_catquiz
+    `ALiSe-v-1.2.0-legacy` pinnt `catquizcentralhub/host` auf `ec77e605`, den
+    das Submodul-Repository nicht hat → Klon bricht ab, danach „phplint: Not
+    enough arguments“. Umgehung in allen Workflows: Submodule einzeln, bei
+    fehlendem Commit Standardzweig mit `::warning::`. Eigentliche Behebung
+    extern (Issue-Entwurf `local_catquiz-issue-submodule-pin-host.md`).
+  - Playwright mod MOD-01: Test erwartete „gesperrt“, seit enrol #7 werden
+    Einschreibungen beim Löschen der Aktivität entfernt → Test angepasst.
+  - Playwright local PW-575: axe maß mitten in der 2-s-Einblendanimation
+    (CI #3080c8 = 4,16 : 1, lokal #257ac5 = 4,49 : 1) → Test wartet das Ende
+    der Animationen ab; `prefers-reduced-motion` schaltet sie ab.
+  - local_catquiz (2026111706) nutzt `$DB->get_in_or_equal()`; der DB-Mock in
+    `catquiz_test` lieferte `null` → Mock baut die Liste wie Moodle.
+  - Alle Zeitpläne entfernt (drei `playwright.yml`).
+- **#11:** PHP 8.1 aus allen Matrizen, Workflows und dem Pflichtenheft.
+- **#18:** Präfix je Anwendung für alle DOM-IDs, Kanten und Marker; zweite
+  Quelle von `dropdownMenuButton` = local_catquiz (dort entfernt 2026101701),
+  local_adele setzt keine ID mehr. E2E A18 (Chromium + Firefox), Jest 15.
+- **#12 – #17:** Gruppenmodus (mod `context_contract`), Kohorte
+  (`cohort`), Ranglisten/Mittelwerte (`group_progress`), Nicht-Lernende,
+  Live-Aktivität (`live_activity`, Tabelle `local_adele_activity`,
+  Observer, Purge-Task, Privacy), Knotenzähler, Aktivitätseinstellungen
+  Live; Pflichtenheft 6c. **Verhaltensänderung:** Lernende sehen ohne
+  Gruppen nur die eigene Zeile (AK0-L2).
+- **#603:** Restrisiko (Personenpfade: ID-Konflikte nur gezählt) und
+  Upstream-Stand dokumentiert; Entscheidung von „schließbar“ auf
+  „testseitig offen“ korrigiert. Issue-Entwurf gegenläufige Kante um AK/DoD
+  ergänzt; neuer Entwurf FeedbackModal.
+- **Nicht möglich hier:** Behat (kein Chrome/ChromeDriver; Download über die
+  Netzwerk-Allowlist blockiert, Installation eines heruntergeladenen
+  Treibers nicht freigegeben), MySQL.
+- **Im Gesamtlauf gefunden und behoben (belegt):**
+  - Die Fixture `E2EM18` bettete zuerst den Referenzpfad „Linear A1“ ein.
+    Beim nächsten Seed entfernt das Script alte Aktivitäten; mod_adele stellt
+    dafür „withdrawuncarried“ ein, und enrol_adele nahm student01 den nicht
+    mehr getragenen Pfad (Adhoc-Log: `learningpathid 6, hostcourseid 95`) →
+    E2E R3 rot. Jetzt eigene Kopien („E2E M18 Linear“, „E2E M18 Verzweigt“).
+  - Mit den entfernten doppelten Steuer-IDs fanden `support/conditions.ts`
+    (E2) und der Smoke-Test #470 ihre Knöpfe nicht mehr → `data-testid`.
+  - Coverage-Gate (Jest, Schwellen je Datei): ein zusätzlicher Import in
+    `CourseEnrolConfirmDialog.vue`, `CourseAccessRequestDialog.vue`,
+    `TeacherCourseAccess.vue` brachte einen nie aufgerufenen Getter in den
+    kompilierten Code (Funktionen unter der Schwelle). Dort wird das Präfix
+    jetzt aus `store.state.domPrefix` gebildet (dieselbe Regel wie
+    `appDomId()`); `timed_dates.vue` (nur im Editor, eine Anwendung je Seite)
+    zurück auf den alten Stand. Schwellen unverändert.
+  - S17 „Panels in Stapelreihenfolge“ einmal von drei Läufen rot: die x-Werte
+    wurden nacheinander gelesen, während die Ansicht noch schwenkte (816,
+    1073, 1012). Jetzt gemeinsam und erst nach Stillstand gemessen.
+  - `groups-live.spec.ts` seedet zu Beginn (wie die übrigen Dateien): die IDs
+    der Aktivitäten ändern sich mit jedem Seed.
+- **Prüfstand `2026111900`:** siehe `abnahme/README.md`.
+
+
+## Teil 75 — CI-Läufe vom 2026-11-19/20 ausgewertet, lokale Prüfung an CI angeglichen (2026-11-20)
+
+- **Ausgewertet:** moodle-plugin-ci local und mod (MariaDB, PHP 8.3, Stand
+  `2026111900`), E2E mod und Playwright mod (Stand `f13d371` = `2026101800`,
+  Lauf vom 2026-11-19 21:40, also vor der Lieferung `2026111900`).
+- **codechecker rot (local und mod), Ursache belegt:** Die in `2026111900`
+  neuen Sprachstrings standen unsortiert unter einem Kommentar am Dateiende
+  (`moodle.Files.LangFilesOrdering`: „Unexpected comment“, „not in the
+  correct order“; local je Sprache 24, mod je Sprache 3 Warnungen; CI läuft
+  mit `--max-warnings=0`). Behoben: Schlüssel alphabetisch (strcmp)
+  einsortiert, Kommentare entfernt; Inhalt unverändert (Vergleich der
+  geladenen `$string`-Arrays vorher/nachher identisch).
+- **Warum lokal nicht aufgefallen (belegt):** phpcs lief lokal auf den
+  Git-Klonen (`/home/claude/gh/moodle-*_adele`), also außerhalb eines
+  Moodle-Baums, und nur auf der Liste der geänderten Dateien. Der Sniff
+  `LangFilesOrdering` bestimmt die Komponente über den Moodle-Baum und
+  schweigt außerhalb. Derselbe Aufruf auf der Kopie im Testsystem
+  (`moodle/mod/adele/lang/en/adele.php`) meldet die Warnungen. Die Angabe
+  „phpcs … ohne Befund“ im Prüfstand `2026111900` war deshalb falsch.
+- **Prozess geändert:** Lokal läuft jetzt `moodle-plugin-ci` 4.5.11 selbst
+  (phplint, codechecker `--max-warnings=0`, phpdoc, validate, savepoints,
+  mustache, für mod zusätzlich grunt) auf den Plugin-Kopien im Moodle-Baum,
+  ganze Plugins, mit denselben Ausschlüssen wie der CI-Workflow
+  (`ignore_paths`, `mustache_ignore_names`). Gegenprobe: die alte
+  `lang/en/adele.php` lässt codechecker mit Exit 1 scheitern.
+  Grunt: Moodles npm-Abhängigkeit `shifter` (GitHub-Archiv, nur YUI) wird
+  von der Netzwerk-Allowlist abgewiesen; im Testsystem ohne sie installiert,
+  `package.json` danach zurückgesetzt.
+- **Behat rot (local, 3 Szenarien in `adele_basic_usage.feature`), Ursache
+  belegt:** `I set the field "goalsubjectplaceholder"` fand das Feld nicht
+  mehr. Behat sucht Felder über id, name oder Label; seit #18 trägt die id
+  das Präfix der Anwendung, das Beschreibungsfeld hatte als `name` den
+  übersetzten Platzhaltertext. Behoben: `name="goalsubjectplaceholder"`
+  (wie schon `goalnameplaceholder`). Neu als Wächter, weil Behat hier nicht
+  läuft: Jest `behat_locators.spec.js` prüft, dass jeder Feld-Locator der
+  Features als `name` einer Komponente (auch Template-Literal) oder als
+  Label-Text eines Sprachstrings erreichbar ist (Gegenprobe mit dem alten
+  `textInputs.vue`: rot); E2E A18 prüft im gerenderten Editor beide Namen.
+  Dabei gefunden: `adele_edit_lp.feature` (wegen local_catquiz aus dem
+  CI-Lauf ausgenommen) suchte noch das Label „Enable Textarea“, das seit
+  #493 „Edit text“ heißt → angepasst, Szenario hier nicht ausführbar.
+- **E2E mod / Playwright mod (Stand `2026101800`):** Klonfehler
+  `catquizcentralhub/host` (`ec77e605`) und ADELE-PW-MOD-01 („suspendiert
+  statt entfernt“) sind bereits in `2026111900` behoben; Playwright mod am
+  aktuellen Stand lokal 4/4.
+- **Prüfstand `2026112000`:** siehe `abnahme/README.md`.
+
+## Teil 76 — CI-Lauf vom 2026-11-20 22:06 (Stand `2026112000`) ausgewertet (2026-11-21)
+
+- **Grün:** phplint, codechecker, phpdoc, validate, savepoints, mustache,
+  PHPUnit (local, MariaDB).
+- **Behat rot (1 Szenario, Ursache belegt):** `adele_basic_usage.feature:168`
+  `exactly one "#restriction-condition_1-duration" element should exist` –
+  ein CSS-Selektor auf eine id, die seit #18 das Präfix der Anwendung trägt
+  (gefunden 0). Der Wächter aus Teil 75 prüfte nur `I set the field`, nicht
+  CSS/XPath-Selektoren und nicht `the field … matches value`; deshalb lokal
+  nicht aufgefallen. Behoben: Selektor `[name='restriction-condition_1-duration']`
+  (der Schritt prüft weiter, dass das Feld nach dem Wiederöffnen genau einmal
+  existiert, #566).
+- **Wächter erweitert:** `behat_locators.spec.js` prüft jetzt jeden Schritt
+  `the field "…"` und jede id in CSS- (`#id`, `[id=…]`) und XPath-Selektoren
+  (`@id=…`) der Features und des Behat-Kontexts gegen alle ids, die die
+  Anwendung mit `appDomId()` präfixiert. Gegenprobe mit der alten
+  Feature-Datei: rot. mod/enrol-Features adressieren keine ADELE-ids.
+- **Prüfstand `2026112100`:** siehe `abnahme/README.md`.
+
+## Teil 77 — E2E-Läufe vom 2026-11-21 06:10 (Stand `2026112100`) ausgewertet (2026-11-21)
+
+- **CI-Ergebnis:** local 85/86, mod 71/74 (PostgreSQL 16, Chromium und
+  Firefox). Alle vier roten Tests scheitern am selben Schritt: der
+  Einschreibung über Moodles Dialog „Nutzer einschreiben“ (local R3
+  `roles-teacher-becomes-assistant`, mod H4 `adele-source-shared-node`,
+  mod H5 `node-enrolment-after-save` ×2).
+- **Ursache (belegt am Trace von H4):** Der Klick auf den Vorschlag im
+  Autocomplete traf den Eintrag (Koordinaten = Eintrag, Aktion „done“), die
+  Auswahl blieb aber „No selection“; das Formular ging **ohne Nutzer** an
+  `enrol/manual/ajax.php` (kein `userlist`), Antwort `count: 0`, Toast
+  „0 enrolled users“. Der Test merkte das erst Schritte später. Warum Moodles
+  Autocomplete den Klick verwarf, ist **nicht belegt**; lokal auch unter
+  6-facher CPU-Drosselung nicht nachstellbar (20/20). Dasselbe Muster war im
+  Aktivitätsformular schon bekannt und dort abgefangen (`chooseInAutocomplete`).
+- **Behoben (Tests):** neuer Helfer `enrolInDialog` (mod `support/host.ts`,
+  local `support/enrol.ts`): Auswahl im Auswahlbereich prüfen, sonst erneut –
+  ab dem zweiten Versuch per Tastatur (↓, Enter) – und Moodles Antwort
+  prüfen (`success: true, count: 1`). Tastaturweg einzeln geprüft (3/3).
+- **Lokaler Gesamtstand, CI-nah** (jede Suite auf frisch geseedeter Seite,
+  wie CI je Workflow eine neue Seite baut): Smoke local 17/17, mod 4/4,
+  enrol 4/4; E2E Chromium local 84/84 (Wiederholungslauf; im ersten Lauf
+  1 Ausfall, s. u.), mod 62/62, enrol 6/6; Firefox local 4/4, mod 12/12
+  (nach R26-Korrektur, s. u.).
+- **R26 Modus 2 (mod, Firefox, schon früher einmal rot), Ursache belegt:**
+  Zählfehler im Test. Eine Anfrage, die die Kursseite beim Verlassen noch
+  schickte, hing in der künstlichen 2,5-s-Verzögerung des Zählers; der
+  Zähler wurde zurückgesetzt, `open` nicht – die erste Anfrage der
+  Pfadseite zählte als zweite gleichzeitige (Trace: Anfrage 40,74 s,
+  abgebrochen, bis 43,24 s offen; erste neue Anfrage 42,11 s). Behoben: vor
+  dem Zurücksetzen warten, bis keine Anfrage mehr offen ist. 30/30
+  (Chromium und Firefox, je dreimal).
+- **Lokale Einzelausfälle „Target page, context or browser has been
+  closed“** (Z4 im ersten, E2 „A UND B“ im zweiten Gesamtlauf): der Browser
+  war mitten im Test weg, nach 12–19 s, keine Zeitüberschreitung. Gezielte
+  Wiederholungen 24/24 grün, ein dritter Gesamtlauf mit Browser-Protokoll
+  84/84 grün, in der CI nie aufgetreten. Ursache **nicht belegt**; kein
+  Hinweis auf das Produkt (eine Webseite kann den Browser nicht schließen).
+- **Stand-Skript korrigiert:** Smoke lief bisher nach den E2E-Suiten auf
+  derselben Seite – PW-574/575 fanden den gelöschten Pfad nicht, enrol
+  „has not run yet“ war nach dem nächtlichen Abgleich falsch. Jetzt wie CI:
+  frisch seeden je Suite, Abgleichsbericht zurücksetzen.
+- **Erweiterte Läufe (manuell, Actions):** actionlint ohne Befund; alle
+  referenzierten Dateien vorhanden; Seitenaufbau des NVDA-Workflows wie
+  e2e.yml (inkl. Submodul-Umgehung).
+  - Last (k6/JMeter): `seed_large.php` lokal ohne Fehler; dieselben drei
+    Seiten mit 10 parallelen Nutzern 30 s (Node-Nachbau des k6-Plans, k6
+    und JMeter hier nicht installierbar): 570 Anfragen, 0 Fehler,
+    p95 611 ms, alle Checks grün – Schwellen des Plans eingehalten.
+  - NVDA (Windows): hier nicht ausführbar. Neu als Vorprüfung in jedem
+    E2E-Lauf (A18): die Bedienelemente, die SR-01 hören will, tragen Name
+    und Zustand im Accessibility-Baum (Sichtbarkeit mit `aria-pressed`,
+    Bearbeiten/Löschen/Duplizieren, „Add a new learning path“).
+- **Prüfstand `2026112101`:** siehe `abnahme/README.md`.
+
+## Teil 78 — Re-Audits vom 2026-11-21 (Vormittag, Abend): fachliche Blocker #12–#18, mod-E2E-Stillstand (2026-11-21/22)
+
+Grundlage: `ADELE_CI-Reaudit_20261121_Issue-Abnahme.md` (7 Blocker) und
+`ADELE_CI-Reaudit_20261121_Abend_AK_DoD.md` (mod-E2E rot, Prioritäten P0–P1).
+Die Issue-Texte #11–#18 wurden über die öffentliche Issue-Seite gelesen (API
+in dieser Sitzung nicht freigegeben).
+
+- **#12/#16 P0 – Kontext-Umgehung (belegt, behoben):** Lehrende bekamen über
+  den Kurskontext, ein anderes Modul oder eine ADELE-Aktivität eines anderen
+  Pfads die ganze Kursrangliste; nur der Modulkontext der Pfad-Aktivität war
+  gefiltert. Ebenso las/änderte eine Lehrkraft einzelne Pfade fremder
+  Gruppen (`get_lp_user_path_relation`, `save_lp_user_path_relation`). Neu:
+  `cohort::teacher_scope()` – über den Modulkontext die Gruppenwahl der
+  Aktivität, über jeden anderen Kontext höchstens, was die Aktivitäten des
+  Pfads im Kurs zusammen geben (Gruppierungen eingeschlossen). PHPUnit
+  `teacher_scope_test` (9, zwei Host-Aktivitäten mit verschiedenen
+  Gruppierungen); Gegenprobe mit altem Verhalten: 6 rot.
+- **#12 – „Teilnehmer sehen“ (`userlist`):** zunächst auf Rückfrage
+  entschieden, dass „nur eigene Ergebnisse“ auch Gruppenranglisten schließt;
+  am 2026-11-22 09:52 von der Auftraggeberseite ersetzt: **die Einstellung
+  wird nur ohne Gruppen angezeigt und ist nur dort aktiv.** Umgesetzt:
+  Formular (`hideIf` auf den Gruppenmodus; bei Kurszwang mit Gruppen entfällt
+  das Feld), `cohort::own_results_only()`/`learner_roster_scope()`,
+  `get_lp_user_path_relations` (ohne Gruppen und „alle“: Rangliste der
+  Lernenden der Aktivität für Lernende, fremde Zeilen ohne ID/Benutzernamen;
+  sonst eigene Zeile), Gruppenübersicht ohne `closed` in Gruppenmodi,
+  `mod_adele_cm_info_view` übergibt den wirksamen Wert an den Client.
+  Damit ist die bisherige Lesart von AK0-L2/AK0-M4 („ohne Gruppen immer nur
+  die eigene Zeile“) für „Ergebnisse aller anderer Teilnehmer“
+  zurückgenommen. PHPUnit (5 Fälle), E2E P2/P3 und die Rücknahme-Story
+  P1/P2 (jetzt ohne Gruppen, dazu Umschalten auf getrennte Gruppen).
+- **#12 – Mittelwert (behoben):** arithmetisch über **alle** Lernenden der
+  Gruppe; ohne Pfad/Fortschritt zählen sie mit 0 % und werden genannt; eine
+  Gruppe ohne Lernende „Keine Daten“. PHPUnit (Gegenprobe rot), Jest, E2E G2.
+- **#13 (behoben):** Nicht-Lernende bei `groupid = 0` nur aus den Gruppen
+  der Aktivitäts-Gruppierung – dieselbe Auswahl wie die Teilnehmerliste
+  (`cohort::member_filter()`); PHPUnit mit Gegenprobe.
+- **#14 (behoben):** zeitgleiche letzte Aktivität oder Kurs in mehreren
+  Knoten: keine Auswahl mehr (früher kleinere Kurs-ID/erster Knoten) – der
+  Marker steht an jedem dieser Knoten mit „nicht eindeutig: an N Knoten“
+  (Text, `?N`, gepunkteter Rahmen, Feld `ambiguous` im Schnappschuss);
+  PHPUnit, Jest.
+- **#15/#17 (ergänzt):** API-Matrix `live_groups_api_matrix_test` (33 Fälle:
+  Lernende, Lehrkraft ohne Recht, fremder Kurs, Kurskontext, anderes Modul,
+  unbekannter Kontext, fremde Gruppe, unbekannter/fremder Knoten, negative
+  Seite, unbekannte Art, Schalter aus – plus Kontrollen ohne fremde Daten,
+  Seite hinter dem Ende). Rückweg (AK3.5): Gruppe, Ausschnitt, Scrollposition
+  und Fokus bleiben – vom Marker und vom Zähler aus, per Tastatur; E2E L3
+  (Gegenprobe ohne Wiederherstellung: rot). #17 Altinstallation: PHPUnit
+  `test_upgrade_of_an_old_installation` (Felder entfernt, Version 2026101800,
+  Upgrade fügt sie mit Defaults hinzu, andere Einstellungen bleiben, zweiter
+  Lauf behält vorhandene Werte), PostgreSQL und MariaDB.
+- **#18 (ergänzt):** derselbe Dialog zweimal in einer Anwendung → eigene
+  Nummer je Instanz (`dialogInstanceId()`, erste Instanz behält die ID der
+  Öffner); Jest mit Gegenprobe. E2E: `dropdownMenuButton` auf der Seite
+  nicht mehr vorhanden, ADELE-Link der Navigation ohne ID (in CI mit
+  local_catquiz, der zweiten Quelle); Kursdialog des Stapels per Tastatur,
+  eigener Titel und Felder, Escape, Fokus zurück. Build-Gate: der Bundle
+  trägt einen Hash seiner Quellen, `buildtools/check-bundle.js` prüft ihn
+  im Jest-Workflow (Gegenprobe: eine geänderte Quelldatei → Exit 1).
+  Lint-Gate als Sperrklinke (`buildtools/lint-gate.js`, Grundstand 92
+  Altbefunde in `lint-baseline.json`, jeder neue Befund rot; Gegenprobe
+  rot); die Altbefunde sind nicht behoben.
+- **DB-Matrix (Ursache belegt):** die wiederverwendete Plugin-CI führt
+  Moodle 4.5 mit PostgreSQL/MySQL nur auf PHP 8.1 – seit #11 (`min_php
+  8.2`) entfallen. Neuer Workflow `moodle-plugin-ci-pgsql.yml` je Plugin
+  (PostgreSQL 16, PHP 8.3, PHPUnit). Issue-Entwurf
+  `catalyst-moodle-workflows-issue-405-pgsql-only-php81.md`. MySQL bleibt offen.
+- **mod-E2E rot (Run 44943752094):** belegt ist der Stillstand des
+  Webservers ab 20:19:48: jede danach angenommene Anfrage blieb ohne
+  Antwort, alle folgenden Tests liefen in die 180-s-Grenze (die Firefox-
+  Fehler R26/F27/S17 sind Folgen, lokal Firefox mod 12/12). Unmittelbar
+  davor stellte H3 die Server-Uhr um einen Monat vor und wieder zurück,
+  während eine Anfrage der eben verlassenen Seite noch lief. Dass diese
+  Anfrage über den Rücksprung auf einen Termin einen Monat später wartete
+  und damit eine Sperre hielt, ist die naheliegende Erklärung, aber **nicht
+  belegt** (lokal nicht nachgestellt). Geändert: Ablauf- und
+  Karenzfrist-Ketten verschieben nur noch die Uhr des Aufgabenlaufs
+  (`cliClockEnv()`), nicht die des Webservers; die Uhr-Datei wird atomar
+  geschrieben; local T/F-Ketten verlassen vor jedem Uhrwechsel die Seite
+  (`moveServerClock()`). Die E2E-Workflows zeigen bei Fehlern, was die
+  PHP-Prozesse und die Datenbank taten (offene Anfragen, Transaktionen,
+  wartende Sperren) – ein nächster Stillstand wäre belegbar.
+- **Prüfstand-Fund (belegt, nur lokal):** Die Worker des lokalen
+  PHP-Testwebservers (`php -S`, OPcache an) führten nach dem Abgleich
+  geänderter Klassen weiter den alten Code aus – eine Protokollzeile am
+  Anfang von `get_lp_user_path_relations::execute()` erschien bei
+  Webanfragen nicht, über die Kommandozeile schon; nach dem Neustart des
+  Servers sofort. Warum die Zeitstempelprüfung hier nicht griff, ist **nicht
+  belegt** (eine neue Datei im Wurzelverzeichnis wurde erkannt). Folge: der
+  Abgleich startet den Server jetzt immer neu, der gesamte Browserstand
+  wurde danach wiederholt. Die CI ist nicht betroffen (frischer Server je
+  Lauf).
+
+## Teil 79 — Videos nur der fehlgeschlagenen Tests bei rotem Lauf (2026-11-22)
+
+- **Vorgabe (Ralf, 2026-11-22 14:01):** „bei Fehlern nur die betroffenen,
+  fehlerhaften Videos ausliefern, im Erfolgsfall weiterhin alle.“
+- **Umsetzung `2026112200`:** neues Skript
+  `tests/e2e/support/keep-failed-videos.mjs` (local, mod, enrol, identisch).
+  Es liest Playwrights `results.json`, behält die Videos aller Versuche mit
+  Status `failed`, `timedOut` oder `interrupted` und löscht jedes andere
+  Video unter den angegebenen Verzeichnissen – auch die Kopien des
+  HTML-Reports in `data/`, die nach dem SHA-1 des Inhalts benannt sind
+  (Abgleich daher über den Inhalt). Ohne lesbare `results.json` löscht es
+  nichts. Aufgerufen in einem neuen Schritt vor dem Upload, nur
+  `if: failure()`: `e2e.yml` (alle drei), `playwright.yml` (alle drei; der
+  Smoke-Konfiguration fehlte bisher ein JSON-Reporter, jetzt
+  `results.json` unter CI, in `.gitignore`), `a11y-screenreader.yml`
+  (local; Sprachprotokolle bleiben vollständig). Grüne und abgebrochene
+  Läufe behalten alle Videos. Kopfkommentare, Summary-Text und
+  `e2e-suite.md` § 2 angepasst.
+- **Geprüft (lokal):** synthetischer Lauf mit bestandenem, fehlgeschlagenem
+  und übersprungenem Test in der E2E-Konfiguration: 6 Videos → 2 behalten
+  (`test-results` und Report-Kopie des fehlgeschlagenen Tests, SHA-1
+  gleich). Smoke-Konfiguration mit `retries: 1`: beide fehlgeschlagenen
+  Versuche behalten, bestandener entfernt. Fehlende `results.json`: nichts
+  gelöscht; fehlende Argumente: Exit 2. YAML aller geänderten Workflows
+  parsbar; `moodle-plugin-ci`-Statik 19/19 ohne Befund. **Nicht geprüft:** die Workflows selbst auf GitHub (kein Lauf am
+  Commit), der NVDA-Schritt unter Windows.
+- **Folge:** Bei rotem Lauf zeigt der HTML-Report für bestandene Tests kein
+  Video. Ist ein Lauf rot, ohne dass ein Test fehlschlug (etwa die
+  Story-Abdeckung), enthält das Artefakt kein Video.
+
+## Teil 80 — Jest-Lauf 45034960566 (Stand `2026112200`) rot: Bundle-Gate (2026-11-22)
+
+- **Befund (Log `logs_121875850092.zip`, Commit `64d288e7`):** Jest 889/889
+  in 110 Suites grün. Rot ist nur das Bundle-Gate: „amd/src/app-lazy.js was
+  built from other sources (bundle e93b6e039159, sources e5973012f684)“.
+  Lint-Gate und Build-Probe liefen danach nicht (übersprungen).
+- **Ursache (belegt):** Der Installationsschritt der Workflow-Datei führt
+  `npm install --save-dev @babel/plugin-syntax-dynamic-import --force` aus
+  (wie Moodle Plugin CI). Das fügt `package.json` eine Zeile hinzu, und
+  `package.json` gehört zu den gehashten Quellen. Das Gate lief **nach** der
+  Installation und verglich das Bundle daher mit einer `package.json`, die
+  nicht die des Commits ist. Nachgestellt an einer Kopie: vor dem Befehl
+  `e93b6e039159` (grün), danach exakt `e5973012f684` (rot). Die Quellen im
+  Fork (`development`, `64d288e7`) sind dateigleich mit dem Liefer-Stand
+  (Vergleich ohne Ausführung des Fork-Codes); das ausgelieferte Bundle war
+  also richtig.
+- **Warum lokal nicht aufgefallen:** Ich habe das Gate lokal auf dem
+  Arbeitsbaum ausgeführt, nicht in der Schrittfolge der Workflow-Datei. Der
+  Fehler lag in der Reihenfolge der Schritte, nicht in Code oder Bundle.
+- **Korrektur `2026112201` (`jest.yml`):** Das Gate läuft jetzt direkt nach
+  dem Checkout, vor der Installation (es braucht keine Abhängigkeiten).
+  Installation, Jest, Lint-Gate und Build-Probe laufen mit
+  `if: ${{ !cancelled() }}` auch bei rotem Gate, damit ein Lauf alle
+  Ergebnisse liefert.
+- **Geprüft:** neues lokales Prüfskript, das die `run`-Schritte aus
+  `jest.yml` wörtlich und in ihrer Reihenfolge auf einer frischen Kopie
+  (ohne `node_modules`) ausführt: Gate, Installation, Jest, Lint-Gate,
+  Build-Probe alle grün. Gegenprobe: eine geänderte Quelldatei macht das
+  Gate rot. Dieses Skript gehört ab jetzt zur Prüfung vor jeder Lieferung.
+  **Nicht geprüft:** der Lauf auf GitHub.
+
+## Teil 81 — Re-Audit 2026-11-22 (21:53): Nacharbeiten P0/P1, Lieferung `2026112300` (2026-11-23)
+
+- **Auftrag:** Re-Audit „ADELE_Reaudit_20261122_2153_AK_DoD_Nacharbeiten“ (58/91, #17 geschlossen, AK0-L2 zurückgesetzt). Die Zuordnung jedes offenen Punkts steht in `abnahme/nachweise-20261123.md`.
+- **P0 Entscheidung `userlist`:** Die ausdrückliche Bestätigung (Variante A/B) ist am 2026-11-23 angefragt. Bis zur Antwort bleibt der Stand der Vorgabe vom 2026-11-22. Textentwurf A: `issues/local_adele-12-16-ak-userlist-entwurf.md`.
+- **P0 Sicherheit:** PHPUnit zu anderen Kontexten bei „Ergebnisse aller“. Jest und E2E P2: keine Links, und die Ersatz-ID öffnet nichts.
+- **P0 Mehrfacheinbettung:** Fixture G16M und E2E G4 (zwei Aktivitäten, verschiedene Gruppierungen). Gegenproben rot. In G1/G2 suchte die Prüfung „fremder Name nicht sichtbar“ den vollen Namen; Liste und Antworten trennen aber Vor- und Nachname. Die Prüfung hätte ein Leck übersehen und sucht jetzt den Nachnamen.
+- **P1 #11:** Der übersprungene catquiz-Fall war kaputt; in der Suite verdeckte ihn ein Mock, der aus dem vorigen Fall weiterwirkte. Der unvollständige Fall bekam eine Testnaht. Beide laufen jetzt durch, dazu ein Gegenfall.
+- **P1 #13:** Rollen und Einschreibungsstatus in PHPUnit. G3: vor dem Umschalter keine Anfrage.
+- **P1 #14/#15:** PHPUnit mit 300 Lernenden. k6 fragt jetzt auch die Live-Endpunkte ab (Seed mit Aktivität, Gruppen, Live-Daten; Standard 500). Zählung über zwei Gruppen und bei Doppelrolle. Beim Testaufbau fiel auf, dass eine Rollenänderung den Pfad-Schnappschuss aus den echten Abschlüssen neu berechnet; der Test stellt ihn danach wieder her.
+- **P1 #16 AK0-M6:** Formular bei gewähltem und erzwungenem Gruppenmodus; der gespeicherte Wert bleibt; Duplikat und Import übernehmen `userlist` und den Gruppenmodus.
+- **P1 #18:**
+  - Neuer Befund, belegt: Die MiniMap verdoppelte Knoten-IDs (sichtbar im Classic-Theme). Behoben.
+  - Classic-Schritt in E2E A18; Klick aufs Label fokussiert das Feld.
+  - ESLint lief mit Vue-2-Regeln. Umgestellt auf Vue 3, Baseline 92 → 88.
+- **Prüfstand-Fehler (meiner):** Während des ersten Gesamtlaufs habe ich `sync_work.sh` aufgerufen. Das Skript startet den Webserver neu; drei local-E2E-Fälle brachen ab. Einzeln wiederholt waren sie grün. Den Gesamtlauf habe ich abgebrochen und neu gestartet. Regel ab jetzt: Während eines Browserlaufs wird nicht synchronisiert.
+- **Lint-Gate hat gegriffen:** Mein `<template v-for>` mit Key verstieß gegen die (falschen) Vue-2-Regeln. Das führte zur Umstellung des Regelsatzes.
+
+## Teil 82 — CI rot auf `2026112300`: codechecker und grunt; Prüfkette neu (2026-11-23)
+
+- **Auftrag (Ralf, 13:22):** „Dieser CodeChecker-Kram sollte dir nicht unterlaufen und vor der Auslieferung bereits abgefangen und behoben sein! Überarbeite deine Testkette! … Fix it!“
+- **Befund, Moodle Plugin CI (MariaDB, PHP 8.3), belegt:**
+  - codechecker: `PSR12.Files.FileHeader` in local `search_users.php`, `manual.php`, `asset_handler.php` und mod `event/course_module_viewed.php`. Keine dieser Dateien hatte ich in dieser Lieferung geändert.
+  - grunt in mod: „Failed to copy …/.git/objects/pack/…“.
+- **Ursachen (belegt):**
+  - Die CI installiert `moodle-plugin-ci ^4` bei jedem Lauf frisch und bekam 4.5.12 mit moodle-cs 3.9.2 und PHPCS 4.0.4. Meine lokale Kette nutzte eine einmal installierte 4.5.11 mit moodle-cs 3.7.0 und PHPCS 3.13.6, die die Regel nicht kennt.
+  - grunt: symfony/filesystem 5.4.56 (in 4.5.12) übernimmt beim Kopieren die Dateirechte. Die schreibgeschützten Git-Objekte machen grunts Zurückkopieren unmöglich. Meine Kette lief als root und ohne `.git`, deshalb fiel das nicht auf. Nachgestellt: 4.5.11 ok, 4.5.12 als Nicht-root rot.
+- **Mein Fehler:** Die lokale Kette spiegelte die CI nicht. Sie hatte nicht dieselbe Werkzeugversion, nicht denselben Benutzer und nicht dieselbe Eingabe. Grün hieß also nur „grün mit alten Regeln als root“.
+- **Korrekturen `2026112301`:**
+  - Die vier Dateien sind mit dem phpcbf der CI-Version korrigiert (je eine Leerzeile, ohne Wirkung auf den Code).
+  - mod `moodle-plugin-ci.yml`: Vor `install` wird `chmod -R u+w "$GITHUB_WORKSPACE/plugin/.git"` ausgeführt.
+- **Neue Prüfkette** (`docs/pruefkette/`):
+  - `ci_gate.sh`: frisch installiertes Werkzeug wie in der CI, bereitgestellter Checkout mit `.git`, Benutzer `claude`, Optionen aus dem Workflow, Vorbereitungszeilen aus `extra_plugin_runners`.
+  - `jest_ci.sh` mit Exit-Code.
+  - `package.sh` baut nur, wenn beide Prüfungen grün sind.
+  - Belegt in beide Richtungen: Auf `2026112300` meldet das Gate genau die CI-Befunde, nach der Korrektur ist es grün. Mit der alten Datei und ohne `chmod` ist es wieder rot.
+- **Playwright-Smoke-Läufe vom 2026-11-23** (local: Kontrast 4.43:1; mod: „must be suspended …“): Beide liefen auf dem Branch **`main`**, nicht auf `development` (Checkout `origin/main`, `actions/checkout@v4`, Testtexte einer älteren Lieferung).
+  - Auf `development` sind beide Stellen seit Tagen geändert: Warten auf das Ende der Einblendung; „removed, not suspended“. Lokal 17/17 und 4/4 grün.
+  - Neu: Smoke- und E2E-Workflows nennen in der Zusammenfassung Branch, Commit und Version und warnen, wenn nicht `development` geprüft wird.
+- **Issue-Entwürfe:**
+  - `issues/moodle-plugin-ci-grunt-restore-readonly.md` (an moodlehq);
+  - `issues/catalyst-moodle-workflows-pin-plugin-ci.md` (Version festschreiben, Wunderbyte).
+
+## Teil 83 — Re-Audit 2026-11-26 (73/91): Nacharbeiten, Lieferung `2026112600`
+
+- **P0 `userlist` ohne Gruppen:** Die Entscheidung A/B ist erneut angefragt
+  (26.11.). **Antwort von Ralf, 2026-11-26 21:56: „Entscheidung: A“.** Der
+  Code bleibt unverändert; die AK-Texte für #12 und #16 sind einfügefertig,
+  mit Freigabevermerk.
+- **P1 ADELE-Einschreibungsstatus (#13 AK1.5), neuer Befund, belegt:**
+  `roster_members_sql()` zählte jede enrol_adele-Einschreibung, egal ob
+  gesperrt, abgelaufen, nicht begonnen oder aus einer deaktivierten Instanz.
+  - Festgelegt nach der Moodle-Semantik plus #588: Gesperrte zählen nur
+    im Modus „verborgen“ des eigenen Pfads.
+  - Neuer Test mit 3 Fällen über alle Sichten. Auf dem alten Code 3 von 3
+    rot, auf dem neuen grün.
+  - `roster_course_scope_test` bildet „verborgen“ jetzt ausdrücklich nach.
+  - Die erste Fassung las `time()` und verstieß damit gegen #582
+    (`clock_usage_test` rot); jetzt läuft die Zeit über die Uhr.
+- **P1 k6:** Der Live-Teil ist Pflicht, und ein Zähler pro Endpunkt muss
+  über 0 liegen. Die Workflow-Eingabe `live` und die Zusammenfassung sind
+  neu. k6 selbst lief hier nicht.
+- **P1 Nicht-Lernende:**
+  - E2E G5, Fixture G16M um Theo erweitert.
+  - Erst angenommen, Tessa erscheine bei „alle Teilnehmer“ unter den
+    anderen Personen; tatsächlich schränkt die Gruppierung die Liste ein
+    (#13 AK1.6). Der Test prüft jetzt mit Theo.
+  - Ob „alle Teilnehmer“ angeboten wird, habe ich nachgemessen; die
+    Prüfung läuft jetzt ohne Bedingung.
+- **P2 DOM-IDs:** A18 Boost mit sichtbarer MiniMap. Gemessen zeigt Boost
+  sie sonst auch bei 2400 px nicht. catquiz `main` vs. legacy ist belegt;
+  der Feedback-Dialog wartet auf eine Entscheidung.
+- **P2 Werkzeugkette/Lint:**
+  - Der gemeinsame Workflow hat keine Versions-Eingabe (belegt). Das Gate
+    liest jetzt alle Ignore-Eingaben.
+  - Lint 88 → 85 (computed-Rückgabe, zwei geschützte Leerzeichen); die 6
+    Prop-Mutationen sind bewertet.
+- **Einmal rot, Ursache zunächst offen:** Ein Gruppen-E2E-Lauf (Chromium,
+  `groups-live.spec.ts`) war einmal rot, während parallel PHPUnit lief. Die
+  Ausgabe war schon überschrieben, als ich nachsah. Der Gesamtlauf hat es
+  dann gezeigt: G5 war rot, weil späte Antworten die gewählte Gruppe
+  überschrieben (Produktfehler, belegt und behoben, siehe
+  `abnahme/nachweise-20261126.md`). M1 war rot, weil der Testhelfer zu früh
+  klickte (behoben).
+- **Prüfstand-Fehler (meiner):** Während des Gesamtlaufs habe ich erneut
+  `sync_work.sh` aufgerufen, gegen die eigene Regel aus Teil 81; das Skript
+  startet den Webserver neu. Ich habe den Lauf verworfen und nach dem
+  Neubau des Bundles komplett neu gestartet. Zur Absicherung verweigert
+  `sync_work.sh` jetzt den Abgleich, solange ein Playwright-Lauf aktiv ist.
+- **18 rote lokale E2E-Fälle im nächsten Gesamtlauf (meine Regression):**
+  Lernende sahen ihre eigene Zeile nicht mehr. Ursache, belegt: Die neue
+  Prüfung im Store verglich die Gruppen-ID. Die Übersicht setzt beim Start
+  die Vorgabegruppe (-1 → 0); dadurch wurde die Antwort mit den
+  Pfadbeziehungen verworfen, obwohl niemand eine Gruppe gewählt hatte.
+  - Behoben: Der Store zählt ausdrückliche Gruppenwahlen (`groupchoice`,
+    erhöht nur in `setGroupId`). Verworfen wird eine Antwort nur, wenn
+    seit der Anfrage eine andere Gruppe gewählt wurde. `TeacherView.vue`
+    prüft dasselbe.
+  - Neuer Jest-Fall für genau diesen Ablauf (Vorgabegruppe ist keine
+    Wahl); Jest 898/898 grün. Die drei betroffenen Specs
+    (alternative-routes, progress-linear, final-completion) einzeln: 9/9
+    grün. Danach Gesamtlauf neu.
+- **Gesamtlauf und Gate vor der Lieferung (2026-11-27):**
+  - E2E lokal: einmal rot `running-path-change` M2; die Ursache ist offen.
+    Einzeln 3/3 und hinter `roles-transfer-ownership` 2/2 grün. Ebenfalls
+    rot war Smoke enrol `manage.spec.ts`; Ursache belegt: Die Liste der
+    lokalen Seite hat 3 Seiten, im Test ist jetzt der Lernpfad gefiltert.
+  - `e2e_all2.sh` sichert jetzt die Ergebnisse jeder Suite. Das
+    M2-Video hatte der Firefox-Lauf überschrieben.
+  - PHPUnit 512/149/75/70 auf beiden Datenbanken grün.
+  - Das Gate brach zuerst wegen vollem Datenträger ab (alte Werkzeugkopien
+    und Composer-Cache gelöscht). Danach rot, zu Recht:
+    - codechecker local: 30 Formatbefunde im neuen
+      `roster_adele_enrolment_status_test.php`, behoben mit phpcbf;
+      der Test ist auf beiden Datenbanken weiter grün.
+    - grunt mod: moodle-plugin-ci ist jetzt 4.5.13 und behebt das gemeldete
+      Wiederherstellungsproblem upstream. Die Wiederherstellung entfernt
+      jetzt das Plugin-Verzeichnis selbst. Lokal gehört der Elternordner
+      root (in der CI dem Runner), daher übergibt das Gate ihn während der
+      Prüfung. Danach Gate grün.
+
+## Teil 84 — Re-Audit 2026-11-27 (75/91): Release 0.8.0, Lieferung `2026112700` mit Kommentaren und Nachweisen
+
+- **Auftraggeber (2026-11-27):**
+  - Alle Versionsnamen auf 0.8.0.
+  - Künftig liefere ich Überarbeitungskommentare und Nachweise mit, wie bei
+    catquizlab: `adele-<release>-kommentare.zip` (`kommentare/<issue>-kommentar-<release>.md`)
+    und `adele-<release>-nachweise.zip` (`nachweise/LIESMICH.md`, Repository gegen ZIP,
+    Gate, PHPUnit, E2E, lokale Belege je Punkt, Werkzeug).
+- **Entscheidungen (2026-11-27):**
+  - Karenzfenster im Roster hinnehmen.
+  - CatQuiz: nur `ALiSe-v-1.2.0-legacy`, später `migration-zu-moodle-5.x`.
+  - FeedbackModal: Der Auftraggeber bat um ein Beispiel. Bildschirmfotos und
+    eine Erklärung sind geliefert, die Entscheidung steht aus.
+- **#13 AK1.5:**
+  - Neuer Lebenszyklustest über echte Wege. Die Karenz ist belegt 300 s plus
+    Cron.
+  - Prüffall kind 3 → Befund: Eine Person nur mit Lehrenden-Freigabe erschien
+    mit Snapshot als Lernende. In `get_nonparticipant_userids()` behoben,
+    Gegenprobe rot, beide Datenbanken grün.
+- **CI:** Die Actions-API ist ohne Push-Freigabe nicht lesbar (nicht
+  umgangen). Die öffentlichen Listen sind gelesen, die Detailseiten waren
+  rate-limitiert. Die HEADs der drei Repositories sind byte-gleich mit
+  `2026112600`.
+- **M2:** Im Gesamtlauf `0.8.0` grün, insgesamt 1 von 7 Läufen rot, Ursache
+  unbelegt. Die Prüfkette sichert jetzt Ergebnisse und Serverlog je Suite.
+
+## Teil 85 — Re-Audit 2026-11-27 abends (78/91): FeedbackModal entfernt, kind-3-Härtung, `2026112701`
+
+- **Auftraggeber:**
+  - Fragte, was das Modal ist. Antwort, belegt: Rest der Feedback-Bearbeitung
+    von 01/2024 (`5f858f2`), seit 03/2024 (`bf98dfe`) ohne Öffner, keine
+    Warnung vor ungespeicherten Änderungen.
+  - Diese Warnung gibt es nur an den eigenen Knöpfen der Editoren,
+    `beforeunload` fehlt; dazu neuer Issue-Entwurf.
+  - 21:28 „Ja, bitte entfernen.“
+- **Umgesetzt:**
+  - Dialog, Einbindung, `DIALOGS.feedback`, `store.state.feedback` und der
+    Sprachstring entfernt.
+  - E1 prüft jetzt auch den Feedback-Knoten im Abschlusseditor.
+  - Jest 897/897, Lint 85, Bundle-Gate grün.
+- **P2 #13:** Rolle einer inaktiven Lehrenden-Freigabe zählte mit;
+  reproduziert (Gegenprobe 2/2 rot), behoben, beide Datenbanken grün.
+- Zwischendurch stand PostgreSQL still (Verbindung abgelehnt); mit
+  `ensure.sh` neu gestartet, danach Upgrade der Entwicklungsseite.
+- Release bleibt `0.8.0`, Version `2026112701`. Die Pakete heißen
+  `adele-0.8.0-2026112701-{kommentare,nachweise}.zip`, um die Pakete von
+  `2026112700` nicht zu überschreiben.
+
+## Teil 86 — Nacharbeitsauftrag 2026-11-28 (87/91, offen #14, #18), `2026112800`
+
+- **Bundle-Gate rot auf `f618e747`:**
+  - reproduziert: vollständiger Export per `git cat-file`, weil `git archive`
+    `vue3/` wegen `export-ignore` auslässt;
+  - Gegenprobe ohne `FeedbackModal.vue` grün;
+  - Ursache: Die ZIP wurde übergelegt, Löschungen kommen so nicht an.
+- `overlay_check.sh` in `package.sh`: Probelauf mit `2026112701` über
+  `f618e747` bildet die CI genau nach (rot, mit Löschen grün).
+- **#14:** L4 neu. **#18:** D1 neu (Personenliste als Dialog, zweimal
+  gleichzeitig, durch die normale Oberfläche), auch in Firefox.
+- PostgreSQL war nach der Pause wieder gestoppt; mit `ensure.sh` neu gestartet.
