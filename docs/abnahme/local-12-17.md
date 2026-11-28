@@ -112,3 +112,19 @@ Die Zuordnung steht in `nachweise-20261126.md`.
   - #14 und #15: **abnahmefähig**; offen ist der k6-Lauf mit Live-Endpunkten
     in der CI.
   - Für alle gilt: DoD = CI auf `development` am Commit.
+
+## Nachtrag `2026112800` (Nacharbeitsauftrag 2026-11-28)
+
+- **#14 DoD2-L4:** neuer E2E-Test L4 in mod `groups-live.spec.ts` (Fixture
+  ADELE-E2E-L17), aufgebaut wie folgt:
+  - testexklusive Einschreibung Dirks im Kurs von Knoten 2, echte Kursaufrufe;
+  - aktive Marker an zwei Knoten gleichzeitig mit Avatar, Name und Zustand des
+    richtigen Lernenden;
+  - nie Beobachtete ohne Marker;
+  - kontrollierter Fensterablauf über die Testuhr `seenAgo()` (die Daten werden
+    verschoben, nicht die Regeln), mit eindeutigen Zeitpunkten;
+  - Polling ohne Neuladen: kein aktiver Marker, der inaktive nur am zuletzt
+    beobachteten Knoten.
+
+  Details: `nachweise-20261128.md`.
+  **Entscheidung: abnahmefähig**, vorbehaltlich des mod-E2E-Laufs am Zielcommit.

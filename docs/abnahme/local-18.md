@@ -62,3 +62,20 @@
       Classic.
   - Neuer Issue-Entwurf zur fehlenden Warnung beim Verlassen der Seite:
     `issues/local_adele-issue-unsaved-changes-on-leave.md`.
+
+- **Nachtrag `2026112800` (Nacharbeitsauftrag 2026-11-28):**
+  - **P0 Bundle-Gate:** Die Ursache des roten Gates auf `f618e747` ist
+    reproduziert. `FeedbackModal.vue` blieb im Repository, weil das Entpacken
+    der ZIP nichts löscht. Ohne die Datei ist das Gate grün, ohne weitere
+    Änderung. `package.sh` prüft jetzt „ZIP über development“ ohne und mit
+    den Löschungen und liefert nur, wenn es mit den Löschungen grün ist.
+  - **DoD2:** A18 (Chromium und Firefox), E2, E1 bestehen; sie sind auf dem
+    Zielstand zu belegen.
+  - **DoD3:** Neuer E2E-Test D1 (mod `groups-live.spec.ts`, auch Firefox):
+    zwei Personenlisten-Dialoge gleichzeitig in einer Anwendung, durch die
+    normale Oberfläche:
+    - IDs eindeutig, Referenzen in der eigenen Instanz;
+    - Escape in der einen lässt die andere offen.
+
+    Details: `nachweise-20261128.md`.
+  - **Entscheidung: abnahmefähig**, vorbehaltlich der Läufe am Zielcommit.

@@ -29,6 +29,7 @@ for p in local mod enrol; do
 done
 cp /tmp/gate_last.log "$N/gate/ci_gate-$V.log"
 cp /tmp/jest_last.log "$N/gate/jest-workflow-$V.log"
+[ -f /tmp/overlay_last.log ] && cp /tmp/overlay_last.log "$N/gate/ueberlagerung-$V.txt"
 cp "$GH/moodle-enrol_adele/docs/pruefkette/"*.sh "$GH/moodle-enrol_adele/docs/pruefkette/"*.py "$N/werkzeug/"
 rm -f "$OUT/adele-$NAME-nachweise.zip" "$OUT/adele-$NAME-kommentare.zip"
 (cd "$(dirname "$N")" && mv "$(basename "$N")" nachweise && zip -qr -X "$OUT/adele-$NAME-nachweise.zip" nachweise && mv nachweise "$(basename "$N")")

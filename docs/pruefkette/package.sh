@@ -9,8 +9,8 @@ if [ "${SKIP_GATE:-}" != "I know" ]; then
   bash /tmp/jest_ci.sh > /tmp/jest_last.log 2>&1 || { grep -E "^(FAIL|SKIP)" /tmp/jest_last.log; echo "PACKAGE REFUSED: Jest workflow red (/tmp/jest_last.log)"; exit 1; }
   echo "gate green: $(grep -c '^ok' /tmp/gate_last.log) static steps, Jest workflow $(grep -c '^OK' /tmp/jest_last.log) steps"
 fi
-V=2026112701
-PREV=2026112700
+V=2026112800
+PREV=2026112701
 OUT=/mnt/user-data/outputs
 for p in local mod enrol; do
   src=/home/claude/gh/moodle-${p}_adele
@@ -26,3 +26,8 @@ for p in local mod enrol; do
   comm -23 /tmp/old_$p.txt /tmp/new_$p.txt
 done
 ls -la $OUT/*-$V.zip
+# The delivery as the repository receives it: what to delete, and the bundle
+# gate on ZIP-over-development with those deletions (2026-11-28, CI red on
+# f618e747: FeedbackModal.vue stayed in the repository).
+V=$V OUT=$OUT bash /tmp/overlay_check.sh | tee /tmp/overlay_last.log
+[ "${PIPESTATUS[0]}" = 0 ] || { echo "PACKAGE REFUSED: bundle gate red on ZIP over development"; exit 1; }

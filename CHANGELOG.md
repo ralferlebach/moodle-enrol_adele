@@ -5,6 +5,26 @@ All notable changes to `enrol_adele` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-11-28, Version 2026112800
+
+### Tests
+
+- local_adele #14 DoD2-L4: E2E L4 (mod `groups-live.spec.ts`):
+  - dieselbe Person aktiv an zwei Knoten;
+  - Avatar, Name und Zustand;
+  - nie Beobachtete ohne Marker;
+  - kontrollierter Ablauf des Fensters: Polling ohne Neuladen, der inaktive
+    Marker nur am zuletzt beobachteten Knoten.
+- local_adele #18 DoD3: E2E D1 (Chromium und Firefox): zwei Instanzen desselben
+  Dialogs gleichzeitig in einer Anwendung.
+
+### Prüfkette
+
+- `package.sh` prüft die Lieferung so, wie das Repository sie bekommt: ZIP über
+  `origin/development`, die zu löschenden Dateien und das Bundle-Gate ohne und
+  mit den Löschungen (`overlay_check.sh`). Auslöser: Bundle-Gate rot auf
+  `f618e747`, weil `FeedbackModal.vue` im Repository blieb.
+
 ## [0.8.0] — 2026-11-27, Version 2026112701
 
 ### Removed

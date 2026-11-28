@@ -1145,3 +1145,14 @@ Webserver und Testlauf im **selben** Shell-Aufruf starten (siehe
   MiniMap. Der Schritt hebt die Begrenzung auf und prüft MiniMap-Knoten,
   doppelte IDs, Referenzen und `dropdownMenuButton`. Der Classic-Schritt
   prüft jetzt auch, dass die MiniMap sichtbar ist.
+
+## Nachtrag 2026-11-28
+
+- mod `groups-live.spec.ts`:
+  - **L4** (#14 DoD2-L4): zwei aktive Knoten, Avatar, Name, Zustand, nie
+    Beobachtete ohne Marker; Fensterablauf über die Testuhr `seenAgo()`, Polling
+    ohne Neuladen, der inaktive Marker nur am letzten Knoten.
+  - **D1** (#18 DoD3, `@story:A18`, auch Firefox): zwei Personenlisten-Dialoge
+    gleichzeitig.
+- mod `stories.json`: `alsoCovered: ["A18"]`; das Firefox-Projekt von mod
+  läuft jetzt auf `R26|F27|S17|A18`.

@@ -3631,3 +3631,16 @@ in dieser Sitzung nicht freigegeben).
 - Release bleibt `0.8.0`, Version `2026112701`. Die Pakete heißen
   `adele-0.8.0-2026112701-{kommentare,nachweise}.zip`, um die Pakete von
   `2026112700` nicht zu überschreiben.
+
+## Teil 86 — Nacharbeitsauftrag 2026-11-28 (87/91, offen #14, #18), `2026112800`
+
+- **Bundle-Gate rot auf `f618e747`:**
+  - reproduziert: vollständiger Export per `git cat-file`, weil `git archive`
+    `vue3/` wegen `export-ignore` auslässt;
+  - Gegenprobe ohne `FeedbackModal.vue` grün;
+  - Ursache: Die ZIP wurde übergelegt, Löschungen kommen so nicht an.
+- `overlay_check.sh` in `package.sh`: Probelauf mit `2026112701` über
+  `f618e747` bildet die CI genau nach (rot, mit Löschen grün).
+- **#14:** L4 neu. **#18:** D1 neu (Personenliste als Dialog, zweimal
+  gleichzeitig, durch die normale Oberfläche), auch in Firefox.
+- PostgreSQL war nach der Pause wieder gestoppt; mit `ensure.sh` neu gestartet.

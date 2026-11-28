@@ -97,3 +97,16 @@ gemeinsamen Workflow von Wunderbyte; siehe Issue-Entwurf
   diese Skripte.
 - `e2e_all2.sh` sichert je Suite `test-results` (Bildschirmfotos, Videos, Traces
   bei Fehlern) und den Ausschnitt des Serverlogs unter `/tmp/results_<plugin>_<suite>`.
+
+## Nachtrag 2026-11-28: Lieferung so prüfen, wie das Repository sie bekommt
+
+- `gitexport.py <git-dir> <ref> <ziel>`: schreibt den vollständigen Baum eines
+  Commits (nur lesend). `git archive` taugt dafür nicht, weil es `vue3/` wegen
+  `export-ignore` auslässt.
+- `overlay_check.sh` (aus `package.sh`) legt die neue ZIP über `origin/development`.
+  Das bildet ab, was beim Übernehmen passiert: Entpacken löscht nichts. Dann listet
+  es die Dateien, die im Repository zu löschen sind, und lässt das Bundle-Gate von
+  local ohne und mit diesen Löschungen laufen. Mit den Löschungen muss es grün
+  sein, sonst verweigert `package.sh` das Paket.
+- Auslöser: Das Bundle-Gate war auf `f618e747` rot, weil `FeedbackModal.vue` im
+  Repository blieb, obwohl die Lieferung es entfernt hatte.
